@@ -1,38 +1,31 @@
 interface ErrorStateProps {
   message: string;
+  detail?: string;
   onRetry?: () => void;
+  loading?: boolean;
+  className?: string;
 }
 
-export default function ErrorState({ message, onRetry }: ErrorStateProps) {
+export default function ErrorState({
+  message,
+  detail,
+  onRetry,
+  loading = false,
+  className = "",
+}: ErrorStateProps) {
   return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        width: "100vw",
-        height: "100vh",
-        background: "#0a0a0a",
-        color: "#e0e0e0",
-        fontFamily: "monospace",
-      }}
-    >
-      <div style={{ fontSize: "18px", marginBottom: "16px", opacity: 0.8 }}>
-        {message}
-      </div>
+    <div className={`error-state ${className}`}>
+      {loading && (
+        <div className="error-state-loader" aria-label="Loading">
+          <span />
+          <span />
+          <span />
+        </div>
+      )}
+      <div className="error-state-message">{message}</div>
+      {detail && <div className="error-state-detail">{detail}</div>}
       {onRetry && (
-        <button
-          onClick={onRetry}
-          style={{
-            background: "transparent",
-            border: "1px solid #4a9eff",
-            color: "#4a9eff",
-            padding: "8px 16px",
-            borderRadius: "4px",
-            cursor: "pointer",
-          }}
-        >
+        <button className="error-state-retry" onClick={onRetry}>
           Retry
         </button>
       )}

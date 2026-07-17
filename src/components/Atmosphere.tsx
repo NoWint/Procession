@@ -2,10 +2,19 @@ import { useMemo, useRef } from "react";
 import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
 import { EffectComposer, Bloom } from "@react-three/postprocessing";
+import { FALLBACK_THEME, type Theme } from "../utils/theme";
 
-export default function Atmosphere() {
+interface AtmosphereProps {
+  theme?: Theme;
+  particleCount?: number;
+}
+
+export default function Atmosphere({
+  theme = FALLBACK_THEME,
+  particleCount = 200,
+}: AtmosphereProps) {
   const particles = useMemo(() => {
-    const count = 200;
+    const count = particleCount;
     const positions = new Float32Array(count * 3);
     for (let i = 0; i < count; i++) {
       positions[i * 3] = (Math.random() - 0.5) * 80;
@@ -13,7 +22,7 @@ export default function Atmosphere() {
       positions[i * 3 + 2] = (Math.random() - 0.5) * 80;
     }
     return positions;
-  }, []);
+  }, [particleCount]);
 
   const ref = useRef<THREE.Points>(null);
 
@@ -29,12 +38,18 @@ export default function Atmosphere() {
         <bufferGeometry>
           <bufferAttribute attach="attributes-position" args={[particles, 3]} />
         </bufferGeometry>
-        <pointsMaterial color="#4a9eff" size={0.2} transparent opacity={0.6} />
+        <pointsMaterial
+          color={theme.colors.particle}
+          size={0.2}
+          transparent
+          opacity={0.6}
+          sizeAttenuation
+        />
       </points>
       <EffectComposer>
         <Bloom
-          intensity={0.5}
-          luminanceThreshold={0.4}
+          intensity={theme.mode === "dark" ? 0.5 : 0.35}
+          luminanceThreshold={theme.mode === "dark" ? 0.4 : 0.55}
           luminanceSmoothing={0.4}
         />
       </EffectComposer>

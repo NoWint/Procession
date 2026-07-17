@@ -1,0 +1,36 @@
+{
+  "name": "Monument Valley Noir",
+  "mode": "dark",
+  "typography": {
+    "heading": "\"Songti SC\", \"Source Han Serif SC\", \"Noto Serif CJK SC\", serif",
+    "body": "-apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+    "mono": "\"SF Mono\", \"Cascadia Code\", \"Fira Code\", monospace"
+  },
+  "colors": {
+    "background": "#0a0a0f",
+    "surface": "#141419",
+    "surfaceElevated": "#1e1e26",
+    "text": "#f0f0f5",
+    "textMuted": "#8a8a95",
+    "accent": "#e8e8f0",
+    "border": "#2a2a35",
+    "grid": "#1f1f2a",
+    "gridSecondary": "#111118",
+    "ground": "#0c0c12",
+    "system": "#c0c0d0",
+    "user": "#9090a0",
+    "active": "#ffffff",
+    "idle": "#4a4a55",
+    "sleeping": "#6a6a75",
+    "stopped": "#3a3a45",
+    "zombie": "#2a2a35",
+    "particle": "#a0a0b0"
+  },
+  "scene": {
+    "ambientIntensity": 0.4,
+    "directionalIntensity": 0.9,
+    "fogColor": "#0a0a0f",
+    "fogNear": 20,
+    "fogFar": 90
+  }
+}

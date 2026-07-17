@@ -7,6 +7,7 @@ use tauri::Manager;
 use bridge::pusher::SnapshotPusher;
 use engine::system::SystemEngine;
 use engine::mock::MockAdapter;
+#[cfg(target_os = "windows")]
 use engine::windows::WindowsImpl;
 use engine::platform::PlatformAdapter;
 
@@ -46,11 +47,15 @@ pub fn run() {
         eprintln!("[Procession] CRASH: {}", info);
     }));
 
+    #[cfg(target_os = "windows")]
     let adapter: Box<dyn PlatformAdapter> = if cfg!(feature = "mock") {
         Box::new(MockAdapter::new())
     } else {
         Box::new(WindowsImpl::new())
     };
+
+    #[cfg(not(target_os = "windows"))]
+    let adapter: Box<dyn PlatformAdapter> = Box::new(MockAdapter::new());
 
     let engine = SystemEngine::new(adapter);
     let pusher = SnapshotPusher::new(engine);

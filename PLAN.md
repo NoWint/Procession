@@ -76,9 +76,9 @@ Constitution changes (STRATEGY/SPEC/ARCHITECTURE under `.docs/`) require a `D-*`
 
 ## Status Counts
 
-- pending: 8
+- pending: 1
 - in_progress: 0
-- done: 25
+- done: 32
 - blocked: 0
 - failed: 0
 - stale: 0
@@ -1613,13 +1613,13 @@ Per SKILL.md §6 Granularity Rule: future phases are milestone-level only. Expan
 | ID    | Title                                              | Phase | Status  | Deps                              | Complexity |
 |-------|----------------------------------------------------|-------|---------|-----------------------------------|-----------|
 | B-201 | Real network connection list (Windows API)        | 2     | done    | B-005                             | M         |
-| F-201 | Process tree layout algorithm                      | 2     | pending | F-006                             | L         |
-| F-202 | Building color refinement + active glow pulse      | 2     | pending | F-007, F-008                      | M         |
-| F-203 | Camera interactions (OrbitControls + fly-to)       | 2     | pending | F-004, F-012                      | M         |
-| F-204 | Color theme JSON loader                            | 2     | pending | F-007                             | S         |
-| F-205 | Visual design system (palette, typography, materials) | 2 | pending | F-012                         | M         |
-| F-206 | Building hover / focus / selection states          | 2     | pending | F-008, F-011                      | M         |
-| F-207 | Loading, empty, and error state polish             | 2     | pending | F-013                             | S         |
+| F-201 | Process tree layout algorithm                      | 2     | done    | F-006                             | L         |
+| F-202 | Building color refinement + active glow pulse      | 2     | done    | F-007, F-008                      | M         |
+| F-203 | Camera interactions (OrbitControls + fly-to)       | 2     | done    | F-004, F-012                      | M         |
+| F-204 | Color theme JSON loader                            | 2     | done    | F-007                             | S         |
+| F-205 | Visual design system (palette, typography, materials) | 2 | done    | F-012                         | M         |
+| F-206 | Building hover / focus / selection states          | 2     | done    | F-008, F-011                      | M         |
+| F-207 | Loading, empty, and error state polish             | 2     | done    | F-013                             | S         |
 | I-201 | Phase 2 full acceptance                            | 2     | pending | B-201, F-201, F-202, F-203, F-205 | L         |
 
 **Acceptance criterion:** Open Chrome / run Node → city buildings 'grow and glow'; click or hover a building → details popup with refined typography; camera can smoothly fly to a selected process; theme loads from JSON; ≥ 30fps with 200+ buildings.

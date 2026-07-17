@@ -1,12 +1,226 @@
-/* App-specific styles — populated by F-012 */
-
 .app-container {
   position: relative;
   width: 100vw;
   height: 100vh;
   overflow: hidden;
+  background: var(--proc-bg);
 }
 
 canvas {
   display: block;
+}
+
+.app-ui-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.app-ui-layer > * {
+  pointer-events: auto;
+}
+
+.app-header {
+  position: absolute;
+  top: 20px;
+  left: 24px;
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  color: var(--proc-text);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.app-title {
+  font-family: var(--proc-font-heading);
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.app-subtitle {
+  font-family: var(--proc-font-mono);
+  font-size: 12px;
+  color: var(--proc-text-muted);
+}
+
+.app-controls {
+  position: absolute;
+  top: 20px;
+  right: 24px;
+  display: flex;
+  gap: 8px;
+}
+
+.app-theme-toggle {
+  background: var(--proc-surface);
+  color: var(--proc-text);
+  border: 1px solid var(--proc-border);
+  border-radius: var(--proc-radius-md);
+  padding: 8px 14px;
+  font-size: 13px;
+  cursor: pointer;
+  box-shadow: var(--proc-shadow-sm);
+  transition: background 0.2s ease, border-color 0.2s ease, transform 0.1s ease;
+}
+
+.app-theme-toggle:hover {
+  background: var(--proc-surface-elevated);
+  border-color: var(--proc-accent);
+}
+
+.app-theme-toggle:active {
+  transform: translateY(1px);
+}
+
+.error-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100vw;
+  height: 100vh;
+  background: var(--proc-bg);
+  color: var(--proc-text);
+  font-family: var(--proc-font-body);
+  text-align: center;
+  padding: 24px;
+}
+
+.error-state-message {
+  font-family: var(--proc-font-heading);
+  font-size: 20px;
+  margin-bottom: 12px;
+  opacity: 0.9;
+}
+
+.error-state-detail {
+  font-family: var(--proc-font-mono);
+  font-size: 13px;
+  color: var(--proc-text-muted);
+  margin-bottom: 24px;
+}
+
+.error-state-loader {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 24px;
+}
+
+.error-state-loader > span {
+  width: 8px;
+  height: 8px;
+  background: var(--proc-accent);
+  border-radius: 50%;
+  opacity: 0.4;
+  animation: proc-pulse 1.4s infinite ease-in-out both;
+}
+
+.error-state-loader > span:nth-child(1) {
+  animation-delay: -0.32s;
+}
+
+.error-state-loader > span:nth-child(2) {
+  animation-delay: -0.16s;
+}
+
+@keyframes proc-pulse {
+  0%,
+  80%,
+  100% {
+    transform: scale(0.6);
+    opacity: 0.4;
+  }
+  40% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.error-state-retry {
+  background: transparent;
+  color: var(--proc-accent);
+  border: 1px solid var(--proc-accent);
+  border-radius: var(--proc-radius-md);
+  padding: 10px 20px;
+  font-family: var(--proc-font-mono);
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.error-state-retry:hover {
+  background: var(--proc-accent);
+  color: var(--proc-bg);
+}
+
+.process-popup {
+  position: absolute;
+  min-width: 220px;
+  max-width: 320px;
+  background: var(--proc-surface);
+  color: var(--proc-text);
+  border: 1px solid var(--proc-border);
+  border-radius: var(--proc-radius-md);
+  padding: 14px 16px;
+  font-size: 13px;
+  box-shadow: var(--proc-shadow-md);
+  backdrop-filter: blur(8px);
+  pointer-events: auto;
+  z-index: 10;
+}
+
+.process-popup-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+  gap: 16px;
+}
+
+.process-popup-name {
+  font-family: var(--proc-font-heading);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--proc-text);
+}
+
+.process-popup-close {
+  background: none;
+  border: none;
+  color: var(--proc-text-muted);
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+  padding: 0;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--proc-radius-sm);
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.process-popup-close:hover {
+  color: var(--proc-text);
+  background: var(--proc-surface-elevated);
+}
+
+.process-popup-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 4px;
+  font-family: var(--proc-font-mono);
+  font-size: 12px;
+}
+
+.process-popup-label {
+  color: var(--proc-text-muted);
+}
+
+.process-popup-value {
+  color: var(--proc-text);
 }

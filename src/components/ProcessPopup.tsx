@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import type { ProcessInfo } from "../utils/types";
 
 interface ProcessPopupProps {
@@ -9,55 +10,65 @@ interface ProcessPopupProps {
 export default function ProcessPopup({
   process,
   onClose,
-  position = { x: 100, y: 100 },
+  position = { x: 24, y: 24 },
 }: ProcessPopupProps) {
+  const popupRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!process) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onClose();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [process, onClose]);
+
   if (!process) return null;
 
   return (
     <div
-      style={{
-        position: "absolute",
-        left: position.x,
-        top: position.y,
-        background: "rgba(10, 10, 20, 0.95)",
-        color: "#e0e0e0",
-        padding: "12px 16px",
-        borderRadius: "8px",
-        border: "1px solid #4a9eff",
-        fontFamily: "monospace",
-        fontSize: "13px",
-        pointerEvents: "auto",
-        zIndex: 10,
-      }}
+      ref={popupRef}
+      className="process-popup"
+      style={{ left: position.x, top: position.y }}
     >
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          marginBottom: "8px",
-          gap: "16px",
-        }}
-      >
-        <strong>{process.name}</strong>
+      <div className="process-popup-header">
+        <span className="process-popup-name">{process.name}</span>
         <button
+          className="process-popup-close"
           onClick={onClose}
-          style={{
-            background: "none",
-            border: "none",
-            color: "#999",
-            cursor: "pointer",
-            fontSize: "16px",
-            lineHeight: 1,
-          }}
+          aria-label="Close"
         >
           ×
         </button>
       </div>
-      <div>PID: {process.pid}</div>
-      <div>CPU: {process.cpu.toFixed(1)}%</div>
-      <div>Memory: {process.memory_mb} MB</div>
-      <div>State: {process.state}</div>
-      <div>PPID: {process.ppid}</div>
+      <div className="process-popup-row">
+        <span className="process-popup-label">PID</span>
+        <span className="process-popup-value">{process.pid}</span>
+      </div>
+      <div className="process-popup-row">
+        <span className="process-popup-label">CPU</span>
+        <span className="process-popup-value">{process.cpu.toFixed(1)}%</span>
+      </div>
+      <div className="process-popup-row">
+        <span className="process-popup-label">Memory</span>
+        <span className="process-popup-value">{process.memory_mb} MB</span>
+      </div>
+      <div className="process-popup-row">
+        <span className="process-popup-label">State</span>
+        <span className="process-popup-value">{process.state}</span>
+      </div>
+      <div className="process-popup-row">
+        <span className="process-popup-label">PPID</span>
+        <span className="process-popup-value">{process.ppid}</span>
+      </div>
+      <div className="process-popup-row">
+        <span className="process-popup-label">User</span>
+        <span className="process-popup-value">{process.user}</span>
+      </div>
     </div>
   );
 }

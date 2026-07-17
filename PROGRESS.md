@@ -4,6 +4,53 @@
 
 ## Session Log
 
+### 2026-07-18 — Session #010 (frontend, F-201..F-207, ~1h)
+- Track: frontend
+- Task: F-201, F-202, F-203, F-204, F-205, F-206, F-207 (all Phase 2 frontend tasks)
+- Status: done
+- Summary:
+  - Pulled latest origin/main; backend B-201 was done but did not compile on macOS due to unconditional `windows` module import
+  - Minimal backend fix to unblock frontend verification: made `engine/windows` module and `WindowsImpl` usage conditional on `target_os = "windows"`; non-Windows builds fall back to `MockAdapter`
+  - F-201: Added `computeTreePositions` to `src/utils/layout.ts` — BFS tree-radial layout with parent-child clustering and overlap resolution
+  - F-202: Extended `src/utils/colors.ts` with state-aware theme colors; `BuildingCluster` now pulses emissive glow for high-CPU processes
+  - F-203: Added `CameraController.tsx` with ease-out fly-to; `CityScene` accepts `cameraTarget`
+  - F-204: Added `src/utils/theme.ts` async JSON loader with fallback; created `public/themes/default.json`, `dark.json`, `light.json`
+  - F-205: Established visual design system — CSS variables, Songti/serif headings, monospace data, rounded corners, matte-ceramic dark noir + Monument Valley light themes
+  - F-206: Building hover highlight, click selection, and Escape-to-close popup
+  - F-207: Refined loading/empty/error states with pulsing loader, themed retry button, and empty process list message
+  - Integrated everything in `App.tsx` with live theme toggle, header stats, and camera fly-to on double-click
+  - Mechanical acceptance passed:
+    - `npx tsc --noEmit` exit 0
+    - `npm run build` exit 0
+    - `cd src-tauri && cargo build` exit 0
+    - `npm run tauri dev` started successfully with no runtime errors
+- Decisions:
+  - F-205 visual direction approved by user: dark mode = Monument Valley Noir (black/white), light mode = Monument Valley Light
+  - Non-Windows platforms use `MockAdapter` automatically so frontend development can proceed without Windows APIs
+- Commits: (pending)
+- Files:
+  - src/utils/theme.ts (new)
+  - src/utils/layout.ts (mod)
+  - src/utils/colors.ts (mod)
+  - src/components/BuildingCluster.tsx (mod)
+  - src/components/CameraController.tsx (new)
+  - src/components/CityScene.tsx (mod)
+  - src/components/CityGround.tsx (mod)
+  - src/components/Atmosphere.tsx (mod)
+  - src/components/ProcessPopup.tsx (mod)
+  - src/components/ErrorState.tsx (mod)
+  - src/App.tsx (mod)
+  - src/App.css (mod)
+  - src/styles/index.css (mod)
+  - public/themes/default.json (new)
+  - public/themes/dark.json (new)
+  - public/themes/light.json (new)
+  - src-tauri/src/engine/mod.rs (mod)
+  - src-tauri/src/lib.rs (mod)
+  - PLAN.md (mod)
+- Next ready: I-201 (Phase 2 full acceptance)
+- Notes: All Phase 2 frontend tasks complete. I-201 is the only remaining Phase 2 task; it requires full end-to-end acceptance including FPS check.
+
 ### 2026-07-17 — Session #009 (backend, B-201, ~30min)
 - Track: backend
 - Task: B-201 (Real network connection list via Windows API)
