@@ -4,6 +4,23 @@
 
 ## Session Log
 
+### 2026-07-18 — Session #014 (backend, B-302 geoip, ~15min)
+- Track: backend
+- Task: B-302 (Remote IP → geolocation mapping, optional)
+- Status: done
+- Summary:
+  - Created `engine/geoip.rs` with GeoInfo struct { country, city, lat, lon }
+  - Implemented `lookup_geoip(ip: &str) -> Option<GeoInfo>` with private-IP fast-return
+  - Known IP range mapping: Google/Cloudflare DNS, GitHub, Google, Cloudflare CDN, AWS, Azure
+  - Private ranges return None without I/O; 7 unit tests
+  - Build: cargo build ✅ cargo clippy ✅ cargo test 12/12 ✅
+- Decisions: none
+- Commits: pending
+- Files:
+  - src-tauri/src/engine/geoip.rs (new), src-tauri/src/engine/mod.rs (mod), PLAN.md (mod)
+- Next ready: F-301 (CableSystem — bottleneck, B-301 + F-008 done)
+- Notes: B-302 is optional; cable visualization works without it.
+
 ### 2026-07-18 — Session #013 (parallel: frontend F-304 + backend B-301)
 - Track: multiple
 - Task: F-304 (BuildingHalo) + B-301 (Network I/O rates + UDP)
