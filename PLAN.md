@@ -820,9 +820,9 @@ Constitution changes (STRATEGY/SPEC/ARCHITECTURE under `.docs/`) require a `D-*`
       - "grep 'ReactDOM.createRoot' src/main.tsx ≥ 1"
     behavioral:
       - "Run `npm run dev` → browser at localhost:1420 shows blank page (no errors); body has zero margin; canvas-ready dark background"
-  status: pending
-  owner: null
-  owner_started_at: null
+  status: in_progress
+  owner: trae-20260717-001
+  owner_started_at: 2026-07-17T03:50:00+08:00
   retry_count: 0
   linked_blocker: null
   resume_hint: |
