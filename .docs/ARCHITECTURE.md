@@ -1,5 +1,7 @@
 # Procession 技术架构
 
+> **实现指引**: 本文档为架构概览。具体编码实现请参考 [BACKEND_IMPL.md](BACKEND_IMPL.md)，包含完整 Rust 代码、Cargo.toml 依赖、测试策略和 Phase 1 检查清单。
+
 ## 总体架构
 
 ```

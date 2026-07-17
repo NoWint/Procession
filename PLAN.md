@@ -62,7 +62,7 @@ Constitution changes (STRATEGY/SPEC/ARCHITECTURE under `.docs/`) require a `D-*`
 
 | ID    | Title                                              | Phase | Status  | Deps                              | Complexity |
 |-------|----------------------------------------------------|-------|---------|-----------------------------------|-----------|
-| I-001 | Tauri project scaffold (bootstrap)                 | 1     | pending | -                                 | M         |
+| I-001 | Tauri project scaffold (bootstrap)                 | 1     | done        | -                                 | M         |
 | I-002 | E2E mock push → cube render                        | 1     | pending | B-004, F-005                      | M         |
 | I-003 | Phase 1 full acceptance                             | 1     | pending | I-002, B-005, F-012, F-013        | M         |
 
@@ -76,9 +76,9 @@ Constitution changes (STRATEGY/SPEC/ARCHITECTURE under `.docs/`) require a `D-*`
 
 ## Status Counts
 
-- pending: 24
+- pending: 23
 - in_progress: 0
-- done: 0
+- done: 1
 - blocked: 0
 - failed: 0
 - stale: 0

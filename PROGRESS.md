@@ -24,18 +24,20 @@
 ## Entry Template (copy when adding a new session)
 
 ```markdown
-## YYYY-MM-DD HH:MM — Session #NNN (<track>, ~<duration>)
-- Track: <frontend | backend | integration | docs | ops | test>
-- Task: <task-id> (<task-title>)
-- Status: <done | blocked | failed | partial | stale>
+### 2026-07-17 — Session #002 (integration, ~30min)
+- Track: integration
+- Task: I-001 (Tauri project scaffold)
+- Status: done
 - Summary:
-  - <bullet 1 of what was done>
-  - <bullet 2 of what was done>
-- Decisions: <ADR-id list, e.g. D-009, D-010> or "none"
-- Commits: <git-sha list>
-- Files: <touched files with (new|mod|del) markers>
-- Next ready: <task-id or "none — blocked by BL-NNN">
-- Notes: <caveats, follow-ups, non-obvious context>
+  - Resolved `dlltool.exe not found` build error on Windows GNU toolchain by switching to MSVC toolchain (`rustup default stable-x86_64-pc-windows-msvc`)
+  - Fixed `core:invoke:default` permission error in `capabilities/default.json` (removed non-existent permission)
+  - Verified `npm run build` (frontend) and `cargo build` (backend) both succeed
+  - All 14 acceptance criteria for I-001 met (mechanical + existence checks)
+- Decisions: none
+- Commits: none (user-gated)
+- Files: src-tauri/capabilities/default.json (mod)
+- Next ready: B-001, F-003 (both unblocked by I-001 completion)
+- Notes: MSVC toolchain was installed and set as default; GNU toolchain remains installed but unused. `npm run tauri dev` not run in CLI environment (headless), but both build chains verified independently.
 ```
 
 ---
