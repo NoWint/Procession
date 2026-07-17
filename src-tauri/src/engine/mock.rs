@@ -1,3 +1,4 @@
+use std::sync::Mutex;
 use std::time::Instant;
 
 use async_trait::async_trait;
@@ -34,12 +35,19 @@ const PROCESS_NAMES: &[(&str, u64, f64)] = &[
 
 pub struct MockAdapter {
     start_time: Instant,
+    rng: Mutex<StdRng>,
 }
 
 impl MockAdapter {
     pub fn new() -> Self {
         Self {
             start_time: Instant::now(),
+            rng: Mutex::new(StdRng::seed_from_u64(
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_nanos() as u64,
+            )),
         }
     }
 
@@ -146,15 +154,16 @@ fn build_process_tree(rng: &mut StdRng) -> Vec<ProcessInfo> {
 #[async_trait]
 impl PlatformAdapter for MockAdapter {
     async fn get_processes(&self) -> Vec<ProcessInfo> {
-        let mut rng = StdRng::seed_from_u64(self.start_time.elapsed().as_millis() as u64);
+        let mut rng = self.rng.lock().unwrap();
         build_process_tree(&mut rng)
     }
 
     async fn get_cpu(&self) -> CpuInfo {
         let total = self.sinusoidal(25.0, 20.0, 0.2, 0.0) + 10.0;
+        let mut rng = self.rng.lock().unwrap();
         let per_core: Vec<f64> = (0..8)
             .map(|i| {
-                self.sinusoidal(20.0, 15.0, 0.3, i as f64 * 0.5) + rng_noise()
+                self.sinusoidal(20.0, 15.0, 0.3, i as f64 * 0.5) + rng.gen_range(0.0..5.0)
             })
             .collect();
         CpuInfo {
@@ -252,16 +261,6 @@ impl PlatformAdapter for MockAdapter {
             gpu: (58.0 + (t * 0.04).sin() * 3.0) as f32,
         })
     }
-}
-
-fn rng_noise() -> f64 {
-    let mut rng = StdRng::seed_from_u64(
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_nanos() as u64,
-    );
-    rng.gen_range(0.0..5.0)
 }
 
 #[cfg(test)]

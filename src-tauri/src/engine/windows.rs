@@ -1,6 +1,6 @@
 use std::net::Ipv4Addr;
 use std::sync::{Mutex, PoisonError};
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use std::collections::HashMap;
 
@@ -16,6 +16,17 @@ use windows::Win32::Networking::WinSock::AF_INET;
 
 use crate::types::*;
 use super::platform::PlatformAdapter;
+
+/// TTL cache for GetExtendedTcpTable / GetExtendedUdpTable results.
+/// Eliminates 3× redundant kernel calls per snapshot cycle (get_network,
+/// get_process_relations, get_listening_ports each query the same tables).
+struct ConnTableCache {
+    tcp_rows: Vec<(u32, u32, u32, u32, u32, u32)>,
+    udp_rows: Vec<(u32, u32, u32)>,
+    fetched_at: Instant,
+}
+
+type TcpUdpRows = (Vec<(u32, u32, u32, u32, u32, u32)>, Vec<(u32, u32, u32)>);
 
 fn recover_mutex<T>(e: PoisonError<T>) -> T {
     eprintln!("[Procession] Mutex was poisoned, recovering");
@@ -68,6 +79,7 @@ impl NetworkTracker {
 pub struct WindowsImpl {
     sys: Mutex<System>,
     net: Mutex<NetworkTracker>,
+    conn_cache: Mutex<Option<ConnTableCache>>,
 }
 
 impl WindowsImpl {
@@ -75,7 +87,27 @@ impl WindowsImpl {
         Self {
             sys: Mutex::new(System::new()),
             net: Mutex::new(NetworkTracker::new()),
+            conn_cache: Mutex::new(None),
         }
+    }
+
+    /// Return cached TCP/UDP rows if fetched within the last 100ms,
+    /// otherwise re-query the kernel tables. Eliminates 3× redundant
+    /// kernel calls per snapshot cycle.
+    fn cached_tcp_udp(&self) -> TcpUdpRows {
+        let mut cache = self.conn_cache.lock().unwrap_or_else(recover_mutex);
+        if let Some(ref c) = *cache {
+            if c.fetched_at.elapsed() < Duration::from_millis(100) {
+                return (c.tcp_rows.clone(), c.udp_rows.clone());
+            }
+        }
+        let (tcp, udp) = (fetch_tcp_table(), fetch_udp_table());
+        *cache = Some(ConnTableCache {
+            tcp_rows: tcp.clone(),
+            udp_rows: udp.clone(),
+            fetched_at: Instant::now(),
+        });
+        (tcp, udp)
     }
 }
 
@@ -131,7 +163,7 @@ unsafe fn parse_rows<T>(buf: &[u8]) -> &[T] {
 }
 
 /// Query all TCP v4 connections with owning PID via GetExtendedTcpTable.
-fn get_tcp_connections() -> Vec<(u32, u32, u32, u32, u32, u32)> {
+fn fetch_tcp_table() -> Vec<(u32, u32, u32, u32, u32, u32)> {
     unsafe {
         let mut buf_size: u32 = 0;
         let rc = GetExtendedTcpTable(None, &mut buf_size, false, AF_INET.0 as u32, TCP_TABLE_OWNER_PID_ALL, 0);
@@ -156,7 +188,7 @@ fn get_tcp_connections() -> Vec<(u32, u32, u32, u32, u32, u32)> {
 }
 
 /// Query all UDP v4 listeners with owning PID via GetExtendedUdpTable.
-fn get_udp_listeners() -> Vec<(u32, u32, u32)> {
+fn fetch_udp_table() -> Vec<(u32, u32, u32)> {
     unsafe {
         let mut buf_size: u32 = 0;
         let rc = GetExtendedUdpTable(None, &mut buf_size, false, AF_INET.0 as u32, UDP_TABLE_OWNER_PID, 0);
@@ -234,8 +266,8 @@ impl PlatformAdapter for WindowsImpl {
             (0.0, 0.0)
         };
 
-        // 2. Collect TCP connections
-        let tcp_rows = get_tcp_connections();
+        // 2. Collect TCP connections (from cache — shared with get_process_relations and get_listening_ports)
+        let (tcp_rows, udp_rows) = self.cached_tcp_udp();
         let mut connections: Vec<Connection> = tcp_rows
             .into_iter()
             .map(|(state, local_addr, local_port, remote_addr, remote_port, pid)| Connection {
@@ -248,7 +280,6 @@ impl PlatformAdapter for WindowsImpl {
             .collect();
 
         // 3. Collect UDP listeners
-        let udp_rows = get_udp_listeners();
         connections.extend(udp_rows.into_iter().map(|(local_addr, local_port, pid)| Connection {
             pid: pid as u64,
             local_addr: format_addr(local_addr, local_port),
@@ -288,8 +319,7 @@ impl PlatformAdapter for WindowsImpl {
 
         // 2. Detect IPC peers from localhost TCP connections.
         //    Build (addr,port) -> pid lookup from TCP rows + UDP listeners
-        let tcp_rows = get_tcp_connections();
-        let udp_rows = get_udp_listeners();
+        let (tcp_rows, udp_rows) = self.cached_tcp_udp();
         let mut endpoint_to_pid: HashMap<(u32, u32), u64> = HashMap::new();
         for (_, local_addr, local_port, _remote_addr, _remote_port, pid) in &tcp_rows {
             if *pid != 0 {
@@ -336,7 +366,7 @@ impl PlatformAdapter for WindowsImpl {
     }
 
     async fn get_listening_ports(&self) -> Vec<ListeningPort> {
-        let tcp_rows = get_tcp_connections();
+        let (tcp_rows, udp_rows) = self.cached_tcp_udp();
         let mut ports: Vec<ListeningPort> = Vec::new();
 
         for (state, local_addr, local_port, _remote_addr, _remote_port, pid) in &tcp_rows {
@@ -351,7 +381,7 @@ impl PlatformAdapter for WindowsImpl {
             }
         }
 
-        let udp_rows = get_udp_listeners();
+        // udp_rows already obtained from cached_tcp_udp() above
         for (local_addr, local_port, pid) in &udp_rows {
             let ip = Ipv4Addr::from(local_addr.to_be_bytes());
             ports.push(ListeningPort {

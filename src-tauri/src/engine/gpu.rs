@@ -129,15 +129,16 @@ pub fn get_temperature() -> Option<CpuGpuTemp> {
                 Some(&mut temp_raw as *mut _ as *mut u8),
                 Some(&mut data_size),
             );
-            let _ = RegCloseKey(subkey);
 
             if rc == ERROR_SUCCESS && data_size >= 4 {
                 let celsius = (temp_raw as f32 - 2731.5) / 10.0;
                 if celsius > 0.0 && celsius < 150.0 {
                     cpu_temp = Some(celsius);
+                    let _ = RegCloseKey(subkey);
                     break;
                 }
             }
+            let _ = RegCloseKey(subkey);
         }
 
         let _ = RegCloseKey(tz_key);

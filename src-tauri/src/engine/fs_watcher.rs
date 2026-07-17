@@ -108,6 +108,7 @@ impl FsWatcher {
                     match rx.recv_timeout(Duration::from_millis(500)) {
                         Ok(Ok(event)) => {
                             if is_write_event(&event.kind) {
+                                // Defer to locked section below — coalesce with drain/record/clean
                                 if let Ok(mut s) = state_processor.lock() {
                                     for p in &event.paths {
                                         if s.pending_paths.len() < 16_384 {
@@ -120,27 +121,16 @@ impl FsWatcher {
                         Ok(Err(_)) => {}
                         Err(_) => {} // timeout, loop back to check running flag
                     }
-                    // Drain pending paths
-                    let paths: Vec<PathBuf> = {
-                        if let Ok(mut s) = state_processor.lock() {
-                            std::mem::take(&mut s.pending_paths)
-                        } else {
-                            continue;
+                    // Single lock acquisition: drain, record, and periodic cleanup
+                    if let Ok(mut s) = state_processor.lock() {
+                        let paths = std::mem::take(&mut s.pending_paths);
+                        for p in &paths {
+                            s.record_event(&p.to_string_lossy());
                         }
-                    };
-                    if !paths.is_empty() {
-                        if let Ok(mut s) = state_processor.lock() {
-                            for p in &paths {
-                                s.record_event(&p.to_string_lossy());
-                            }
-                        }
-                    }
-                    // Periodic stale cleanup
-                    if last_clean.elapsed().as_secs() >= HOTSPOT_CLEAN_INTERVAL_SECS {
-                        if let Ok(mut s) = state_processor.lock() {
+                        if last_clean.elapsed().as_secs() >= HOTSPOT_CLEAN_INTERVAL_SECS {
                             s.expire_stale();
+                            last_clean = Instant::now();
                         }
-                        last_clean = Instant::now();
                     }
                 }
             });
