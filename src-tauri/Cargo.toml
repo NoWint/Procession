@@ -29,6 +29,9 @@ windows = { version = "0.58", features = [
     "Win32_Foundation",
     "Win32_Networking_WinSock",
     "Win32_NetworkManagement_IpHelper",
+    "Win32_Graphics_Dxgi",
+    "Win32_Graphics_Dxgi_Common",
+    "Win32_System_Registry",
 ] }
 
 [features]

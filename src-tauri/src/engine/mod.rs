@@ -2,5 +2,9 @@ pub mod platform;
 pub mod mock;
 #[cfg(target_os = "windows")]
 pub mod windows;
+#[cfg(target_os = "macos")]
+pub mod macos;
 pub mod system;
 pub mod geoip;
+#[cfg(target_os = "windows")]
+pub mod gpu;

@@ -9,6 +9,8 @@ use engine::system::SystemEngine;
 use engine::mock::MockAdapter;
 #[cfg(target_os = "windows")]
 use engine::windows::WindowsImpl;
+#[cfg(target_os = "macos")]
+use engine::macos::MacImpl;
 use engine::platform::PlatformAdapter;
 
 #[tauri::command]
@@ -54,7 +56,14 @@ pub fn run() {
         Box::new(WindowsImpl::new())
     };
 
-    #[cfg(not(target_os = "windows"))]
+    #[cfg(target_os = "macos")]
+    let adapter: Box<dyn PlatformAdapter> = if cfg!(feature = "mock") {
+        Box::new(MockAdapter::new())
+    } else {
+        Box::new(MacImpl::new())
+    };
+
+    #[cfg(not(any(target_os = "windows", target_os = "macos")))]
     let adapter: Box<dyn PlatformAdapter> = Box::new(MockAdapter::new());
 
     let engine = SystemEngine::new(adapter);
@@ -66,10 +75,9 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![get_snapshot, cmd_kill_process, get_config])
         .setup(|app| {
             let handle = app.handle().clone();
-            let start_handle = handle.clone();
             tauri::async_runtime::spawn(async move {
                 let pusher = handle.state::<SnapshotPusher>();
-                pusher.start(start_handle).await;
+                pusher.start(handle.clone()).await;
             });
             Ok(())
         })

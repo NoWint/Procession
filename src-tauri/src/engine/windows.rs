@@ -270,10 +270,10 @@ impl PlatformAdapter for WindowsImpl {
     }
 
     async fn get_gpu(&self) -> Option<GpuInfo> {
-        None
+        super::gpu::get_gpu_info()
     }
 
     async fn get_temperature(&self) -> Option<CpuGpuTemp> {
-        None
+        super::gpu::get_temperature()
     }
 }

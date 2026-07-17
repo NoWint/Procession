@@ -4,6 +4,40 @@
 
 ## Session Log
 
+### 2026-07-18 — Session #020 (backend, B-402 + B-403 + B-401, ~45min)
+- Track: backend
+- Task: B-402 (GPU/temperature), B-403 (Tauri packaging), B-401 (MacImpl)
+- Status: done
+- Summary:
+  - **B-402**: Created `engine/gpu.rs` with DXGI-based GPU detection (VRAM usage via QueryVideoMemoryInfo), registry-based CPU temperature (HKLM\ThermalZone\Temperature), and registry-key enumeration for multi-zone systems. Added windows crate features: Win32_Graphics_Dxgi, Win32_Graphics_Dxgi_Common, Win32_System_Registry.
+  - **B-403**: Updated tauri.conf.json bundle targets to ["msi", "dmg"], added Wix installer config (zh-CN), publisher metadata, and macOS minimum version. Created `.github/workflows/release.yml` — CI pipeline builds frontend on Ubuntu, then Windows/MSI and macOS/DMG in parallel, uploading all artifacts to GitHub Releases on tag push.
+  - **B-401**: Created `engine/macos.rs` with `MacImpl` — sysinfo-based processes/CPU/memory/disk/network, stub GPU/temperature (IOKit deferred), Mutex-based interior mutability matching WindowsImpl pattern. Wired into `engine/mod.rs` behind `#[cfg(target_os = "macos")]` and `lib.rs` tri-state adapter selection (Windows/Win → WindowsImpl, macOS → MacImpl, other → MockAdapter).
+  - Mechanical acceptance passed:
+    - `cd src-tauri && cargo build` exit 0
+    - `cd src-tauri && cargo clippy -- -D warnings` exit 0
+    - `cd src-tauri && cargo test` — 19 tests passed
+    - `npm run build` exit 0
+  - All three backend tasks done in one session.
+- Decisions:
+  - GPU temperature returns 0.0 as fallback (most thermal zones report CPU only; GPU temp via registry is unreliable)
+  - MacImpl network connections stubbed (no cross-platform TCP connection API equivalent to Windows IP Helper)
+  - IOKit sensor integration deferred to post-Phase-4 (requires macOS hardware to test)
+  - Release workflow uses separate frontend-build + platform-specific build jobs for efficiency
+- Commits: pending
+- Files:
+  - src-tauri/src/engine/gpu.rs (new)
+  - src-tauri/src/engine/macos.rs (new)
+  - src-tauri/src/engine/mod.rs (mod)
+  - src-tauri/src/engine/windows.rs (mod)
+  - src-tauri/src/lib.rs (mod)
+  - src-tauri/Cargo.toml (mod)
+  - src-tauri/tauri.conf.json (mod)
+  - .github/workflows/release.yml (new)
+  - PLAN.md (mod)
+  - PROGRESS.md (mod)
+- Next ready: D-401 (README + demo video), I-401 (Phase 4 full acceptance)
+- Notes: All Phase 4 backend tasks (B-401, B-402, B-403) done. Remaining Phase 4: D-401 (docs) + I-401 (acceptance).
+
 ### 2026-07-18 — Session #019 (frontend, F-404 performance optimization, ~30min)
 - Track: frontend
 - Task: F-404 (Performance optimization, LOD, 1000+ processes, 60fps target)

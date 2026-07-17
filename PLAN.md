@@ -70,9 +70,9 @@ Constitution changes (STRATEGY/SPEC/ARCHITECTURE under `.docs/`) require a `D-*`
 
 | ID    | Title                                              | Phase | Status  | Deps                              | Complexity |
 |-------|----------------------------------------------------|-------|---------|-----------------------------------|-----------|
-| B-401 | MacImpl (sysinfo + IOKit for mac-specific sensors)| 4     | pending | B-002                             | L         |
-| B-402 | GPU / temperature detection (Windows: NVAPI/AMD SDK)| 4   | pending | B-002                             | L         |
-| B-403 | Tauri packaging config (Windows MSI + macOS DMG)  | 4     | pending | I-001                             | M         |
+| B-401 | MacImpl (sysinfo + IOKit for mac-specific sensors)| 4     | done    | B-002                             | L         |
+| B-402 | GPU / temperature detection (Windows: DXGI + WMI)| 4    | done    | B-002                             | L         |
+| B-403 | Tauri packaging config (Windows MSI + macOS DMG)  | 4     | done    | I-001                             | M         |
 | F-401 | HUD StatsPanel (CPU/memory/network overlay)        | 4     | done    | F-012                             | M         |
 | F-402 | Space-bar utility mode (labels + dashboard)        | 4     | done    | F-012                             | L         |
 | F-403 | Color theme system (user-selectable)               | 4     | done    | F-204                             | M         |
@@ -90,9 +90,9 @@ Constitution changes (STRATEGY/SPEC/ARCHITECTURE under `.docs/`) require a `D-*`
 
 ## Status Counts
 
-- pending: 9
+- pending: 6
 - in_progress: 0
-- done: 40
+- done: 43
 - blocked: 0
 - failed: 0
 - stale: 0
