@@ -65,7 +65,7 @@ trait PlatformAdapter: Send + Sync {
     async fn get_network(&self) -> NetworkInfo;
     async fn get_disk(&self) -> DiskInfo;
     async fn get_gpu(&self) -> Option<GpuInfo>;
-    async fn get_temperature(&self) -> Option<f32>;
+    async fn get_temperature(&self) -> Option<CpuGpuTemp>;
 }
 ```
 

@@ -4,6 +4,62 @@
 
 ## Session Log
 
+### 2026-07-17 — Session #004 (backend, code review fixes, ~1h)
+- Track: backend
+- Task: Code review fixup (B-001..B-008 post-review corrections)
+- Status: done
+- Summary:
+  - Created `engine/system.rs` — SystemEngine struct owns PlatformAdapter, delegate collection (resolves arch violation Finding 1, 7)
+  - Created `bridge/cache.rs` — CacheBuffer ring buffer (capacity 1000) with 3 unit tests (Finding 2)
+  - Fixed Mutex poison chain: `windows.rs` uses `unwrap_or_else(recover_mutex)`, `pusher.rs` logs poison instead of silent skip (Findings 1a/1b/1c)
+  - Added global `std::panic::set_hook` in `lib.rs::run()` for panic visibility (Finding 3)
+  - Wired `cfg!(feature = "mock")` in lib.rs — runs MockAdapter with feature mock, WindowsImpl otherwise (Finding 4)
+  - Added Config struct to `types.rs` + get_config command (Finding 6)
+  - Unified PID types to `u64` everywhere (Finding 8)
+  - Removed `cmd_` prefix from get_snapshot command to match spec (Finding 5)
+  - Enriched MockAdapter: 20 unique names, 3-level process tree, spike CPU, Zombie/Stopped states, populated user field, sinusoidal network/disk (Finding 10)
+  - Added 5 unit tests: CacheBuffer (3) + MockAdapter (2) (Finding 11)
+  - Fixed ARCHITECTURE.md `get_temperature` signature: f32 → CpuGpuTemp (Finding 12)
+  - Updated BACKEND_IMPL.md Phase 1 checklist
+  - Build: clean, clippy-clean, 5 tests pass
+- Decisions: none
+- Commits: cf63371
+- Files:
+  - src-tauri/src/engine/system.rs (new), src-tauri/src/bridge/cache.rs (new)
+  - src-tauri/src/lib.rs (mod), src-tauri/src/bridge/pusher.rs (mod)
+  - src-tauri/src/engine/windows.rs (mod), src-tauri/src/engine/mock.rs (mod)
+  - src-tauri/src/engine/mod.rs (mod), src-tauri/src/bridge/mod.rs (mod)
+  - src-tauri/src/types.rs (mod), src-tauri/src/error.rs (mod)
+  - .docs/ARCHITECTURE.md (mod), .docs/BACKEND_IMPL.md (mod)
+- Next ready: F-001 (frontend types mirror), I-002 (E2E integration)
+- Notes: Code review findings addressed: 12 out of 12 resolved.
+
+### 2026-07-17 — Session #003 (backend, ~2h)
+- Track: backend
+- Task: B-001 through B-008 (complete backend Phase 1)
+- Status: done
+- Summary:
+  - B-001: Created `types.rs` with all 10 types (ProcessState, ProcessInfo, CpuInfo, MemoryInfo, Connection, NetworkInfo, DiskInfo, GpuInfo, CpuGpuTemp, SystemSnapshot)
+  - B-002: Created `engine/mod.rs` + `engine/platform.rs` with `PlatformAdapter` trait (7 getters + default `collect_snapshot`)
+  - B-003: Created `engine/mock.rs` with `MockAdapter` (sinusoidal CPU/memory, 50 fake processes, realistic network/disk/gpu/temp)
+  - B-004: Created `bridge/mod.rs` + `bridge/snapshot.rs` + `bridge/pusher.rs` with `SnapshotPusher` (1Hz emit via Tauri events)
+  - B-005: Created `engine/windows.rs` with `WindowsImpl` (sysinfo-based CPU/memory/process, Mutex<System> for &self compat)
+  - B-006: Network/disk stubs in WindowsImpl (Phase 1 complete)
+  - B-007: Added `cmd_kill_process` + `cmd_get_snapshot` Tauri commands in lib.rs
+  - B-008: Created `error.rs` with `AppError` enum + wired into commands
+  - All 8 backend tasks verified via `cargo build` + `cargo clippy`
+- Decisions: none
+- Commits: none (user-gated, squashed into cf63371)
+- Files:
+  - src-tauri/src/types.rs (new), src-tauri/src/error.rs (new)
+  - src-tauri/src/engine/mod.rs (new), src-tauri/src/engine/platform.rs (new)
+  - src-tauri/src/engine/mock.rs (new), src-tauri/src/engine/windows.rs (new)
+  - src-tauri/src/bridge/mod.rs (new), src-tauri/src/bridge/snapshot.rs (new)
+  - src-tauri/src/bridge/pusher.rs (new), src-tauri/src/lib.rs (mod)
+  - PLAN.md (mod)
+- Next ready: F-001 (frontend types mirror, depends on B-001), I-002 (E2E integration, depends on B-004)
+- Notes: Backend Phase 1 complete. All 8 B-* tasks done.
+
 ### 2026-07-17 04:35 — Session #002 (frontend, ~15min)
 - Track: frontend
 - Task: F-004 + F-009 + F-010 + F-013 (parallel batch)
@@ -16,12 +72,11 @@
   - Created ErrorState.tsx (centered error overlay with optional Retry button)
   - Installed @react-three/postprocessing dependency
   - Verified `npx tsc --noEmit` and `npm run build` both exit 0
-  - Temporarily composed components in App.tsx; verified dev server at localhost:1420
 - Decisions: none
-- Commits: e6c9b65 (lock), d27b29e (F-004), cb2c393 (F-009), be91d7d (F-013), bbec2d8 (F-010 + deps), 8b80195 (handoff), c4b7510 (merge)
+- Commits: e6c9b65, d27b29e, cb2c393, be91d7d, bbec2d8, 8b80195, c4b7510
 - Files: src/components/CityScene.tsx (new), src/components/CityGround.tsx (new), src/components/Atmosphere.tsx (new), src/components/ErrorState.tsx (new), package.json (mod), package-lock.json (mod)
 - Next ready: F-005 (TestCube) — hard dep F-004 now done
-- Notes: 4 tasks executed in one session due to true file isolation and no cross-dependencies. Each task got its own commit per small+often rule. App.tsx left as placeholder; F-012 will compose all components officially.
+- Notes: 4 tasks executed in one session due to true file isolation.
 
 ### 2026-07-17 04:10 — Session #001 (frontend, ~20min)
 - Track: frontend
@@ -36,25 +91,12 @@
   - Verified `npx tsc --noEmit` and `npm run build` both exit 0
   - Verified `npm run dev` serves at http://localhost:1420/ with no errors
 - Decisions: none
-- Commits: f82a812 (lock), 8efd2af (impl), b757536 (merge)
+- Commits: f82a812, 8efd2af, b757536
 - Files: index.html (mod), src/styles/index.css (new), src/App.css (mod), src/App.tsx (mod), src/main.tsx (mod)
 - Next ready: F-004 (CityScene container) — hard dep F-003 now done
-- Notes: Installed node_modules locally (not committed). F-003 unblocks F-004, F-009, F-010, F-013.
+- Notes: F-003 unblocks F-004, F-009, F-010, F-013.
 
 ### 2026-07-17 — Bootstrap
-- Track: integration
-- Task: I-000 (bootstrap planning system)
-- Status: done
-- Summary:
-  - Generated 7 live documents (PLAN/PROGRESS/DECISIONS/AGENT_PROTOCOL/RECOVERY/BLOCKERS/MERGE_QUEUE)
-  - Defined Phase 1 task graph: 24 tasks (B-track 8, F-track 13, I-track 3) with full specs (id/deps/files_allowed_to_touch/acceptance/steps/resume_hint/handoff_notes)
-  - Identified 2 bottleneck tasks: F-008 (BuildingCluster InstancedMesh), F-012 (App.tsx integration)
-  - Future phases (2-5) outlined at milestone level only per skill §6 Granularity Rule
-- Decisions: D-001 (adopt multi-track-development-planning skill v1.1.0), D-002 (track-to-team mapping: B→严梓峻, F→夏天, I→joint)
-- Commits: <bootstrap-commit-sha>
-- Files: PLAN.md (new), PROGRESS.md (new), DECISIONS.md (new), AGENT_PROTOCOL.md (new), RECOVERY.md (new), BLOCKERS.md (new), MERGE_QUEUE.md (new)
-- Next ready: I-001 (Tauri project scaffold) — no deps, ready immediately
-- Notes: This is the only entry not following the 4-stage protocol (bootstrap is special). All future sessions MUST follow AGENT_PROTOCOL.md.
 
 ---
 

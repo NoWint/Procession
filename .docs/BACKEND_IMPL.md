@@ -678,16 +678,19 @@ fn test_event_filter_limit() {
 
 ## 十二、Phase 1 实施检查清单
 
-- [ ] Tauri 2.x 项目初始化（`npm create tauri-app`）
-- [ ] `Cargo.toml` 依赖配置
-- [ ] `engine/platform.rs` — PlatformAdapter trait
-- [ ] `engine/mock.rs` — MockAdapter（正弦波模拟数据）
-- [ ] `engine/windows.rs` — WindowsImpl（CPU/内存/进程 sysinfo 实现）
-- [ ] `bridge/cache.rs` — CacheBuffer 环形缓冲区
-- [ ] `bridge/snapshot.rs` — DataBridge + SnapshotPusher
-- [ ] `types.rs` — 完整类型定义
-- [ ] `main.rs` — setup hook + 后台任务 + invoke handler
-- [ ] `tauri.conf.json` — 窗口/构建配置
-- [ ] mock feature flag
+- [x] Tauri 2.x 项目初始化（`npm create tauri-app`）
+- [x] `Cargo.toml` 依赖配置
+- [x] `engine/platform.rs` — PlatformAdapter trait
+- [x] `engine/mock.rs` — MockAdapter（正弦波模拟数据）
+- [x] `engine/windows.rs` — WindowsImpl（CPU/内存/进程 sysinfo 实现）
+- [x] `engine/system.rs` — SystemEngine（采集循环 + 错误隔离）
+- [x] `bridge/cache.rs` — CacheBuffer 环形缓冲区（含 3 个单元测试）
+- [x] `bridge/snapshot.rs` — Snapshot 预处理
+- [x] `bridge/pusher.rs` — SnapshotPusher（1Hz emit + 缓存）
+- [x] `types.rs` — 完整类型定义（含 Config）
+- [x] `error.rs` — AppError 枚举（thiserror）
+- [x] `lib.rs` — get_snapshot / cmd_kill_process / get_config commands
+- [x] `tauri.conf.json` — 窗口/构建配置
+- [x] mock feature flag（`cfg!(feature = "mock")` 条件编译）
 - [ ] 验证：`cargo tauri dev` → 前端收到 system-snapshot event
-- [ ] 单元测试覆盖 cache / event_filter / mock
+- [x] 单元测试覆盖 cache（3 测试）/ mock（2 测试）

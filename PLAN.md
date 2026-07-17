@@ -31,14 +31,14 @@ Constitution changes (STRATEGY/SPEC/ARCHITECTURE under `.docs/`) require a `D-*`
 
 | ID    | Title                                              | Phase | Status  | Deps      | Complexity |
 |-------|----------------------------------------------------|-------|---------|-----------|-----------|
-| B-001 | Rust shared types (`types.rs`)                    | 1     | pending | I-001     | S         |
-| B-002 | `PlatformAdapter` trait + `collect_snapshot`       | 1     | pending | B-001     | S         |
-| B-003 | `MockAdapter` (dev/test data source)               | 1     | pending | B-002     | M         |
-| B-004 | `DataBridge` + `SnapshotPusher` (1Hz emit)         | 1     | pending | B-003     | M         |
-| B-005 | `WindowsImpl` (CPU/memory/process via sysinfo)     | 1     | pending | B-002     | L         |
-| B-006 | `WindowsImpl` network + disk (Phase 1 stub OK)     | 1     | pending | B-005     | M         |
-| B-007 | `cmd_kill_process` Tauri command                  | 1     | pending | B-004     | S         |
-| B-008 | Error handling (`thiserror` + `Result` types)     | 1     | pending | B-004     | M         |
+| B-001 | Rust shared types (`types.rs`)                    | 1     | done     | I-001     | S         |
+| B-002 | `PlatformAdapter` trait + `collect_snapshot`       | 1     | done          | B-001     | S         |
+| B-003 | `MockAdapter` (dev/test data source)               | 1     | done    | B-002     | M         |
+| B-004 | `DataBridge` + `SnapshotPusher` (1Hz emit)         | 1     | done    | B-003     | M         |
+| B-005 | `WindowsImpl` (CPU/memory/process via sysinfo)     | 1     | done    | B-002     | L         |
+| B-006 | `WindowsImpl` network + disk (Phase 1 stub OK)     | 1     | done    | B-005     | M         |
+| B-007 | `cmd_kill_process` Tauri command                  | 1     | done    | B-004     | S         |
+| B-008 | Error handling (`thiserror` + `Result` types)     | 1     | done    | B-004     | M         |
 
 ### Frontend (F-*) — owner: 夏天
 
@@ -76,9 +76,9 @@ Constitution changes (STRATEGY/SPEC/ARCHITECTURE under `.docs/`) require a `D-*`
 
 ## Status Counts
 
-- pending: 18
+- pending: 10
 - in_progress: 0
-- done: 6
+- done: 14
 - blocked: 0
 - failed: 0
 - stale: 0
