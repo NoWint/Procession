@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import CityScene from "./components/CityScene";
 import BuildingCluster from "./components/BuildingCluster";
 import BuildingHalo from "./components/BuildingHalo";
-import CableSystem, { computeCablePaths } from "./components/CableSystem";
+import CableSystem, { computeCableData } from "./components/CableSystem";
 import CableFlow from "./components/CableFlow";
 import CityGround from "./components/CityGround";
 import Atmosphere from "./components/Atmosphere";
@@ -56,10 +56,13 @@ export default function App() {
     [snapshot],
   );
 
-  const cablePaths = useMemo(
-    () => (snapshot ? computeCablePaths(snapshot.network.connections, positions, 100) : []),
+  const cableData = useMemo(
+    () => (snapshot ? computeCableData(snapshot.network.connections, positions, 100) : []),
     [snapshot, positions],
   );
+
+  const cablePaths = useMemo(() => cableData.map((d) => d.path), [cableData]);
+  const cableProtocols = useMemo(() => cableData.map((d) => d.protocol), [cableData]);
 
   const selectedPosition = useMemo(() => {
     if (!selectedProcess) return null;
@@ -143,8 +146,12 @@ export default function App() {
           positions={positions}
           theme={theme}
         />
-        <CableSystem paths={cablePaths} theme={theme} />
-        <CableFlow paths={cablePaths} theme={theme} />
+        <CableSystem
+          connections={snapshot.network.connections}
+          positions={positions}
+          theme={theme}
+        />
+        <CableFlow paths={cablePaths} protocols={cableProtocols} theme={theme} />
       </CityScene>
 
       <div className="app-ui-layer">

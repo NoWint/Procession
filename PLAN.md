@@ -76,9 +76,9 @@ Constitution changes (STRATEGY/SPEC/ARCHITECTURE under `.docs/`) require a `D-*`
 
 ## Status Counts
 
-- pending: 3
+- pending: 2
 - in_progress: 0
-- done: 37
+- done: 38
 - blocked: 0
 - failed: 0
 - stale: 0
@@ -1630,7 +1630,7 @@ Per SKILL.md §6 Granularity Rule: future phases are milestone-level only. Expan
 | B-302 | Remote IP → geolocation mapping (optional)         | 3     | done    | B-301                             | S         |
 | F-301 | LineGeometry cable rendering                       | 3     | done    | F-008, B-301                      | L         |
 | F-302 | Particle flow along cables                         | 3     | done    | F-301                             | M         |
-| F-303 | Protocol color mapping (TCP/UDP/HTTP)              | 3     | pending | F-301                             | S         |
+| F-303 | Protocol color mapping (TCP/UDP/HTTP)              | 3     | done    | F-301                             | S         |
 | F-304 | Building top halo pulse for running processes      | 3     | done    | F-008, F-202                      | M         |
 | I-301 | Phase 3 full acceptance                            | 3     | pending | B-301, F-301, F-302, F-303, F-304 | L         |
 
@@ -2422,9 +2422,9 @@ Per SKILL.md §6 Granularity Rule: future phases are milestone-level only. Expan
     behavioral:
       - "TCP cables render in blue-ish tone, UDP in green-ish tone, HTTP/HTTPS in cyan-ish tone"
       - "Unknown protocol falls back to theme accent color"
-  status: pending
-  owner: null
-  owner_started_at: null
+  status: done
+  owner: session-017
+  owner_started_at: "2026-07-18"
   retry_count: 0
   linked_blocker: null
   resume_hint: |

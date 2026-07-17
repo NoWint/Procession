@@ -3,14 +3,19 @@ import { Line } from "@react-three/drei";
 import * as THREE from "three";
 import type { Connection } from "../utils/types";
 import type { BuildingPosition } from "../utils/layout";
+import { cableColorForProtocol } from "../utils/colors";
 import { FALLBACK_THEME, type Theme } from "../utils/theme";
 
 interface CableSystemProps {
-  connections?: Connection[];
-  positions?: BuildingPosition[];
-  paths?: THREE.Vector3[][];
+  connections: Connection[];
+  positions: BuildingPosition[];
   theme?: Theme;
   maxCables?: number;
+}
+
+export interface CableData {
+  path: THREE.Vector3[];
+  protocol: string;
 }
 
 const EXTERNAL_RADIUS_MIN = 12;
@@ -42,7 +47,7 @@ export function remoteEndpointPosition(remoteAddr: string): { x: number; y: numb
   }
   const h = hashString(host);
   const angle = (h % 360) * (Math.PI / 180);
-  const radius = EXTERNAL_RADIUS_MIN + (h % 1000) / 1000 * EXTERNAL_RADIUS_VAR;
+  const radius = EXTERNAL_RADIUS_MIN + ((h % 1000) / 1000) * EXTERNAL_RADIUS_VAR;
   return {
     x: Math.cos(angle) * radius,
     y: 0.1,
@@ -50,19 +55,19 @@ export function remoteEndpointPosition(remoteAddr: string): { x: number; y: numb
   };
 }
 
-export function computeCablePaths(
+export function computeCableData(
   connections: Connection[],
   positions: BuildingPosition[],
   maxCables: number = 100,
-): THREE.Vector3[][] {
+): CableData[] {
   const posMap = new Map<number, BuildingPosition>();
   for (const p of positions) {
     posMap.set(p.pid, p);
   }
 
-  const paths: THREE.Vector3[][] = [];
+  const cables: CableData[] = [];
   for (const c of connections) {
-    if (paths.length >= maxCables) break;
+    if (cables.length >= maxCables) break;
 
     const src = posMap.get(c.pid);
     if (!src) continue;
@@ -76,34 +81,38 @@ export function computeCablePaths(
     mid.y = Math.max(start.y, end.y) + ARCH_HEIGHT;
 
     const curve = new THREE.QuadraticBezierCurve3(start, mid, end);
-    paths.push(curve.getPoints(CURVE_SEGMENTS));
+    cables.push({ path: curve.getPoints(CURVE_SEGMENTS), protocol: c.protocol });
   }
 
-  return paths;
+  return cables;
+}
+
+export function computeCablePaths(
+  connections: Connection[],
+  positions: BuildingPosition[],
+  maxCables: number = 100,
+): THREE.Vector3[][] {
+  return computeCableData(connections, positions, maxCables).map((c) => c.path);
 }
 
 export default function CableSystem({
   connections,
   positions,
-  paths: providedPaths,
   theme = FALLBACK_THEME,
   maxCables = 100,
 }: CableSystemProps) {
-  const paths = useMemo(() => {
-    if (providedPaths) return providedPaths;
-    if (!connections || !positions) return [];
-    return computeCablePaths(connections, positions, maxCables);
-  }, [providedPaths, connections, positions, maxCables]);
-
-  const color = theme.colors.accent;
+  const cables = useMemo(
+    () => computeCableData(connections, positions, maxCables),
+    [connections, positions, maxCables],
+  );
 
   return (
     <group renderOrder={1}>
-      {paths.map((points, i) => (
+      {cables.map((cable, i) => (
         <Line
           key={i}
-          points={points}
-          color={color}
+          points={cable.path}
+          color={cableColorForProtocol(cable.protocol, theme)}
           lineWidth={1.2}
           transparent
           opacity={0.55}

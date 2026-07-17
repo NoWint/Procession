@@ -4,6 +4,34 @@
 
 ## Session Log
 
+### 2026-07-18 — Session #017 (frontend, F-303, ~15min)
+- Track: frontend
+- Task: F-303 (Protocol color mapping for TCP/UDP/HTTP)
+- Status: done
+- Summary:
+  - Fixed `CableSystem.tsx` import to use `cableColorForProtocol` from `src/utils/colors`
+  - Added per-vertex colors to `CableFlow.tsx` so each particle is tinted by its cable's protocol
+  - `CableFlow` now accepts a `protocols` prop; TCP → blue, UDP → green, HTTP/HTTPS → cyan, unknown → theme accent
+  - Updated `App.tsx` to compute cable data once with `computeCableData` and share both paths and protocols with `CableFlow`
+  - Mechanical acceptance passed:
+    - `npx tsc --noEmit` exit 0
+    - `npm run build` exit 0
+    - `cd src-tauri && cargo build` exit 0 (with expected dead-code warnings from B-302 geoip.rs)
+  - Marked F-303 done in PLAN.md; updated Status Counts to pending 2, done 38
+- Decisions:
+  - Particles use a single `Points` geometry with `vertexColors` enabled for per-particle protocol tinting
+  - Cable and particle colors share the same `cableColorForProtocol` helper to keep the visual language consistent
+- Commits: pending
+- Files:
+  - src/utils/colors.ts (mod)
+  - src/components/CableSystem.tsx (mod)
+  - src/components/CableFlow.tsx (mod)
+  - src/App.tsx (mod)
+  - PLAN.md (mod)
+  - PROGRESS.md (mod)
+- Next ready: I-301 (Phase 3 full acceptance)
+- Notes: All Phase 3 implementation tasks are now done. Only I-301 integration acceptance remains.
+
 ### 2026-07-18 — Session #016 (frontend, F-302, ~20min)
 - Track: frontend
 - Task: F-302 (Particle flow along cables)

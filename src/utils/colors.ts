@@ -37,5 +37,20 @@ export function colorForProcessLegacy(p: ProcessInfo): string {
   return COLORS.user;
 }
 
+const PROTOCOL_COLORS: Record<string, string> = {
+  tcp: "#4a9eff",
+  udp: "#9aff4a",
+  http: "#4af0ff",
+  https: "#4af0ff",
+};
+
+export function cableColorForProtocol(
+  protocol: string,
+  theme: Theme = FALLBACK_THEME,
+): string {
+  const key = protocol.toLowerCase().trim();
+  return PROTOCOL_COLORS[key] ?? theme.colors.accent;
+}
+
 export { colorForState };
 export type { Theme };

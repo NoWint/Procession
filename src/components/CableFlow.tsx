@@ -1,10 +1,12 @@
 import { useRef, useMemo } from "react";
 import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
+import { cableColorForProtocol } from "../utils/colors";
 import { FALLBACK_THEME, type Theme } from "../utils/theme";
 
 interface CableFlowProps {
   paths: THREE.Vector3[][];
+  protocols?: string[];
   theme?: Theme;
   baseParticlesPerCable?: number;
   intensities?: number[];
@@ -20,8 +22,18 @@ interface Particle {
 const DEFAULT_PARTICLES_PER_CABLE = 3;
 const PARTICLE_SIZE = 0.13;
 
+function hexToRgbNormalized(hex: string): [number, number, number] {
+  const clean = hex.replace("#", "");
+  const bigint = parseInt(clean, 16);
+  const r = ((bigint >> 16) & 255) / 255;
+  const g = ((bigint >> 8) & 255) / 255;
+  const b = (bigint & 255) / 255;
+  return Number.isNaN(bigint) ? [1, 1, 1] : [r, g, b];
+}
+
 export default function CableFlow({
   paths,
+  protocols = [],
   theme = FALLBACK_THEME,
   baseParticlesPerCable = DEFAULT_PARTICLES_PER_CABLE,
   intensities,
@@ -45,11 +57,23 @@ export default function CableFlow({
         });
       }
     }
+
     const geo = new THREE.BufferGeometry();
     const positions = new Float32Array(p.length * 3);
+    const colors = new Float32Array(p.length * 3);
+
+    for (let i = 0; i < p.length; i++) {
+      const protocol = protocols[p[i].pathIndex] ?? "";
+      const [r, g, b] = hexToRgbNormalized(cableColorForProtocol(protocol, theme));
+      colors[i * 3] = r;
+      colors[i * 3 + 1] = g;
+      colors[i * 3 + 2] = b;
+    }
+
     geo.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+    geo.setAttribute("color", new THREE.BufferAttribute(colors, 3));
     return { particles: p, geometry: geo, count: p.length };
-  }, [paths, baseParticlesPerCable, intensities]);
+  }, [paths, protocols, baseParticlesPerCable, intensities, theme]);
 
   useFrame((_, delta) => {
     if (!pointsRef.current) return;
@@ -84,12 +108,12 @@ export default function CableFlow({
   return (
     <points ref={pointsRef} geometry={geometry} renderOrder={2}>
       <pointsMaterial
-        color={theme.colors.accent}
         size={PARTICLE_SIZE}
         transparent
         opacity={0.85}
         depthWrite={false}
         sizeAttenuation
+        vertexColors
       />
     </points>
   );
