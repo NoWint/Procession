@@ -49,6 +49,7 @@ impl MockAdapter {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn mock_process(
     rng: &mut StdRng,
     pid: u64,

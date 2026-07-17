@@ -57,6 +57,7 @@ impl SnapshotPusher {
         }
     }
 
+    #[allow(dead_code)]
     pub fn get_current(&self) -> Option<SystemSnapshot> {
         self.current.lock().ok().and_then(|c| c.clone())
     }

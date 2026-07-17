@@ -37,6 +37,7 @@ impl CacheBuffer {
         }
     }
 
+    #[allow(dead_code)]
     pub fn len(&self) -> usize {
         self.buffer.len().min(self.capacity)
     }
