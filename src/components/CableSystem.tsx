@@ -1,5 +1,4 @@
-import { useMemo } from "react";
-import { Line } from "@react-three/drei";
+import { useMemo, useEffect, useRef } from "react";
 import * as THREE from "three";
 import type { Connection } from "../utils/types";
 import type { BuildingPosition } from "../utils/layout";
@@ -7,8 +6,9 @@ import { cableColorForProtocol } from "../utils/colors";
 import { FALLBACK_THEME, type Theme } from "../utils/theme";
 
 interface CableSystemProps {
-  connections: Connection[];
-  positions: BuildingPosition[];
+  connections?: Connection[];
+  positions?: BuildingPosition[];
+  cables?: CableData[];
   theme?: Theme;
   maxCables?: number;
 }
@@ -95,30 +95,98 @@ export function computeCablePaths(
   return computeCableData(connections, positions, maxCables).map((c) => c.path);
 }
 
+function hexToRgbNormalized(hex: string): [number, number, number] {
+  const clean = hex.replace("#", "");
+  const bigint = parseInt(clean, 16);
+  const r = ((bigint >> 16) & 255) / 255;
+  const g = ((bigint >> 8) & 255) / 255;
+  const b = (bigint & 255) / 255;
+  return Number.isNaN(bigint) ? [1, 1, 1] : [r, g, b];
+}
+
+export function buildBatchedCableGeometry(
+  cables: CableData[],
+  theme: Theme = FALLBACK_THEME,
+): THREE.BufferGeometry {
+  let vertexCount = 0;
+  for (const cable of cables) {
+    vertexCount += Math.max(0, cable.path.length - 1) * 2;
+  }
+
+  const positions = new Float32Array(vertexCount * 3);
+  const colors = new Float32Array(vertexCount * 3);
+  let offset = 0;
+
+  for (const cable of cables) {
+    const [r, g, b] = hexToRgbNormalized(cableColorForProtocol(cable.protocol, theme));
+    for (let i = 0; i < cable.path.length - 1; i++) {
+      const a = cable.path[i];
+      const c = cable.path[i + 1];
+      if (!a || !c) continue;
+
+      positions[offset * 6] = a.x;
+      positions[offset * 6 + 1] = a.y;
+      positions[offset * 6 + 2] = a.z;
+      positions[offset * 6 + 3] = c.x;
+      positions[offset * 6 + 4] = c.y;
+      positions[offset * 6 + 5] = c.z;
+
+      colors[offset * 6] = r;
+      colors[offset * 6 + 1] = g;
+      colors[offset * 6 + 2] = b;
+      colors[offset * 6 + 3] = r;
+      colors[offset * 6 + 4] = g;
+      colors[offset * 6 + 5] = b;
+      offset++;
+    }
+  }
+
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+  geo.setAttribute("color", new THREE.BufferAttribute(colors, 3));
+  return geo;
+}
+
 export default function CableSystem({
-  connections,
-  positions,
+  connections = [],
+  positions = [],
+  cables: providedCables,
   theme = FALLBACK_THEME,
   maxCables = 100,
 }: CableSystemProps) {
+  const prevGeoRef = useRef<THREE.BufferGeometry | null>(null);
+
   const cables = useMemo(
-    () => computeCableData(connections, positions, maxCables),
-    [connections, positions, maxCables],
+    () => providedCables ?? computeCableData(connections, positions, maxCables),
+    [providedCables, connections, positions, maxCables],
   );
 
+  const geometry = useMemo(
+    () => buildBatchedCableGeometry(cables, theme),
+    [cables, theme],
+  );
+
+  useEffect(() => {
+    const prev = prevGeoRef.current;
+    prevGeoRef.current = geometry;
+    return () => {
+      if (prev && prev !== geometry) {
+        prev.dispose();
+      }
+    };
+  }, [geometry]);
+
+  if (cables.length === 0) return null;
+
   return (
-    <group renderOrder={1}>
-      {cables.map((cable, i) => (
-        <Line
-          key={i}
-          points={cable.path}
-          color={cableColorForProtocol(cable.protocol, theme)}
-          lineWidth={1.2}
-          transparent
-          opacity={0.55}
-          depthWrite={false}
-        />
-      ))}
-    </group>
+    <lineSegments geometry={geometry} renderOrder={1}>
+      <lineBasicMaterial
+        vertexColors
+        transparent
+        opacity={0.55}
+        depthWrite={false}
+        linewidth={1.2}
+      />
+    </lineSegments>
   );
 }

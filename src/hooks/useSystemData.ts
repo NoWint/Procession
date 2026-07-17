@@ -10,9 +10,13 @@ export function useSystemData(): SystemSnapshot | null {
 
     listen<SystemSnapshot>("system-snapshot", (event) => {
       setSnapshot(event.payload);
-    }).then((fn) => {
-      unlisten = fn;
-    });
+    })
+      .then((fn) => {
+        unlisten = fn;
+      })
+      .catch((error) => {
+        console.warn("[useSystemData] Failed to listen for system snapshots:", error);
+      });
 
     return () => {
       if (unlisten) unlisten();

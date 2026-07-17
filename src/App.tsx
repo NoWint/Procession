@@ -14,6 +14,7 @@ import ThemeSelector from "./components/ThemeSelector";
 import { useSystemData } from "./hooks/useSystemData";
 import type { ProcessInfo } from "./utils/types";
 import { computeTreePositions, computeProcessSignature } from "./utils/layout";
+import { shouldIgnoreSpace } from "./utils/keyboard";
 import {
   loadTheme,
   applyTheme,
@@ -137,7 +138,7 @@ export default function App() {
   // Toggle utility mode with Space; close with Escape.
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === " " && !["INPUT", "SELECT", "TEXTAREA"].includes((e.target as HTMLElement).tagName)) {
+      if (e.key === " " && !shouldIgnoreSpace(e.target)) {
         e.preventDefault();
         setUtilityMode((prev) => !prev);
       }
@@ -199,11 +200,7 @@ export default function App() {
           positions={positions}
           theme={theme}
         />
-        <CableSystem
-          connections={snapshot.network.connections}
-          positions={positions}
-          theme={theme}
-        />
+        <CableSystem cables={cableData} theme={theme} />
         <CableFlow paths={cablePaths} protocols={cableProtocols} theme={theme} />
       </CityScene>
 

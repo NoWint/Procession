@@ -17,6 +17,8 @@ export default function CameraController({
   const startPos = useRef(new THREE.Vector3());
   const startTarget = useRef(new THREE.Vector3());
   const endTarget = useRef(new THREE.Vector3());
+  const direction = useRef(new THREE.Vector3());
+  const desiredPos = useRef(new THREE.Vector3());
   const startTime = useRef<number | null>(null);
   const isFlying = useRef(false);
 
@@ -45,13 +47,11 @@ export default function CameraController({
     // Ease-out cubic
     const ease = 1 - Math.pow(1 - t, 3);
 
-    const direction = new THREE.Vector3()
-      .subVectors(endTarget.current, startPos.current)
-      .normalize();
+    direction.current.subVectors(endTarget.current, startPos.current).normalize();
     const distance = Math.max(minDistance, startPos.current.distanceTo(endTarget.current));
-    const desiredPos = endTarget.current.clone().add(direction.multiplyScalar(distance));
+    desiredPos.current.copy(endTarget.current).add(direction.current.multiplyScalar(distance));
 
-    camera.position.lerpVectors(startPos.current, desiredPos, ease);
+    camera.position.lerpVectors(startPos.current, desiredPos.current, ease);
     camera.lookAt(endTarget.current);
 
     if (t >= 1) {

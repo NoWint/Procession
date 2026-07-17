@@ -50,6 +50,17 @@ export function computePositions(
 
 const MIN_RADIUS = 1.0;
 
+/** Deterministic pseudo-random numbers derived from a seed (pid). */
+function hashSeed(seed: number): number {
+  let h = seed | 0;
+  h = (h ^ 61) ^ (h >>> 16);
+  h = h + (h << 3);
+  h = h ^ (h >>> 4);
+  h = Math.imul(h, 0x27d4eb2d);
+  h = h ^ (h >>> 15);
+  return (h >>> 0) / 4294967296;
+}
+
 function resolveOverlap(
   x: number,
   z: number,
@@ -158,8 +169,10 @@ export function computeTreePositions(
   // Place any remaining orphans that were not reachable from roots.
   for (const p of sorted) {
     if (placed.has(p.pid)) continue;
-    const angle = Math.random() * Math.PI * 2;
-    const radius = 8 + Math.random() * 4;
+    const r1 = hashSeed(p.pid);
+    const r2 = hashSeed(p.pid + 1);
+    const angle = r1 * Math.PI * 2;
+    const radius = 8 + r2 * 4;
     let x = Math.cos(angle) * radius;
     let z = Math.sin(angle) * radius;
     ({ x, z } = resolveOverlap(x, z, placed));
@@ -179,11 +192,3 @@ export function computeTreePositions(
   return positions;
 }
 
-/* Scratch test:
-const mock = [
-  { pid: 1, ppid: 0, name: "System", cpu: 10, memory_mb: 100, state: "Running" as const, user: "root" },
-  { pid: 2, ppid: 1, name: "chrome", cpu: 50, memory_mb: 500, state: "Running" as const, user: "user" },
-  { pid: 3, ppid: 1, name: "node", cpu: 15, memory_mb: 200, state: "Running" as const, user: "user" },
-];
-console.log(computeTreePositions(mock));
-*/

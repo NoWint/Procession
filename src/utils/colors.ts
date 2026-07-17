@@ -1,13 +1,6 @@
 import type { ProcessInfo } from "./types";
 import { FALLBACK_THEME, colorForState, type Theme } from "./theme";
 
-export const COLORS = {
-  system: "#4a9eff",
-  user: "#9aff4a",
-  active: "#ff9a4a",
-  idle: "#666666",
-} as const;
-
 const systemNames = ["System", "kernel", "launchd", "init", "systemd", "services", "registry"];
 
 export function isSystemProcess(p: ProcessInfo): boolean {
@@ -26,15 +19,6 @@ export function colorForProcess(p: ProcessInfo, theme: Theme = FALLBACK_THEME): 
   if (p.cpu > 50) return theme.colors.active;
   if (p.cpu < 3) return theme.colors.idle;
   return base;
-}
-
-export function colorForProcessLegacy(p: ProcessInfo): string {
-  if (systemNames.some((s) => p.name.toLowerCase().includes(s.toLowerCase()))) {
-    return COLORS.system;
-  }
-  if (p.cpu > 50) return COLORS.active;
-  if (p.cpu < 5) return COLORS.idle;
-  return COLORS.user;
 }
 
 const PROTOCOL_COLORS: Record<string, string> = {

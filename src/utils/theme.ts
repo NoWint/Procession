@@ -121,14 +121,38 @@ export const FALLBACK_THEME: Theme = {
   },
 };
 
+function isValidThemeUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url, window.location.href);
+    return parsed.pathname.startsWith("/themes/") && parsed.pathname.endsWith(".json");
+  } catch {
+    return false;
+  }
+}
+
+function mergeTheme(data: Partial<Theme>): Theme {
+  return {
+    ...FALLBACK_THEME,
+    ...data,
+    colors: { ...FALLBACK_THEME.colors, ...data.colors },
+    scene: { ...FALLBACK_THEME.scene, ...data.scene },
+    typography: { ...FALLBACK_THEME.typography, ...data.typography },
+  };
+}
+
 export async function loadTheme(url: string): Promise<Theme> {
+  if (!isValidThemeUrl(url)) {
+    console.warn(`Rejected unsafe theme URL: ${url}`);
+    return FALLBACK_THEME;
+  }
+
   try {
     const response = await fetch(url);
     if (!response.ok) {
       throw new Error(`Failed to load theme: ${response.status} ${response.statusText}`);
     }
-    const data = (await response.json()) as Theme;
-    return { ...FALLBACK_THEME, ...data };
+    const data = (await response.json()) as Partial<Theme>;
+    return mergeTheme(data);
   } catch (error) {
     console.warn("Theme load failed, using fallback.", error);
     return FALLBACK_THEME;

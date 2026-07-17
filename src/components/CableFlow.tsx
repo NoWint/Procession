@@ -1,4 +1,4 @@
-import { useRef, useMemo } from "react";
+import { useRef, useMemo, useEffect } from "react";
 import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
 import { cableColorForProtocol } from "../utils/colors";
@@ -13,7 +13,7 @@ interface CableFlowProps {
   speed?: number;
 }
 
-interface Particle {
+export interface Particle {
   pathIndex: number;
   pointIndex: number;
   t: number;
@@ -31,6 +31,34 @@ function hexToRgbNormalized(hex: string): [number, number, number] {
   return Number.isNaN(bigint) ? [1, 1, 1] : [r, g, b];
 }
 
+export function updateParticles(
+  particles: Particle[],
+  paths: THREE.Vector3[][],
+  delta: number,
+  speed: number,
+  positions: Float32Array,
+): void {
+  for (let i = 0; i < particles.length; i++) {
+    const p = particles[i];
+    const path = paths[p.pathIndex];
+    if (!path || path.length < 2) continue;
+
+    p.t += delta * speed;
+    while (p.t >= 1) {
+      p.t -= 1;
+      p.pointIndex = (p.pointIndex + 1) % (path.length - 1);
+    }
+
+    const a = path[p.pointIndex];
+    const b = path[p.pointIndex + 1];
+    if (!a || !b) continue;
+
+    positions[i * 3] = a.x + (b.x - a.x) * p.t;
+    positions[i * 3 + 1] = a.y + (b.y - a.y) * p.t;
+    positions[i * 3 + 2] = a.z + (b.z - a.z) * p.t;
+  }
+}
+
 export default function CableFlow({
   paths,
   protocols = [],
@@ -40,8 +68,11 @@ export default function CableFlow({
   speed = 1.8,
 }: CableFlowProps) {
   const pointsRef = useRef<THREE.Points>(null);
+  const particlesRef = useRef<Particle[]>([]);
+  const pathsRef = useRef<THREE.Vector3[][]>(paths);
+  pathsRef.current = paths;
 
-  const { particles, geometry, count } = useMemo(() => {
+  const { geometry, count } = useMemo(() => {
     // Reduce particle density as the number of cables grows.
     const adaptiveParticlesPerCable = paths.length > 60 ? 2 : paths.length > 30 ? 2 : baseParticlesPerCable;
     const p: Particle[] = [];
@@ -59,6 +90,7 @@ export default function CableFlow({
         });
       }
     }
+    particlesRef.current = p;
 
     const geo = new THREE.BufferGeometry();
     const positions = new Float32Array(p.length * 3);
@@ -74,34 +106,22 @@ export default function CableFlow({
 
     geo.setAttribute("position", new THREE.BufferAttribute(positions, 3));
     geo.setAttribute("color", new THREE.BufferAttribute(colors, 3));
-    return { particles: p, geometry: geo, count: p.length };
+    return { geometry: geo, count: p.length };
   }, [paths, protocols, baseParticlesPerCable, intensities, theme]);
+
+  // Dispose previous geometry when a new one is created to avoid GPU memory leaks.
+  useEffect(() => {
+    return () => {
+      geometry.dispose();
+    };
+  }, [geometry]);
 
   useFrame((_, delta) => {
     if (!pointsRef.current) return;
     const positions = pointsRef.current.geometry.attributes.position
       .array as Float32Array;
 
-    for (let i = 0; i < particles.length; i++) {
-      const p = particles[i];
-      const path = paths[p.pathIndex];
-      if (!path || path.length < 2) continue;
-
-      p.t += delta * speed;
-      while (p.t >= 1) {
-        p.t -= 1;
-        p.pointIndex = (p.pointIndex + 1) % (path.length - 1);
-      }
-
-      const a = path[p.pointIndex];
-      const b = path[p.pointIndex + 1];
-      if (!a || !b) continue;
-
-      positions[i * 3] = a.x + (b.x - a.x) * p.t;
-      positions[i * 3 + 1] = a.y + (b.y - a.y) * p.t;
-      positions[i * 3 + 2] = a.z + (b.z - a.z) * p.t;
-    }
-
+    updateParticles(particlesRef.current, pathsRef.current, delta, speed, positions);
     pointsRef.current.geometry.attributes.position.needsUpdate = true;
   });
 
