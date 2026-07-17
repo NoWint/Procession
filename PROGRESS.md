@@ -83,7 +83,7 @@
   - D-502 status moved to done in PLAN.md; status counts updated.
 - Decisions:
   - UI Design System v2.0 becomes the binding spec for all future UI/UX work in Procession.
-- Commits: 26fea20
+- Commits: e7aa180
 - Files:
   - .docs/UI_DESIGN_SYSTEM.md (new)
   - .docs/assets/ui-wireframes.svg (new)
