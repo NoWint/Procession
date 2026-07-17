@@ -4,7 +4,7 @@
 
 ## Queue (process top-to-bottom)
 
-- [ ] trae-20260717-001 / branch wip/trae-20260717-001-F-003 / F-003 Global styles + main.tsx + index.html
+- [x] trae-20260717-001 / branch wip/trae-20260717-001-F-003 / F-003 Global styles + main.tsx + index.html — merged via b757536
 
 ---
 

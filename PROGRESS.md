@@ -17,7 +17,7 @@
   - Verified `npx tsc --noEmit` and `npm run build` both exit 0
   - Verified `npm run dev` serves at http://localhost:1420/ with no errors
 - Decisions: none
-- Commits: f82a812 (lock), <impl-sha>
+- Commits: f82a812 (lock), 8efd2af (impl), b757536 (merge)
 - Files: index.html (mod), src/styles/index.css (new), src/App.css (mod), src/App.tsx (mod), src/main.tsx (mod)
 - Next ready: F-004 (CityScene container) — hard dep F-003 now done
 - Notes: Installed node_modules locally (not committed). F-003 unblocks F-004, F-009, F-010, F-013.
