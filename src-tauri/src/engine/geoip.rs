@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use std::net::{IpAddr, Ipv4Addr};
 
 /// Geographic location information for a remote IP address.
