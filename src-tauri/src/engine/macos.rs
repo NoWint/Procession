@@ -142,7 +142,14 @@ impl PlatformAdapter for MacImpl {
         let usage: Vec<f64> = disks
             .list()
             .iter()
-            .map(|d| d.usage())
+            .map(|d| {
+                let total = d.total_space();
+                if total == 0 {
+                    0.0
+                } else {
+                    ((total - d.available_space()) as f64 / total as f64) * 100.0
+                }
+            })
             .collect();
         let avg_usage = if usage.is_empty() {
             0.0

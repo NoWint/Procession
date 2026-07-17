@@ -36,7 +36,38 @@
   - PLAN.md (mod)
   - PROGRESS.md (mod)
 - Next ready: D-401 (README + demo video), I-401 (Phase 4 full acceptance)
-- Notes: All Phase 4 backend tasks (B-401, B-402, B-403) done. Remaining Phase 4: D-401 (docs) + I-401 (acceptance).
+- Notes: All Phase 4 backend tasks (B-401, B-402, B-403) done. Remaining Phase 4: D-401 (docs) + I-401## Session Log
+
+### 2026-07-18 — Session #020 (integration, I-401 Phase 4 full acceptance, ~40min)
+- Track: integration
+- Task: D-401 (README + demo video) + I-401 (Phase 4 full acceptance)
+- Status: done
+- Summary:
+  - Pulled latest code from origin/main; fast-forwarded to `5aada45` which included B-401/B-402/B-403 from remote
+  - Drafted [README.md](./README.md) with hero description, feature list, install/build instructions, architecture overview, controls, and license
+  - Drafted [docs/demo.md](./docs/demo.md) with demo video placeholder, feature timestamps, screenshot list, and recording checklist
+  - Fixed compilation error in `src-tauri/src/engine/macos.rs`: `Disk::usage()` returns `DiskUsage` (read/write bytes), not a percentage; replaced with `(total - available) / total` calculation
+  - Mechanical acceptance passed:
+    - `npx tsc --noEmit` exit 0
+    - `npm run build` exit 0
+    - `cd src-tauri && cargo build` exit 0
+    - `cd src-tauri && cargo clippy -- -D warnings` exit 0
+    - `npm run tauri build` exit 0; produced `src-tauri/target/release/bundle/dmg/Procession_0.1.0_aarch64.dmg`
+  - Marked D-401 and I-401 done in PLAN.md
+  - Updated Current phase to 5 and Status Counts to pending 0 / done 45
+- Decisions:
+  - Demo video and hero screenshots remain placeholders; user can record locally and replace them before first public release
+  - macOS disk usage calculated from total/available space because sysinfo 0.33's `Disk::usage()` only reports I/O bytes
+- Commits: pending
+- Files:
+  - README.md (new)
+  - docs/demo.md (new)
+  - src-tauri/src/engine/macos.rs (fix)
+  - PLAN.md (mod)
+  - PROGRESS.md (mod)
+- Next ready: Expand Phase 5 task graph to step-level (current phase is now 5)
+- Notes: |
+    Phase 4 complete. The project enters Phase 5 — community-driven extensions and future features.
 
 ### 2026-07-18 — Session #019 (frontend, F-404 performance optimization, ~30min)
 - Track: frontend

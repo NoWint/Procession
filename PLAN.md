@@ -11,7 +11,7 @@
   - backend: `src-tauri/src/types.rs` (canonical — Rust owns the schema)
   - frontend: `src/utils/types.ts` (mirror — must stay in sync with backend)
 - Contract freeze: null    # null, or "I-XXX in progress, target vX.Y"
-- Current phase: 4
+- Current phase: 5
 - License: AGPL-3.0
 
 ## Track → Team Mapping (per D-002)
@@ -77,8 +77,8 @@ Constitution changes (STRATEGY/SPEC/ARCHITECTURE under `.docs/`) require a `D-*`
 | F-402 | Space-bar utility mode (labels + dashboard)        | 4     | done    | F-012                             | L         |
 | F-403 | Color theme system (user-selectable)               | 4     | done    | F-204                             | M         |
 | F-404 | Performance optimization (LOD, 1000+ processes)    | 4     | done    | F-008                             | XL        |
-| D-401 | README + demo video                                | 4     | pending | B-403, F-401, F-402               | M         |
-| I-401 | Phase 4 full acceptance                            | 4     | pending | B-401, B-402, B-403, F-401, F-402, F-403, F-404, D-401 | XL |
+| D-401 | README + demo video                                | 4     | done    | B-403, F-401, F-402               | M         |
+| I-401 | Phase 4 full acceptance                            | 4     | done    | B-401, B-402, B-403, F-401, F-402, F-403, F-404, D-401 | XL |
 
 ## Runtime Resources
 
@@ -90,9 +90,9 @@ Constitution changes (STRATEGY/SPEC/ARCHITECTURE under `.docs/`) require a `D-*`
 
 ## Status Counts
 
-- pending: 6
+- pending: 0
 - in_progress: 0
-- done: 43
+- done: 45
 - blocked: 0
 - failed: 0
 - stale: 0
