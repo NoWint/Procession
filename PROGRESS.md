@@ -4,6 +4,34 @@
 
 ## Session Log
 
+### 2026-07-17 — Session #006 (frontend, ~1h)
+- Track: frontend
+- Task: F-001 + F-002 + F-006 + F-007 + F-008 + F-011 + F-012 (all remaining frontend tasks)
+- Status: done
+- Summary:
+  - Created `src/utils/types.ts` — full TypeScript mirror of Rust contract (ProcessInfo, SystemSnapshot, etc.)
+  - Created `src/hooks/useSystemData.ts` — listens for `system-snapshot` Tauri events
+  - Created `src/utils/layout.ts` — `computePositions` radial/spiral layout + `cpuToHeight`
+  - Created `src/utils/colors.ts` — system/user/active/idle color palette
+  - Created `src/components/BuildingCluster.tsx` — InstancedMesh rendering up to 200 buildings with click handler
+  - Created `src/components/ProcessPopup.tsx` — HTML overlay for process details
+  - Rewrote `src/App.tsx` — composes CityScene, Atmosphere, CityGround, BuildingCluster, ProcessPopup, ErrorState
+  - Populated `src/App.css` with minimal app-level styles
+  - Verified `npx tsc --noEmit`, `npm run build`, and `cd src-tauri && cargo build` all exit 0
+- Decisions: none
+- Commits: 3ae9683, 6a6c0da, e2e41b0, 83a1798, ee4df75, 7fcef50, 36eb4e6
+- Files:
+  - src/utils/types.ts (new)
+  - src/hooks/useSystemData.ts (new)
+  - src/utils/layout.ts (new)
+  - src/utils/colors.ts (new)
+  - src/components/BuildingCluster.tsx (new)
+  - src/components/ProcessPopup.tsx (new)
+  - src/App.tsx (mod)
+  - src/App.css (mod)
+- Next ready: I-002 (E2E mock push → cube render), I-003 (Phase 1 full acceptance)
+- Notes: All frontend Phase 1 tasks complete. Visual behavioral checks remain limited by TRAE browser panel WebGL support; mechanical acceptance passed.
+
 ### 2026-07-17 — Session #005 (frontend, ~10min)
 - Track: frontend
 - Task: F-005 (TestCube)

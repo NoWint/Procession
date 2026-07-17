@@ -7,6 +7,7 @@
 - [x] trae-20260717-001 / branch wip/trae-20260717-001-F-003 / F-003 Global styles + main.tsx + index.html — merged via b757536
 - [x] trae-20260717-002 / branch wip/trae-20260717-002-frontend-batch / F-004 + F-009 + F-010 + F-013 parallel frontend batch — merged via c4b7510
 - [x] trae-20260717-003 / branch wip/trae-20260717-003-F-005 / F-005 TestCube — merged via bc6c46f
+- [ ] trae-20260717-004 / branch wip/trae-20260717-004-frontend-all / F-001 + F-002 + F-006 + F-007 + F-008 + F-011 + F-012 — pending merge
 
 ---
 
