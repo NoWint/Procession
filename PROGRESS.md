@@ -23,7 +23,7 @@
     - `cd src-tauri && cargo test` — 5 tests passed
   - Behavioral checks (visual) limited by TRAE browser panel WebGL support; Tauri dev console showed no errors
 - Decisions: none
-- Commits: 65ef6f5
+- Commits: 65ef6f5 (I-002/I-003 fixes), 259ffc6 (milestone: Phase 1 acceptance passed)
 - Files:
   - src/components/TestCube.tsx (mod)
   - src-tauri/src/bridge/cache.rs (mod)
