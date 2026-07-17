@@ -95,8 +95,10 @@ Constitution changes (STRATEGY/SPEC/ARCHITECTURE under `.docs/`) require a `D-*`
 | F-505 | Screensaver / kiosk mode (fullscreen, auto-rotate) | 5     | pending | F-401                             | S         |
 | F-506 | Screenshot / GIF sharing                          | 5     | pending | F-401                             | M         |
 | D-501 | Plugin development guide                          | 5     | pending | B-504                             | M         |
-| D-502 | UI Design System v1.0 document                    | 5     | pending | F-403                             | M         |
-| I-501 | Phase 5 full acceptance                           | 5     | pending | B-501, B-502, B-503, B-504, F-501, F-502, F-503, F-504, F-505, F-506, D-501, D-502 | XL |
+| D-502 | UI Design System v1.0 document                    | 5     | done    | F-403                             | M         |
+| D-503 | 3D World Generation Design document               | 5     | done    | D-502                             | L         |
+| D-504 | Visual Effects Design document                    | 5     | done    | D-502                             | L         |
+| I-501 | Phase 5 full acceptance                           | 5     | pending | B-501, B-502, B-503, B-504, F-501, F-502, F-503, F-504, F-505, F-506, D-501, D-502, D-503, D-504 | XL |
 
 ## Runtime Resources
 
@@ -110,7 +112,7 @@ Constitution changes (STRATEGY/SPEC/ARCHITECTURE under `.docs/`) require a `D-*`
 
 - pending: 8
 - in_progress: 0
-- done: 49
+- done: 51
 - blocked: 0
 - failed: 0
 - stale: 0
@@ -3806,12 +3808,106 @@ Per SKILL.md §6 Granularity Rule: future phases are milestone-level only. Expan
 ```
 
 ```yaml
+- id: D-503
+  track: docs
+  title: "3D World Generation Design document"
+  phase: 5
+  depends_on:
+    hard: [D-502]
+    soft: []
+  blocks: [I-501]
+  contract_refs: []
+  files_allowed_to_touch:
+    - .docs/WORLD_GENERATION_DESIGN.md
+  forbidden:
+    - src/**
+    - src-tauri/src/**
+  estimated_complexity: L
+  requires_user_approval: true
+  acceptance:
+    mechanical:
+      - ".docs/WORLD_GENERATION_DESIGN.md renders without markdown lint errors"
+    existence:
+      - ".docs/WORLD_GENERATION_DESIGN.md exists"
+      - "Document includes sections: principles, spatial layers, data mapping, procedural generation, lifecycle, camera, time system, performance, implementation path"
+      - "Document links to UI_DESIGN_SYSTEM.md, ARCHITECTURE.md, SPEC.md"
+    behavioral:
+      - "User reviews and approves the design document"
+      - "No contradictions with existing ARCHITECTURE.md or SPEC.md"
+  status: done
+  owner: null
+  owner_started_at: null
+  retry_count: 0
+  linked_blocker: null
+  resume_hint: |
+    1. Read PLAN.md#D-503 (this task)
+    2. Read .docs/WORLD_GENERATION_DESIGN.md
+    3. Get user approval on the design document
+    4. If changes requested, edit .docs/WORLD_GENERATION_DESIGN.md and re-verify
+    5. Commit: 'docs(world): 3D World Generation Design v1.0 (D-503)'
+  steps:
+    - "Step 1: Draft World Generation Design document in .docs/WORLD_GENERATION_DESIGN.md"
+    - "Step 2: Self-review for placeholders, contradictions, ambiguity, scope issues"
+    - "Step 3: Present document to user for approval"
+    - "Step 4: After approval, commit and push"
+  handoff_notes: ""
+  notes: "requires_user_approval because this document defines the core world-generation vision."
+```
+
+```yaml
+- id: D-504
+  track: docs
+  title: "Visual Effects Design document"
+  phase: 5
+  depends_on:
+    hard: [D-502]
+    soft: []
+  blocks: [I-501]
+  contract_refs: []
+  files_allowed_to_touch:
+    - .docs/VFX_DESIGN.md
+  forbidden:
+    - src/**
+    - src-tauri/src/**
+  estimated_complexity: L
+  requires_user_approval: true
+  acceptance:
+    mechanical:
+      - ".docs/VFX_DESIGN.md renders without markdown lint errors"
+    existence:
+      - ".docs/VFX_DESIGN.md exists"
+      - "Document includes sections: principles, lighting, data flow, materials, particles, weather, shaders, post-processing, sound, performance, implementation path"
+      - "Document links to WORLD_GENERATION_DESIGN.md, UI_DESIGN_SYSTEM.md, ARCHITECTURE.md"
+    behavioral:
+      - "User reviews and approves the design document"
+      - "No contradictions with existing color system in UI_DESIGN_SYSTEM.md"
+  status: done
+  owner: null
+  owner_started_at: null
+  retry_count: 0
+  linked_blocker: null
+  resume_hint: |
+    1. Read PLAN.md#D-504 (this task)
+    2. Read .docs/VFX_DESIGN.md
+    3. Get user approval on the design document
+    4. If changes requested, edit .docs/VFX_DESIGN.md and re-verify
+    5. Commit: 'docs(vfx): Visual Effects Design v1.0 (D-504)'
+  steps:
+    - "Step 1: Draft VFX Design document in .docs/VFX_DESIGN.md"
+    - "Step 2: Self-review for placeholders, contradictions, ambiguity, scope issues"
+    - "Step 3: Present document to user for approval"
+    - "Step 4: After approval, commit and push"
+  handoff_notes: ""
+  notes: "requires_user_approval because this document defines the visual language for the digital civilization."
+```
+
+```yaml
 - id: I-501
   track: integration
   title: "Phase 5 full acceptance"
   phase: 5
   depends_on:
-    hard: [B-501, B-502, B-503, B-504, F-501, F-502, F-503, F-504, F-505, F-506, D-501]
+    hard: [B-501, B-502, B-503, B-504, F-501, F-502, F-503, F-504, F-505, F-506, D-501, D-502, D-503, D-504]
     soft: []
   blocks: []
   contract_refs: []

@@ -4,6 +4,30 @@
 
 ## Session Log
 
+### 2026-07-18 08:42 — Session #024 (docs, D-503 + D-504 World Generation & VFX Design, ~55min)
+- Track: docs
+- Task: D-503 (3D World Generation Design), D-504 (Visual Effects Design)
+- Status: done
+- Summary:
+  - Drafted and user-approved .docs/WORLD_GENERATION_DESIGN.md v1.0 based on the digital-civilization prompt and existing ARCHITECTURE/SPEC constraints.
+  - Defined four-layer spatial structure: Universe → Civilization → District → Architecture.
+  - Specified data-to-civilization mapping, procedural generation algorithms, building lifecycle (birth/operation/death), cinematic camera system, and time-travel history system.
+  - Drafted and user-approved .docs/VFX_DESIGN.md v1.0 defining lighting, data flow, materials, GPU particles, weather system, shaders, post-processing, and sound linkage.
+  - Aligned both documents with UI_DESIGN_SYSTEM.md color palette (electric cyan / cold blue / amber / deep red on dark graphite).
+  - Registered D-503 and D-504 in PLAN.md Phase 5; updated D-502/D-503/D-504 status to done, I-501 dependencies, and status counts.
+- Decisions:
+  - World generation and VFX treated as constitution-level design specs requiring user approval.
+  - Building materials mapped to process types: ceramic for kernel, crystal for browsers, liquid-metal-edged titanium for dev tools, organic-geometric for games.
+  - Post-processing stack keeps Bloom restrained (strength 0.25, threshold 0.75) to avoid cheap cyberpunk look.
+- Commits: c82939d
+- Files:
+  - .docs/WORLD_GENERATION_DESIGN.md (new)
+  - .docs/VFX_DESIGN.md (new)
+  - PLAN.md (mod)
+  - PROGRESS.md (mod)
+- Next ready: Frontend implementation F-501..F-506 unblocked after user approval of both documents.
+- Notes: Both documents include implementation paths linking to existing CityScene, BuildingCluster, Atmosphere, and NetworkCables components.
+
 ### 2026-07-18 — Session #023 (backend, B-504 plugin API, ~30min)
 - Track: backend
 - Task: B-504 (Plugin command API)
