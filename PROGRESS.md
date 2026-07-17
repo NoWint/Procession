@@ -4,6 +4,23 @@
 
 ## Session Log
 
+### 2026-07-17 — Session #005 (frontend, ~10min)
+- Track: frontend
+- Task: F-005 (TestCube)
+- Status: done
+- Summary:
+  - Created `src/components/TestCube.tsx` with 5 mock processes
+  - Cubes heights proportional to mock CPU values (cpu% / 10)
+  - Verified `npx tsc --noEmit` exits 0
+  - Verified `npm run dev` starts without Vite/React errors
+  - Browser visual check blocked by TRAE browser panel WebGL unavailability
+- Decisions: none
+- Commits: 3d721a2
+- Files:
+  - src/components/TestCube.tsx (new)
+- Next ready: F-001 (frontend types mirror, B-001 done), I-002 (E2E mock push → cube render, depends on F-005 + B-004)
+- Notes: Behavioral acceptance (5 visible cubes) could not be fully verified because the browser panel failed to acquire a WebGL context; the implementation matches PLAN.md#F-005 step-by-step.
+
 ### 2026-07-17 — Session #004 (backend, code review fixes, ~1h)
 - Track: backend
 - Task: Code review fixup (B-001..B-008 post-review corrections)
