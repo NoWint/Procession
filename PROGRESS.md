@@ -27,7 +27,7 @@
 - Decisions:
   - F-205 visual direction approved by user: dark mode = Monument Valley Noir (black/white), light mode = Monument Valley Light
   - Non-Windows platforms use `MockAdapter` automatically so frontend development can proceed without Windows APIs
-- Commits: (pending)
+- Commits: c45aec9
 - Files:
   - src/utils/theme.ts (new)
   - src/utils/layout.ts (mod)
