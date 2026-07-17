@@ -19,7 +19,7 @@
   - Populated `src/App.css` with minimal app-level styles
   - Verified `npx tsc --noEmit`, `npm run build`, and `cd src-tauri && cargo build` all exit 0
 - Decisions: none
-- Commits: 3ae9683, 6a6c0da, e2e41b0, 83a1798, ee4df75, 7fcef50, 36eb4e6
+- Commits: 3ae9683 (types), 6a6c0da (hook), e2e41b0 (layout), 83a1798 (colors), ee4df75 (BuildingCluster), 7fcef50 (ProcessPopup), 36eb4e6 (App integration), e1a8a9c (handoff), 33b71f5 (merge), 3ef43ad (merge queue update)
 - Files:
   - src/utils/types.ts (new)
   - src/hooks/useSystemData.ts (new)
