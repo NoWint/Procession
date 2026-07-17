@@ -47,16 +47,16 @@ Constitution changes (STRATEGY/SPEC/ARCHITECTURE under `.docs/`) require a `D-*`
 | F-001 | Frontend types mirror (`types.ts`)                | 1     | pending | B-001                 | S         |
 | F-002 | `useSystemData` hook (Tauri event → state)        | 1     | pending | F-001                 | M         |
 | F-003 | Global styles + `main.tsx` + `index.html`         | 1     | done    | I-001                 | S         |
-| F-004 | `CityScene` container (R3F + camera + lights)      | 1     | pending | F-003                 | M         |
+| F-004 | `CityScene` container (R3F + camera + lights)      | 1     | done    | F-003                 | M         |
 | F-005 | `TestCube` (cube height driven by mock CPU)        | 1     | pending | F-004                 | S         |
 | F-006 | `layout.ts` (`computePositions` algorithm)         | 1     | pending | F-001                 | M         |
 | F-007 | `colors.ts` (system/user/active color system)      | 1     | pending | F-001                 | S         |
 | F-008 | `BuildingCluster` (`InstancedMesh`) — bottleneck   | 1     | pending | F-006, F-007          | L         |
-| F-009 | `CityGround` (glowing grid)                        | 1     | pending | F-004                 | M         |
-| F-010 | `Atmosphere` (particles + `UnrealBloomPass`)       | 1     | pending | F-004                 | M         |
+| F-009 | `CityGround` (glowing grid)                        | 1     | done    | F-004                 | M         |
+| F-010 | `Atmosphere` (particles + `UnrealBloomPass`)       | 1     | done    | F-004                 | M         |
 | F-011 | `ProcessPopup` (process detail HTML overlay)       | 1     | pending | F-001                 | M         |
 | F-012 | `App.tsx` integration (compose all) — bottleneck  | 1     | pending | F-005, F-008, F-009, F-010, F-011, F-013 | L |
-| F-013 | Error state UI (IPC timeout + empty state)         | 1     | pending | F-003                 | S         |
+| F-013 | Error state UI (IPC timeout + empty state)         | 1     | done    | F-003                 | S         |
 
 ### Integration (I-*) — jointly owned
 
@@ -76,9 +76,9 @@ Constitution changes (STRATEGY/SPEC/ARCHITECTURE under `.docs/`) require a `D-*`
 
 ## Status Counts
 
-- pending: 22
+- pending: 18
 - in_progress: 0
-- done: 2
+- done: 6
 - blocked: 0
 - failed: 0
 - stale: 0
@@ -879,7 +879,7 @@ Constitution changes (STRATEGY/SPEC/ARCHITECTURE under `.docs/`) require a `D-*`
       - "grep 'perspectiveCamera' src/components/CityScene.tsx ≥ 1 OR grep '<perspectiveCamera' src/components/CityScene.tsx ≥ 1 OR (camera is default)"
     behavioral:
       - "Render <CityScene /> in App.tsx temporarily, run `npm run dev`, verify a black 3D scene renders with camera responsive to mouse drag (OrbitControls)"
-  status: pending
+  status: done
   owner: null
   owner_started_at: null
   retry_count: 0
@@ -1183,7 +1183,7 @@ Constitution changes (STRATEGY/SPEC/ARCHITECTURE under `.docs/`) require a `D-*`
     behavioral:
       - "Render CityGround inside CityScene, verify a glowing grid plane is visible at y=0, semi-transparent, extends at least 50 units in each direction"
       - "Grid color matches project palette (subtle blue/cyan glow on dark background)"
-  status: pending
+  status: done
   owner: null
   owner_started_at: null
   retry_count: 0
@@ -1244,7 +1244,7 @@ Constitution changes (STRATEGY/SPEC/ARCHITECTURE under `.docs/`) require a `D-*`
     behavioral:
       - "Render Atmosphere inside CityScene, verify floating particles visible in background"
       - "Bloom effect visible: bright objects (high-CPU buildings) have a soft glow halo"
-  status: pending
+  status: done
   owner: null
   owner_started_at: null
   retry_count: 0
@@ -1436,7 +1436,7 @@ Constitution changes (STRATEGY/SPEC/ARCHITECTURE under `.docs/`) require a `D-*`
     behavioral:
       - "Render ErrorState with message='Failed to receive data', verify centered text with retry button visible"
       - "Component is presentational (pure): given a message prop, displays it"
-  status: pending
+  status: done
   owner: null
   owner_started_at: null
   retry_count: 0
