@@ -4,6 +4,23 @@
 
 ## Session Log
 
+### 2026-07-17 — Session #008 (docs / Phase 2 planning, ~20min)
+- Track: docs
+- Task: Expand Phase 2 task graph in PLAN.md
+- Status: done
+- Summary:
+  - Expanded Phase 2 milestone outline into step-level task definitions per SKILL.md §6 Granularity Rule
+  - Added 9 new Phase 2 tasks: B-201, F-201, F-202, F-203, F-204, F-205, F-206, F-207, I-201
+  - Captured user visual-design intent: dark matte ceramic environment, Songti/serif headings, rounded corners, restrained motion
+  - Marked F-205 (Visual design system) as `requires_user_approval: true`
+  - Updated PLAN.md Status Counts: pending 9, done 24
+- Decisions: none
+- Commits: 9b633e9
+- Files:
+  - PLAN.md (mod)
+- Next ready: B-201 (backend), F-201/F-202/F-203/F-204/F-205/F-206/F-207 (frontend, all deps done)
+- Notes: Phase 2 task graph is now fully expanded. Ready for track execution. F-205 requires user approval before starting.
+
 ### 2026-07-17 — Session #007 (integration / Phase 1 acceptance, ~30min)
 - Track: integration
 - Task: I-002 + I-003 (Phase 1 milestone acceptance)

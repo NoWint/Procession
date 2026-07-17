@@ -76,7 +76,7 @@ Constitution changes (STRATEGY/SPEC/ARCHITECTURE under `.docs/`) require a `D-*`
 
 ## Status Counts
 
-- pending: 0
+- pending: 9
 - in_progress: 0
 - done: 24
 - blocked: 0
@@ -1597,19 +1597,518 @@ Constitution changes (STRATEGY/SPEC/ARCHITECTURE under `.docs/`) require a `D-*`
 
 Per SKILL.md §6 Granularity Rule: future phases are milestone-level only. Expand to step-level when Phase N-1 completes.
 
-### Phase 2 — 城市初现 · "让建筑群有逻辑"
+### Phase 2 — 城市初现 · "让建筑群有逻辑且有质感"
 
-**Goal:** Real data drives city layout; InstancedMesh renders hundreds of buildings efficiently.
+**Goal:** Real data drives city layout; InstancedMesh renders hundreds of buildings efficiently; visual design establishes a quiet, matte-ceramic digital atmosphere with intentional light, color, and motion.
 
-**Milestone tasks (will become F-* / B-* / I-* when expanded):**
-- B-201: Real network connection list (Windows API) — backend
-- F-201: Process tree layout algorithm (replace F-006 radial with tree-radial hybrid) — frontend
-- F-202: Building color refinement (active state glow pulse) — frontend
-- F-203: Camera interactions (OrbitControls + double-click fly-to) — frontend
-- F-204: Color theme JSON loader — frontend
-- I-201: Phase 2 full acceptance (200+ buildings, fly-to working)
+**Visual design direction (from user intent):**
+- Avoid beige canvas, paper texture, or website-like hero layouts.
+- Prefer a dark matte ceramic digital environment where the 3D city feels like a quiet digital architecture.
+- Use rounded corners and restrained motion for UI overlays; reserve high contrast for active process states.
+- Typography: Songti/serif for headings and key labels, monospace for data; clean sans-serif for body only if needed.
+- Light scheme is acceptable for overlay panels, but the 3D world should remain moody and atmospheric.
 
-**Acceptance criterion:** Open Chrome / run Node → city buildings 'grow and glow'; click building → details popup.
+**Phase 2 Task Index (expanded):**
+
+| ID    | Title                                              | Phase | Status  | Deps                              | Complexity |
+|-------|----------------------------------------------------|-------|---------|-----------------------------------|-----------|
+| B-201 | Real network connection list (Windows API)        | 2     | pending | B-005                             | M         |
+| F-201 | Process tree layout algorithm                      | 2     | pending | F-006                             | L         |
+| F-202 | Building color refinement + active glow pulse      | 2     | pending | F-007, F-008                      | M         |
+| F-203 | Camera interactions (OrbitControls + fly-to)       | 2     | pending | F-004, F-012                      | M         |
+| F-204 | Color theme JSON loader                            | 2     | pending | F-007                             | S         |
+| F-205 | Visual design system (palette, typography, materials) | 2 | pending | F-012                         | M         |
+| F-206 | Building hover / focus / selection states          | 2     | pending | F-008, F-011                      | M         |
+| F-207 | Loading, empty, and error state polish             | 2     | pending | F-013                             | S         |
+| I-201 | Phase 2 full acceptance                            | 2     | pending | B-201, F-201, F-202, F-203, F-205 | L         |
+
+**Acceptance criterion:** Open Chrome / run Node → city buildings 'grow and glow'; click or hover a building → details popup with refined typography; camera can smoothly fly to a selected process; theme loads from JSON; ≥ 30fps with 200+ buildings.
+
+### Phase 2 Task Definitions
+
+```yaml
+- id: B-201
+  track: backend
+  title: "Real network connection list (Windows API)"
+  phase: 2
+  depends_on:
+    hard: [B-005]
+    soft: []
+  blocks: [I-201]
+  contract_refs: [src-tauri/src/types.rs]
+  files_allowed_to_touch:
+    - src-tauri/src/engine/windows.rs
+    - src-tauri/src/engine/platform.rs
+  forbidden:
+    - src/**
+    - src-tauri/src/types.rs
+    - src-tauri/src/bridge/**
+  estimated_complexity: M
+  requires_user_approval: false
+  acceptance:
+    mechanical:
+      - "cd src-tauri && cargo build exits 0"
+      - "cd src-tauri && cargo clippy -- -D warnings exits 0"
+    existence:
+      - "WindowsImpl::get_network returns real Connection structs from Windows APIs"
+      - "connections vector length > 0 when network is active"
+    behavioral:
+      - "Run app on Windows with browser open → snapshot.network.connections contains entries with local_addr, remote_addr, state, protocol"
+  status: pending
+  owner: null
+  owner_started_at: null
+  retry_count: 0
+  linked_blocker: null
+  resume_hint: |
+    1. Read PLAN.md#B-201
+    2. Verify B-005 done (WindowsImpl CPU/memory/process exists)
+    3. Use Windows GetExtendedTcpTable / GetExtendedUdpTable or sysinfo network APIs
+    4. Map protocol string to 'TCP' | 'UDP' | 'Other'
+    5. Run cargo build + cargo clippy
+  steps:
+    - "Step 1: Add get_network implementation to WindowsImpl"
+    - "Step 2: Populate Connection { pid, local_addr, remote_addr, state, protocol }"
+    - "Step 3: Update mock adapter if needed to keep parity"
+    - "Step 4: Verify cargo build && cargo clippy -- -D warnings"
+    - "Step 5: Commit: 'feat(backend): add real Windows network connection list'"
+  handoff_notes: ""
+  notes: "Enables Phase 2 acceptance where cables between buildings can reflect real connections."
+```
+
+```yaml
+- id: F-201
+  track: frontend
+  title: "Process tree layout algorithm"
+  phase: 2
+  depends_on:
+    hard: [F-006]
+    soft: []
+  blocks: [I-201]
+  contract_refs: []
+  files_allowed_to_touch:
+    - src/utils/layout.ts
+  forbidden:
+    - src-tauri/**
+    - src/components/**
+    - src/hooks/**
+    - src/utils/types.ts
+    - src/utils/colors.ts
+  estimated_complexity: L
+  requires_user_approval: false
+  acceptance:
+    mechanical:
+      - "npx tsc --noEmit exits 0"
+    existence:
+      - "src/utils/layout.ts exports computePositions and computeTreePositions"
+      - "BuildingPosition interface includes parentPid?: number"
+    behavioral:
+      - "Child processes cluster near their parent; root processes (lowest ppid) near origin"
+      - "No overlapping buildings within radius 1.0"
+      - "500 processes compute in < 20ms"
+  status: pending
+  owner: null
+  owner_started_at: null
+  retry_count: 0
+  linked_blocker: null
+  resume_hint: |
+    1. Read PLAN.md#F-201
+    2. Verify F-006 done (computePositions exists)
+    3. Read .docs/SPEC.md §布局 (if exists)
+    4. Implement tree-radial hybrid: group by ppid, then radial layout within each group
+  steps:
+    - "Step 1: Add parentPid?: number to BuildingPosition"
+    - "Step 2: Implement computeTreePositions(processes, maxBuildings = 200)"
+    - "Step 3: Group processes by ppid; place root group at center; child groups on concentric rings"
+    - "Step 4: Sort within group by cpu for visual hierarchy"
+    - "Step 5: Add unit test in comment block or __tests__"
+    - "Step 6: Run npx tsc --noEmit"
+    - "Step 7: Commit: 'feat(frontend): add process tree layout algorithm'"
+  handoff_notes: ""
+  notes: "Replaces pure radial layout with semantic process-tree grouping."
+```
+
+```yaml
+- id: F-202
+  track: frontend
+  title: "Building color refinement + active glow pulse"
+  phase: 2
+  depends_on:
+    hard: [F-007, F-008]
+    soft: []
+  blocks: [I-201]
+  contract_refs: []
+  files_allowed_to_touch:
+    - src/utils/colors.ts
+    - src/components/BuildingCluster.tsx
+    - src/shaders/buildingGlow.* (optional)
+  forbidden:
+    - src-tauri/**
+    - src/utils/types.ts
+    - src/utils/layout.ts
+    - src/hooks/**
+    - src/App.tsx
+  estimated_complexity: M
+  requires_user_approval: false
+  acceptance:
+    mechanical:
+      - "npx tsc --noEmit exits 0"
+      - "npm run build exits 0"
+    existence:
+      - "colorForProcess uses state and cpu"
+      - "BuildingCluster updates emissive color for active processes"
+    behavioral:
+      - "Active processes (cpu > 50%) show pulsing emissive glow"
+      - "Sleeping/stopped/zombie states have distinct muted colors"
+      - "Glow animation does not drop FPS below 30 on 200 instances"
+  status: pending
+  owner: null
+  owner_started_at: null
+  retry_count: 0
+  linked_blocker: null
+  resume_hint: |
+    1. Read PLAN.md#F-202
+    2. Verify F-007 and F-008 done
+    3. Extend COLORS with state-aware palette
+    4. Use useFrame in BuildingCluster to pulse emissive intensity
+  steps:
+    - "Step 1: Extend COLORS in colors.ts with Running/Sleeping/Stopped/Zombie variants"
+    - "Step 2: Update colorForProcess to weigh state + cpu"
+    - "Step 3: In BuildingCluster, store base colors and apply time-based emissive pulse for high-CPU instances"
+    - "Step 4: Use meshStandardMaterial.emissive for glow (no custom shader needed for Phase 2)"
+    - "Step 5: Verify FPS with 200 mock processes"
+    - "Step 6: Commit: 'feat(frontend): building colors, state awareness, active glow pulse'"
+  handoff_notes: ""
+  notes: "Foundation of the 'grow and glow' acceptance criterion."
+```
+
+```yaml
+- id: F-203
+  track: frontend
+  title: "Camera interactions (OrbitControls + fly-to)"
+  phase: 2
+  depends_on:
+    hard: [F-004, F-012]
+    soft: []
+  blocks: [I-201]
+  contract_refs: []
+  files_allowed_to_touch:
+    - src/components/CityScene.tsx
+    - src/components/CameraController.tsx (new)
+    - src/App.tsx
+  forbidden:
+    - src-tauri/**
+    - src/utils/**
+    - src/hooks/**
+    - src/components/BuildingCluster.tsx
+  estimated_complexity: M
+  requires_user_approval: false
+  acceptance:
+    mechanical:
+      - "npx tsc --noEmit exits 0"
+    existence:
+      - "CameraController component exists"
+      - "CityScene accepts cameraTarget prop or CameraController as child"
+    behavioral:
+      - "Double-click a building → camera smoothly pans/zooms to that building"
+      - "OrbitControls remain usable during and after fly-to"
+      - "Fly-to completes in ~0.8s with ease-out"
+  status: pending
+  owner: null
+  owner_started_at: null
+  retry_count: 0
+  linked_blocker: null
+  resume_hint: |
+    1. Read PLAN.md#F-203
+    2. Verify F-004 and F-012 done
+    3. Use @react-three/drei/useFrame + Vector3.lerp for fly-to
+  steps:
+    - "Step 1: Create src/components/CameraController.tsx"
+    - "Step 2: Accept target: { x, y, z } | null prop"
+    - "Step 3: Use useFrame to lerp camera position and lookAt toward target"
+    - "Step 4: Wire App.tsx selectedProcess → cameraTarget via layout position lookup"
+    - "Step 5: Trigger fly-to on building double-click"
+    - "Step 6: Commit: 'feat(frontend): add camera fly-to interaction'"
+  handoff_notes: ""
+  notes: ""
+```
+
+```yaml
+- id: F-204
+  track: frontend
+  title: "Color theme JSON loader"
+  phase: 2
+  depends_on:
+    hard: [F-007]
+    soft: []
+  blocks: [I-201]
+  contract_refs: []
+  files_allowed_to_touch:
+    - src/utils/theme.ts (new)
+    - src/utils/colors.ts
+    - public/themes/default.json (new)
+  forbidden:
+    - src-tauri/**
+    - src/components/**
+    - src/hooks/**
+    - src/utils/types.ts
+    - src/utils/layout.ts
+  estimated_complexity: S
+  requires_user_approval: false
+  acceptance:
+    mechanical:
+      - "npx tsc --noEmit exits 0"
+    existence:
+      - "src/utils/theme.ts exists"
+      - "public/themes/default.json exists"
+      - "loadTheme(url) async function exists"
+    behavioral:
+      - "loadTheme('/themes/default.json') returns a theme object matching COLORS shape"
+      - "Invalid JSON rejects gracefully with fallback to built-in COLORS"
+  status: pending
+  owner: null
+  owner_started_at: null
+  retry_count: 0
+  linked_blocker: null
+  resume_hint: |
+    1. Read PLAN.md#F-204
+    2. Verify F-007 done
+    3. Define Theme interface matching COLORS + background + accent
+  steps:
+    - "Step 1: Define Theme interface in theme.ts"
+    - "Step 2: Create public/themes/default.json with dark matte-ceramic palette"
+    - "Step 3: Implement async loadTheme(url): Promise<Theme> with fetch + fallback"
+    - "Step 4: Use loaded theme in colors.ts/colorForProcess (optional: refactor to accept theme)"
+    - "Step 5: Run npx tsc --noEmit"
+    - "Step 6: Commit: 'feat(frontend): add color theme JSON loader'"
+  handoff_notes: ""
+  notes: "Prepares for user-selectable themes in Phase 4."
+```
+
+```yaml
+- id: F-205
+  track: frontend
+  title: "Visual design system (palette, typography, materials)"
+  phase: 2
+  depends_on:
+    hard: [F-012]
+    soft: []
+  blocks: [I-201]
+  contract_refs: []
+  files_allowed_to_touch:
+    - src/styles/index.css
+    - src/App.css
+    - src/utils/theme.ts
+    - public/themes/default.json
+  forbidden:
+    - src-tauri/**
+    - src/components/**
+    - src/hooks/**
+    - src/utils/types.ts
+    - src/utils/layout.ts
+    - src/utils/colors.ts
+  estimated_complexity: M
+  requires_user_approval: true
+  acceptance:
+    mechanical:
+      - "npx tsc --noEmit exits 0"
+      - "npm run build exits 0"
+    existence:
+      - "CSS variables for background, surface, text, accent, system/user/active/idle colors"
+      - "font-family stack uses Songti/serif for headings and monospace for data"
+      - "public/themes/default.json defines the complete visual theme"
+    behavioral:
+      - "App renders with the new theme applied (no visible beige/paper textures)"
+      - "ProcessPopup uses rounded corners, subtle border, and theme colors"
+      - "ErrorState uses theme colors instead of hard-coded values"
+  status: pending
+  owner: null
+  owner_started_at: null
+  retry_count: 0
+  linked_blocker: null
+  resume_hint: |
+    1. Read PLAN.md#F-205
+    2. Verify F-012 done
+    3. Review user memory: dark matte ceramic, Song font for headings, rounded corners, avoid website-like hero
+    4. Audit all components for hard-coded colors and replace with CSS variables or theme tokens
+  steps:
+    - "Step 1: Define CSS custom properties in src/styles/index.css for the dark matte-ceramic theme"
+    - "Step 2: Update src/App.css to use theme variables"
+    - "Step 3: Refactor ErrorState.tsx to use theme variables (within F-205 files_allowed_to_touch scope if editing CSS only; otherwise create follow-up F-207)"
+    - "Step 4: Refactor ProcessPopup inline styles to use theme tokens via CSS class or style helper"
+    - "Step 5: Create public/themes/default.json matching CSS variables"
+    - "Step 6: Run npx tsc --noEmit && npm run build"
+    - "Step 7: Commit: 'feat(frontend): establish visual design system'"
+  handoff_notes: ""
+  notes: "This task requires user approval because it defines the long-term visual identity of the app."
+```
+
+```yaml
+- id: F-206
+  track: frontend
+  title: "Building hover / focus / selection states"
+  phase: 2
+  depends_on:
+    hard: [F-008, F-011]
+    soft: []
+  blocks: [I-201]
+  contract_refs: []
+  files_allowed_to_touch:
+    - src/components/BuildingCluster.tsx
+    - src/components/ProcessPopup.tsx
+  forbidden:
+    - src-tauri/**
+    - src/utils/**
+    - src/hooks/**
+    - src/App.tsx
+    - src/styles/**
+  estimated_complexity: M
+  requires_user_approval: false
+  acceptance:
+    mechanical:
+      - "npx tsc --noEmit exits 0"
+    existence:
+      - "BuildingCluster exposes onHover and onSelect props"
+      - "Hovered instance gets emissive highlight"
+    behavioral:
+      - "Hovering a building highlights it without selecting"
+      - "Clicking a building opens ProcessPopup with that process"
+      - "Selected building stays highlighted while popup is open"
+      - "Popup closes on × or Escape key"
+  status: pending
+  owner: null
+  owner_started_at: null
+  retry_count: 0
+  linked_blocker: null
+  resume_hint: |
+    1. Read PLAN.md#F-206
+    2. Verify F-008 and F-011 done
+    3. Add onPointerOver/onPointerOut to instancedMesh
+    4. Track hoveredInstanceId and selectedPid in local state
+  steps:
+    - "Step 1: Add hover handlers to BuildingCluster instancedMesh"
+    - "Step 2: Apply temporary emissive boost to hovered instance"
+    - "Step 3: Pass selectedPid prop to keep selected building highlighted"
+    - "Step 4: Add Escape key listener to close ProcessPopup"
+    - "Step 5: Run npx tsc --noEmit"
+    - "Step 6: Commit: 'feat(frontend): building hover, focus, selection states'"
+  handoff_notes: ""
+  notes: ""
+```
+
+```yaml
+- id: F-207
+  track: frontend
+  title: "Loading, empty, and error state polish"
+  phase: 2
+  depends_on:
+    hard: [F-013]
+    soft: []
+  blocks: [I-201]
+  contract_refs: []
+  files_allowed_to_touch:
+    - src/components/ErrorState.tsx
+    - src/App.tsx
+    - src/App.css
+  forbidden:
+    - src-tauri/**
+    - src/components/CityScene.tsx
+    - src/components/BuildingCluster.tsx
+    - src/hooks/**
+    - src/utils/**
+  estimated_complexity: S
+  requires_user_approval: false
+  acceptance:
+    mechanical:
+      - "npx tsc --noEmit exits 0"
+    existence:
+      - "ErrorState accepts className or style props"
+      - "App.tsx distinguishes loading / timeout / empty process list"
+    behavioral:
+      - "Loading state shows subtle animation (e.g., pulsing dots or fade)"
+      - "Timeout state shows retry button with theme styling"
+      - "Empty process list shows friendly message instead of blank canvas"
+  status: pending
+  owner: null
+  owner_started_at: null
+  retry_count: 0
+  linked_blocker: null
+  resume_hint: |
+    1. Read PLAN.md#F-207
+    2. Verify F-013 done
+    3. Enhance ErrorState with optional className and animation
+    4. Handle snapshot.processes.length === 0 in App.tsx
+  steps:
+    - "Step 1: Refactor ErrorState to accept optional className and render pulsing loader"
+    - "Step 2: Update App.tsx empty-state branch"
+    - "Step 3: Apply theme variables via App.css"
+    - "Step 4: Run npx tsc --noEmit"
+    - "Step 5: Commit: 'feat(frontend): polish loading, empty, and error states'"
+  handoff_notes: ""
+  notes: ""
+```
+
+```yaml
+- id: I-201
+  track: integration
+  title: "Phase 2 full acceptance"
+  phase: 2
+  depends_on:
+    hard: [B-201, F-201, F-202, F-203, F-205]
+    soft: [F-204, F-206, F-207]
+  blocks: []
+  contract_refs: []
+  files_allowed_to_touch:
+    - src/App.tsx
+    - PLAN.md
+  forbidden:
+    - src-tauri/src/types.rs
+    - src-tauri/src/engine/**
+    - src-tauri/src/bridge/**
+    - src/utils/types.ts
+    - src/utils/layout.ts
+    - src/utils/colors.ts
+    - src/components/**
+    - src/hooks/**
+  estimated_complexity: L
+  requires_user_approval: false
+  acceptance:
+    mechanical:
+      - "npx tsc --noEmit exits 0"
+      - "npm run build exits 0"
+      - "cd src-tauri && cargo build exits 0"
+      - "cd src-tauri && cargo clippy -- -D warnings exits 0"
+    existence:
+      - "All Phase 2 tasks status=done in PLAN.md"
+    behavioral:
+      - "Open Chrome / run Node → city buildings grow and glow based on real process data"
+      - "Click building → ProcessPopup opens with refined visual design"
+      - "Double-click building → camera flies to it"
+      - "Hover highlights building without selecting"
+      - "Theme JSON loads and applies"
+      - "FPS ≥ 30 with 200+ buildings"
+  status: pending
+  owner: null
+  owner_started_at: null
+  retry_count: 0
+  linked_blocker: null
+  resume_hint: |
+    1. Read PLAN.md#I-201
+    2. Verify all hard deps done
+    3. Run full mechanical acceptance
+    4. Run npm run tauri dev and verify behavioral criteria
+    5. Update PLAN.md status counts and current phase to 3
+    6. Append PROGRESS.md entry
+  steps:
+    - "Step 1: Confirm all Phase 2 tasks done"
+    - "Step 2: Run npx tsc --noEmit && npm run build && cd src-tauri && cargo build && cargo clippy -- -D warnings"
+    - "Step 3: Run npm run tauri dev"
+    - "Step 4: Verify behavioral acceptance criteria"
+    - "Step 5: Update PLAN.md (status done, counts, current phase 3)"
+    - "Step 6: Append PROGRESS.md entry"
+    - "Step 7: Commit: 'milestone: Phase 2 acceptance passed'"
+  handoff_notes: ""
+  notes: "Phase 2 milestone gate."
+```
 
 ### Phase 3 — 网络光缆 · "让城市活起来"
 
