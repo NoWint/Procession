@@ -4,6 +4,26 @@
 
 ## Session Log
 
+### 2026-07-17 — Session #009 (backend, B-201, ~30min)
+- Track: backend
+- Task: B-201 (Real network connection list via Windows API)
+- Status: done
+- Summary:
+  - Implemented `get_network` in WindowsImpl using Windows IP Helper API (`GetExtendedTcpTable`)
+  - Added `windows` crate 0.58 dependency with IpHelper/WinSock features
+  - Real TCP connection enumeration: pid, local_addr, remote_addr, state, protocol
+  - TCP state mapping (established, listen, time_wait, etc.) from MIB_TCP_STATE
+  - Network I/O counters kept as stub (Phase 3)
+  - Build: clean, clippy-clean, 5 tests pass
+- Decisions: none
+- Commits: none (pending user approval)
+- Files:
+  - src-tauri/src/engine/windows.rs (mod)
+  - src-tauri/Cargo.toml (mod)
+  - PLAN.md (mod)
+- Next ready: F-201..F-207 (all frontend tasks, deps all done); I-201 (needs B-201 + F-201..F-205)
+- Notes: WindowsImpl now reports real TCP connections when not using --features mock. MockAdapter unchanged (already had fake connections).
+
 ### 2026-07-17 — Session #008 (docs / Phase 2 planning, ~20min)
 - Track: docs
 - Task: Expand Phase 2 task graph in PLAN.md

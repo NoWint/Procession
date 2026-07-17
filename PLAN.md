@@ -76,9 +76,9 @@ Constitution changes (STRATEGY/SPEC/ARCHITECTURE under `.docs/`) require a `D-*`
 
 ## Status Counts
 
-- pending: 9
+- pending: 8
 - in_progress: 0
-- done: 24
+- done: 25
 - blocked: 0
 - failed: 0
 - stale: 0
@@ -1612,7 +1612,7 @@ Per SKILL.md §6 Granularity Rule: future phases are milestone-level only. Expan
 
 | ID    | Title                                              | Phase | Status  | Deps                              | Complexity |
 |-------|----------------------------------------------------|-------|---------|-----------------------------------|-----------|
-| B-201 | Real network connection list (Windows API)        | 2     | pending | B-005                             | M         |
+| B-201 | Real network connection list (Windows API)        | 2     | done    | B-005                             | M         |
 | F-201 | Process tree layout algorithm                      | 2     | pending | F-006                             | L         |
 | F-202 | Building color refinement + active glow pulse      | 2     | pending | F-007, F-008                      | M         |
 | F-203 | Camera interactions (OrbitControls + fly-to)       | 2     | pending | F-004, F-012                      | M         |
