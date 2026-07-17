@@ -5,6 +5,7 @@
 ## Queue (process top-to-bottom)
 
 - [x] trae-20260717-001 / branch wip/trae-20260717-001-F-003 / F-003 Global styles + main.tsx + index.html — merged via b757536
+- [ ] trae-20260717-002 / branch wip/trae-20260717-002-frontend-batch / F-004 + F-009 + F-010 + F-013 parallel frontend batch
 
 ---
 
