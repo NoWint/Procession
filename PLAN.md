@@ -76,9 +76,9 @@ Constitution changes (STRATEGY/SPEC/ARCHITECTURE under `.docs/`) require a `D-*`
 
 ## Status Counts
 
-- pending: 4
+- pending: 3
 - in_progress: 0
-- done: 36
+- done: 37
 - blocked: 0
 - failed: 0
 - stale: 0
@@ -1629,7 +1629,7 @@ Per SKILL.md §6 Granularity Rule: future phases are milestone-level only. Expan
 | B-301 | Real network connection collection (Windows API)  | 3     | done    | B-201                             | M         |
 | B-302 | Remote IP → geolocation mapping (optional)         | 3     | done    | B-301                             | S         |
 | F-301 | LineGeometry cable rendering                       | 3     | done    | F-008, B-301                      | L         |
-| F-302 | Particle flow along cables                         | 3     | pending | F-301                             | M         |
+| F-302 | Particle flow along cables                         | 3     | done    | F-301                             | M         |
 | F-303 | Protocol color mapping (TCP/UDP/HTTP)              | 3     | pending | F-301                             | S         |
 | F-304 | Building top halo pulse for running processes      | 3     | done    | F-008, F-202                      | M         |
 | I-301 | Phase 3 full acceptance                            | 3     | pending | B-301, F-301, F-302, F-303, F-304 | L         |
@@ -2357,9 +2357,9 @@ Per SKILL.md §6 Granularity Rule: future phases are milestone-level only. Expan
       - "Active cables show small particles moving from source to target at visible speed"
       - "Particle density correlates with connection count or bytes_per_sec"
       - "FPS ≥ 30 with 100 cables and 300 particles"
-  status: pending
-  owner: null
-  owner_started_at: null
+  status: done
+  owner: session-015
+  owner_started_at: "2026-07-18"
   retry_count: 0
   linked_blocker: null
   resume_hint: |

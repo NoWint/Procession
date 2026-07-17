@@ -6,8 +6,9 @@ import type { BuildingPosition } from "../utils/layout";
 import { FALLBACK_THEME, type Theme } from "../utils/theme";
 
 interface CableSystemProps {
-  connections: Connection[];
-  positions: BuildingPosition[];
+  connections?: Connection[];
+  positions?: BuildingPosition[];
+  paths?: THREE.Vector3[][];
   theme?: Theme;
   maxCables?: number;
 }
@@ -84,13 +85,15 @@ export function computeCablePaths(
 export default function CableSystem({
   connections,
   positions,
+  paths: providedPaths,
   theme = FALLBACK_THEME,
   maxCables = 100,
 }: CableSystemProps) {
-  const paths = useMemo(
-    () => computeCablePaths(connections, positions, maxCables),
-    [connections, positions, maxCables],
-  );
+  const paths = useMemo(() => {
+    if (providedPaths) return providedPaths;
+    if (!connections || !positions) return [];
+    return computeCablePaths(connections, positions, maxCables);
+  }, [providedPaths, connections, positions, maxCables]);
 
   const color = theme.colors.accent;
 

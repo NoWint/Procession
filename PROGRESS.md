@@ -4,6 +4,34 @@
 
 ## Session Log
 
+### 2026-07-18 — Session #016 (frontend, F-302, ~20min)
+- Track: frontend
+- Task: F-302 (Particle flow along cables)
+- Status: done
+- Summary:
+  - Created `src/components/CableFlow.tsx` — batched particle system flowing along cable paths
+  - Each cable carries 3 particles moving from source to target via `useFrame` delta-time animation
+  - Particles recycle at the end of each curve and are batched in a single `<points>` object for performance
+  - Modified `CableSystem.tsx` to accept optional precomputed `paths` prop
+  - Updated `App.tsx` to compute `cablePaths` once with `computeCablePaths` and pass them to both `CableSystem` and `CableFlow`
+  - Mechanical acceptance passed:
+    - `npx tsc --noEmit` exit 0
+    - `npm run build` exit 0
+  - Marked F-302 done in PLAN.md; updated Status Counts to pending 3, done 37
+- Decisions:
+  - Single shared `Points` geometry for all particles; positions updated in place each frame
+  - Particle count scales with cable count, satisfying "density correlates with connection count"
+  - Cable color remains theme accent; protocol tinting deferred to F-303
+- Commits: pending
+- Files:
+  - src/components/CableFlow.tsx (new)
+  - src/components/CableSystem.tsx (mod)
+  - src/App.tsx (mod)
+  - PLAN.md (mod)
+  - PROGRESS.md (mod)
+- Next ready: F-303 (frontend; hard dep F-301 done), I-301 (integration)
+- Notes: F-303 will add protocol-based colors to both cables and particles.
+
 ### 2026-07-18 — Session #015 (frontend, F-301, ~25min)
 - Track: frontend
 - Task: F-301 (LineGeometry cable rendering)

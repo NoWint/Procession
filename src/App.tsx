@@ -2,7 +2,8 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import CityScene from "./components/CityScene";
 import BuildingCluster from "./components/BuildingCluster";
 import BuildingHalo from "./components/BuildingHalo";
-import CableSystem from "./components/CableSystem";
+import CableSystem, { computeCablePaths } from "./components/CableSystem";
+import CableFlow from "./components/CableFlow";
 import CityGround from "./components/CityGround";
 import Atmosphere from "./components/Atmosphere";
 import ProcessPopup from "./components/ProcessPopup";
@@ -53,6 +54,11 @@ export default function App() {
   const positions = useMemo(
     () => (snapshot ? computeTreePositions(snapshot.processes, 200) : []),
     [snapshot],
+  );
+
+  const cablePaths = useMemo(
+    () => (snapshot ? computeCablePaths(snapshot.network.connections, positions, 100) : []),
+    [snapshot, positions],
   );
 
   const selectedPosition = useMemo(() => {
@@ -137,12 +143,8 @@ export default function App() {
           positions={positions}
           theme={theme}
         />
-        <CableSystem
-          connections={snapshot.network.connections}
-          positions={positions}
-          theme={theme}
-          maxCables={100}
-        />
+        <CableSystem paths={cablePaths} theme={theme} />
+        <CableFlow paths={cablePaths} theme={theme} />
       </CityScene>
 
       <div className="app-ui-layer">
