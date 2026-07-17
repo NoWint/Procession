@@ -4,6 +4,41 @@
 
 ## Session Log
 
+### 2026-07-18 — Session #019 (frontend, F-404 performance optimization, ~30min)
+- Track: frontend
+- Task: F-404 (Performance optimization, LOD, 1000+ processes, 60fps target)
+- Status: done
+- Summary:
+  - Added `computeProcessSignature` in `src/utils/layout.ts` so `App.tsx` only recomputes city layout when the process topology (pid/ppid/cpu) changes, not on every snapshot update
+  - `App.tsx` now computes `positions` once per signature change and passes them into `BuildingCluster` to avoid duplicate layout work
+  - Capped `maxCables` to 80 and made `CableFlow` adapt particle density (2 particles/cable when > 60 cables)
+  - `BuildingCluster` improvements:
+    - Accepts optional `positions` prop
+    - Limits utility-mode labels to `maxLabels=40`
+    - Moved hover/selection highlight to a dedicated `useEffect`
+    - Per-frame `useFrame` now only updates active (CPU > 50) instances instead of every building
+  - `BuildingHalo` caps halo instances to 60 top running processes
+  - Mechanical acceptance passed:
+    - `npx tsc --noEmit` exit 0
+    - `npm run build` exit 0
+    - `cd src-tauri && cargo clippy -- -D warnings` exit 0
+  - Marked F-404 done in PLAN.md
+- Decisions:
+  - Layout stability prioritized over pixel-perfect recency: building positions remain stable while CPU/memory values animate within the same instance
+  - Per-frame color update scope reduced from O(N) to O(active count)
+- Commits: pending
+- Files:
+  - src/utils/layout.ts (mod)
+  - src/App.tsx (mod)
+  - src/components/BuildingCluster.tsx (mod)
+  - src/components/BuildingHalo.tsx (mod)
+  - src/components/CableFlow.tsx (mod)
+  - PLAN.md (mod)
+  - PROGRESS.md (mod)
+- Next ready: B-401 macOS platform adapter, B-402 GPU/temperature (Windows-only), B-403 Tauri packaging, D-401 README/demo, or I-401 Phase 4 acceptance
+- Notes: |
+    All Phase 4 frontend tasks (F-401..F-404) are now done. Remaining Phase 4 work is backend/platform/packaging/docs.
+
 ### 2026-07-18 — Session #018 (frontend, F-401 + F-402 + F-403 integration, ~25min)
 - Track: frontend
 - Task: F-401 (HUD StatsPanel) + F-402 (Space-bar utility mode) + F-403 (Color theme system)

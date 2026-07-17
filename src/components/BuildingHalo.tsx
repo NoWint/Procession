@@ -25,7 +25,10 @@ export default function BuildingHalo({
     const runningPids = new Set(
       processes.filter((p) => p.state === "Running").map((p) => p.pid),
     );
-    return positions.filter((pos) => runningPids.has(pos.pid));
+    // Cap halos to the top-N running processes by CPU to keep draw calls stable.
+    return positions
+      .filter((pos) => runningPids.has(pos.pid))
+      .slice(0, 60);
   }, [processes, positions]);
 
   // Initialize instance matrices and colors.

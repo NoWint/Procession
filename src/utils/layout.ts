@@ -13,6 +13,22 @@ export function cpuToHeight(cpu: number): number {
   return Math.max(0.1, cpu / 10);
 }
 
+/**
+ * Returns a cheap signature of the process list that changes only when the
+ * layout-relevant properties (pid, ppid, cpu) change. Use it as a useMemo
+ * dependency so layout is recomputed only when the process topology actually
+ * changes, not on every snapshot update.
+ */
+export function computeProcessSignature(processes: ProcessInfo[]): string {
+  let h = 0;
+  for (const p of processes) {
+    h = (h * 31 + p.pid) | 0;
+    h = (h * 31 + p.ppid) | 0;
+    h = (h * 31 + Math.floor(p.cpu * 10)) | 0;
+  }
+  return `${processes.length}:${h}`;
+}
+
 export function computePositions(
   processes: ProcessInfo[],
   maxBuildings: number = 200,

@@ -76,7 +76,7 @@ Constitution changes (STRATEGY/SPEC/ARCHITECTURE under `.docs/`) require a `D-*`
 | F-401 | HUD StatsPanel (CPU/memory/network overlay)        | 4     | done    | F-012                             | M         |
 | F-402 | Space-bar utility mode (labels + dashboard)        | 4     | done    | F-012                             | L         |
 | F-403 | Color theme system (user-selectable)               | 4     | done    | F-204                             | M         |
-| F-404 | Performance optimization (LOD, 1000+ processes)    | 4     | pending | F-008                             | XL        |
+| F-404 | Performance optimization (LOD, 1000+ processes)    | 4     | done    | F-008                             | XL        |
 | D-401 | README + demo video                                | 4     | pending | B-403, F-401, F-402               | M         |
 | I-401 | Phase 4 full acceptance                            | 4     | pending | B-401, B-402, B-403, F-401, F-402, F-403, F-404, D-401 | XL |
 

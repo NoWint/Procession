@@ -42,12 +42,14 @@ export default function CableFlow({
   const pointsRef = useRef<THREE.Points>(null);
 
   const { particles, geometry, count } = useMemo(() => {
+    // Reduce particle density as the number of cables grows.
+    const adaptiveParticlesPerCable = paths.length > 60 ? 2 : paths.length > 30 ? 2 : baseParticlesPerCable;
     const p: Particle[] = [];
     for (let i = 0; i < paths.length; i++) {
       const intensity = intensities?.[i] ?? 1;
       const particleCount = Math.max(
         1,
-        Math.round(baseParticlesPerCable * intensity),
+        Math.round(adaptiveParticlesPerCable * intensity),
       );
       for (let j = 0; j < particleCount; j++) {
         p.push({

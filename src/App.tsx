@@ -13,7 +13,7 @@ import UtilityMode from "./components/UtilityMode";
 import ThemeSelector from "./components/ThemeSelector";
 import { useSystemData } from "./hooks/useSystemData";
 import type { ProcessInfo } from "./utils/types";
-import { computeTreePositions } from "./utils/layout";
+import { computeTreePositions, computeProcessSignature } from "./utils/layout";
 import {
   loadTheme,
   applyTheme,
@@ -70,14 +70,19 @@ export default function App() {
     return () => clearTimeout(timer);
   }, [snapshot]);
 
-  const positions = useMemo(
-    () => (snapshot ? computeTreePositions(snapshot.processes, 200) : []),
+  const processSignature = useMemo(
+    () => (snapshot ? computeProcessSignature(snapshot.processes) : ""),
     [snapshot],
   );
 
+  const positions = useMemo(
+    () => (snapshot ? computeTreePositions(snapshot.processes, 200) : []),
+    [processSignature],
+  );
+
   const cableData = useMemo(
-    () => (snapshot ? computeCableData(snapshot.network.connections, positions, 100) : []),
-    [snapshot, positions],
+    () => (snapshot ? computeCableData(snapshot.network.connections, positions, 80) : []),
+    [snapshot?.network.connections, positions],
   );
 
   const cablePaths = useMemo(() => cableData.map((d) => d.path), [cableData]);
@@ -182,6 +187,7 @@ export default function App() {
         <CityGround theme={theme} />
         <BuildingCluster
           processes={snapshot.processes}
+          positions={positions}
           theme={theme}
           selectedPid={selectedProcess?.pid ?? null}
           showLabels={utilityMode}
