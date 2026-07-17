@@ -55,6 +55,34 @@ export interface CpuGpuTemp {
   gpu: number;
 }
 
+export interface ProcessRelation {
+  pid: number;
+  ppid: number;
+  children: number[];
+  ipc_peers: number[];
+}
+
+export interface ListeningPort {
+  pid: number;
+  port: number;
+  protocol: string;
+  address: string;
+}
+
+export interface FsHotspot {
+  path: string;
+  event_count: number;
+}
+
+export interface PluginManifest {
+  id: string;
+  name: string;
+  executable: string;
+  args: string[];
+  refresh_interval_secs: number;
+  timeout_secs: number;
+}
+
 export interface SystemSnapshot {
   processes: ProcessInfo[];
   cpu: CpuInfo;
@@ -63,6 +91,10 @@ export interface SystemSnapshot {
   disk: DiskInfo;
   gpu: GpuInfo | null;
   temperature: CpuGpuTemp | null;
+  process_relations: ProcessRelation[];
+  listening_ports: ListeningPort[];
+  fs_hotspots: FsHotspot[];
+  plugins: Record<string, unknown>;
   timestamp: number;
   stale: boolean;
 }

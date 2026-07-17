@@ -8,3 +8,5 @@ pub mod system;
 pub mod geoip;
 #[cfg(target_os = "windows")]
 pub mod gpu;
+pub mod fs_watcher;
+pub mod plugin;

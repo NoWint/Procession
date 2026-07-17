@@ -1,8 +1,8 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect } from "vitest";
 import { render } from "@testing-library/react";
 import * as THREE from "three";
 
-import CableSystem, { computeCableData, buildBatchedCableGeometry, type CableData } from "./CableSystem";
+import CableSystem, { buildBatchedCableGeometry, type CableData } from "./CableSystem";
 import type { Connection } from "../utils/types";
 import type { BuildingPosition } from "../utils/layout";
 

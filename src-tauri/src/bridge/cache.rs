@@ -56,6 +56,10 @@ mod tests {
             disk: Default::default(),
             gpu: None,
             temperature: None,
+            process_relations: vec![],
+            listening_ports: vec![],
+            fs_hotspots: vec![],
+            plugins: std::collections::HashMap::new(),
             timestamp,
             stale: false,
         }

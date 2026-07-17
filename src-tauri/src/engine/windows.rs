@@ -2,6 +2,8 @@ use std::net::Ipv4Addr;
 use std::sync::{Mutex, PoisonError};
 use std::time::Instant;
 
+use std::collections::HashMap;
+
 use async_trait::async_trait;
 use sysinfo::{CpuRefreshKind, Networks, ProcessStatus, ProcessesToUpdate, System};
 use windows::Win32::NetworkManagement::IpHelper::{
@@ -275,5 +277,91 @@ impl PlatformAdapter for WindowsImpl {
 
     async fn get_temperature(&self) -> Option<CpuGpuTemp> {
         super::gpu::get_temperature()
+    }
+
+    async fn get_process_relations(&self, processes: &[ProcessInfo]) -> Vec<ProcessRelation> {
+        // 1. Derive parent-child tree from ppid
+        let mut children: HashMap<u64, Vec<u64>> = HashMap::new();
+        for p in processes {
+            children.entry(p.ppid).or_default().push(p.pid);
+        }
+
+        // 2. Detect IPC peers from localhost TCP connections.
+        //    Build (addr,port) -> pid lookup from TCP rows + UDP listeners
+        let tcp_rows = get_tcp_connections();
+        let udp_rows = get_udp_listeners();
+        let mut endpoint_to_pid: HashMap<(u32, u32), u64> = HashMap::new();
+        for (_, local_addr, local_port, _remote_addr, _remote_port, pid) in &tcp_rows {
+            if *pid != 0 {
+                endpoint_to_pid.insert((*local_addr, *local_port), *pid as u64);
+            }
+        }
+        for (local_addr, local_port, pid) in &udp_rows {
+            if *pid != 0 {
+                endpoint_to_pid.insert((*local_addr, *local_port), *pid as u64);
+            }
+        }
+
+        let mut local_peers: HashMap<u64, Vec<u64>> = HashMap::new();
+        for (state, _local_addr, _local_port, remote_addr, remote_port, pid) in &tcp_rows {
+            if *state == 5 /* established */ && *pid != 0 {
+                let remote_ip = Ipv4Addr::from(remote_addr.to_be_bytes());
+                if remote_ip.is_loopback() {
+                    if let Some(peer_pid) = endpoint_to_pid.get(&(*remote_addr, *remote_port)) {
+                        if *peer_pid != *pid as u64 {
+                            local_peers.entry(*pid as u64).or_default().push(*peer_pid);
+                            local_peers.entry(*peer_pid).or_default().push(*pid as u64);
+                        }
+                    }
+                }
+            }
+        }
+
+        // 3. Build ProcessRelation list
+        let pid_set: std::collections::HashSet<u64> = processes.iter().map(|p| p.pid).collect();
+        let mut relations: Vec<ProcessRelation> = Vec::with_capacity(processes.len());
+        for p in processes {
+            let child_list = children.remove(&p.pid).unwrap_or_default();
+            let children_in_set: Vec<u64> = child_list.into_iter().filter(|c| pid_set.contains(c)).collect();
+            let peer_list = local_peers.remove(&p.pid).unwrap_or_default();
+            let peers_in_set: Vec<u64> = peer_list.into_iter().filter(|c| pid_set.contains(c)).collect();
+            relations.push(ProcessRelation {
+                pid: p.pid,
+                ppid: p.ppid,
+                children: children_in_set,
+                ipc_peers: peers_in_set,
+            });
+        }
+        relations
+    }
+
+    async fn get_listening_ports(&self) -> Vec<ListeningPort> {
+        let tcp_rows = get_tcp_connections();
+        let mut ports: Vec<ListeningPort> = Vec::new();
+
+        for (state, local_addr, local_port, _remote_addr, _remote_port, pid) in &tcp_rows {
+            if *state == 2 /* listen */ {
+                let ip = Ipv4Addr::from(local_addr.to_be_bytes());
+                ports.push(ListeningPort {
+                    pid: *pid as u64,
+                    port: u16::from_be(*local_port as u16),
+                    protocol: "tcp".to_string(),
+                    address: format!("{}", ip),
+                });
+            }
+        }
+
+        let udp_rows = get_udp_listeners();
+        for (local_addr, local_port, pid) in &udp_rows {
+            let ip = Ipv4Addr::from(local_addr.to_be_bytes());
+            ports.push(ListeningPort {
+                pid: *pid as u64,
+                port: u16::from_be(*local_port as u16),
+                protocol: "udp".to_string(),
+                address: format!("{}", ip),
+            });
+        }
+
+        ports
     }
 }

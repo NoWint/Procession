@@ -216,6 +216,27 @@ impl PlatformAdapter for MockAdapter {
         }
     }
 
+    async fn get_listening_ports(&self) -> Vec<ListeningPort> {
+        vec![
+            ListeningPort { pid: 2, port: 135, protocol: "tcp".into(), address: "0.0.0.0".into() },
+            ListeningPort { pid: 4, port: 3389, protocol: "tcp".into(), address: "0.0.0.0".into() },
+            ListeningPort { pid: 1000, port: 3000, protocol: "tcp".into(), address: "0.0.0.0".into() },
+            ListeningPort { pid: 1001, port: 8080, protocol: "tcp".into(), address: "0.0.0.0".into() },
+            ListeningPort { pid: 5, port: 5353, protocol: "udp".into(), address: "0.0.0.0".into() },
+        ]
+    }
+
+    async fn get_fs_hotspots(&self) -> Vec<FsHotspot> {
+        let t = self.start_time.elapsed().as_secs_f64();
+        // Simulate some directories being hot
+        vec![
+            FsHotspot { path: "C:\\Users\\USER\\Downloads".into(), event_count: (100.0 + (t * 0.3).sin() * 50.0) as u64 },
+            FsHotspot { path: "C:\\Users\\USER\\Documents".into(), event_count: (30.0 + (t * 0.1).sin() * 15.0) as u64 },
+            FsHotspot { path: "C:\\Windows\\Temp".into(), event_count: (20.0 + (t * 0.5).sin() * 10.0) as u64 },
+            FsHotspot { path: "C:\\ProgramData\\Microsoft\\Windows\\Caches".into(), event_count: (15.0 + (t * 0.2).sin() * 8.0) as u64 },
+        ]
+    }
+
     async fn get_gpu(&self) -> Option<GpuInfo> {
         Some(GpuInfo {
             usage_percent: 35.0,

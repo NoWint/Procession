@@ -1,25 +1,29 @@
 use crate::types::SystemSnapshot;
 use super::platform::PlatformAdapter;
+use super::fs_watcher::FsWatcher;
+use super::plugin::PluginManager;
 
-/// Owns the platform adapter and provides the snapshot collection interface.
-/// This is the core of the system data pipeline — engine owns the adapter, bridge owns
-/// the communication layer. This separation allows testing collection without Tauri.
-///
-/// The per-field error isolation happens inside `PlatformAdapter::collect_snapshot()`
-/// (default trait method): each get_* call is independently `unwrap_or`-protected so
-/// a single sensor failure doesn't collapse the frame.
 pub struct SystemEngine {
     adapter: Box<dyn PlatformAdapter>,
+    fs_watcher: Option<FsWatcher>,
+    plugin_manager: Option<PluginManager>,
 }
 
 impl SystemEngine {
     pub fn new(adapter: Box<dyn PlatformAdapter>) -> Self {
-        Self { adapter }
+        let fs_watcher = FsWatcher::start();
+        let plugin_manager = PluginManager::start();
+        Self { adapter, fs_watcher, plugin_manager }
     }
 
-    /// Collect a full SystemSnapshot.
-    /// Delegates to the trait default which provides per-field error isolation.
     pub async fn collect_snapshot(&self) -> SystemSnapshot {
-        self.adapter.collect_snapshot().await
+        let mut snapshot = self.adapter.collect_snapshot().await;
+        if let Some(ref w) = self.fs_watcher {
+            snapshot.fs_hotspots = w.hotspots();
+        }
+        if let Some(ref pm) = self.plugin_manager {
+            snapshot.plugins = pm.collect();
+        }
+        snapshot
     }
 }

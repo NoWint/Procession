@@ -4,6 +4,75 @@
 
 ## Session Log
 
+### 2026-07-18 — Session #023 (backend, B-504 plugin API, ~30min)
+- Track: backend
+- Task: B-504 (Plugin command API)
+- Status: done
+- Summary:
+  - Designed and implemented plugin system: subprocess model, hot-reload directory scanning (~/.procession/plugins/*/manifest.json), async scheduling per refresh_interval
+  - Created `engine/plugin.rs`:
+    - `PluginManager` with background scanner thread (30s interval) + scheduler thread (1s tick)
+    - `PluginManifest` type in types.rs (id, name, executable, args, refresh_interval_secs, timeout_secs, security)
+    - Manifest JSON parsing with serde, hot-add/hot-remove detection
+    - Subprocess execution with timeout handling (cross-platform kill on timeout)
+    - Plugin data stored in `snapshot.plugins: HashMap<String, serde_json::Value>` for independent consumption
+  - Wired PluginManager into SystemEngine.collect_snapshot, populated only when plugins directory exists
+  - Updated types.ts frontend mirror with PluginManifest and plugins field
+  - Decision: plugin data stored in independent HashMap field rather than merged into snapshot structs
+  - Decision: hot-reload built-in, 30-second scan granularity
+  - Mechanical acceptance passed:
+    - `cargo build` exit 0, `cargo clippy -- -D warnings` exit 0, `cargo test` 21/21
+    - `npm run build` exit 0
+- Files:
+  - src-tauri/src/engine/plugin.rs (new)
+  - src-tauri/src/engine/mod.rs (mod)
+  - src-tauri/src/engine/system.rs (mod)
+  - src-tauri/src/types.rs (mod: PluginManifest + plugins field)
+  - src-tauri/src/bridge/cache.rs (mod)
+  - src-tauri/src/engine/platform.rs (mod)
+  - src/utils/types.ts (mod)
+
+### 2026-07-18 — Session #022 (backend, B-501 + B-502 + B-503, ~1h)
+- Track: backend
+- Task: B-501 (Process relations), B-502 (Listening ports), B-503 (FsHotspots)
+- Status: done
+- Summary:
+  - **B-501**: Extended `SystemSnapshot` with `process_relations` field. Added `derive_process_relations()` as default trait implementation (ppid tree). WindowsImpl overrides with localhost TCP IPC peer detection via `GetExtendedTcpTable`. MacImpl overrides via `lsof -iTCP -sTCP:ESTABLISHED` parsing. MockAdapter provides mock process relations.
+  - **B-502**: Added `listening_ports` field to `SystemSnapshot` and `ListeningPort` struct. WindowsImpl extracts from TCP LISTEN (state=2) + UDP listeners via IP Helper API. MacImpl via `lsof -iTCP -sTCP:LISTEN` and `lsof -iUDP`. MockAdapter provides sample ports.
+  - **B-503**: Created `engine/fs_watcher.rs` with cross-platform `FsWatcher` using `notify` crate (v7). Background thread watches user Downloads/Documents/Desktop/Temp directories, aggregates file events by parent directory, returns top-20 hotspots. FsWatcher lives in SystemEngine, wired into `collect_snapshot` to populate `fs_hotspots`.
+  - Updated `types.ts` frontend mirror with all new interfaces.
+  - All types added with `#[serde(default)]` for backward compatibility.
+  - Mechanical acceptance passed:
+    - `cd src-tauri && cargo build` exit 0
+    - `cd src-tauri && cargo clippy -- -D warnings` exit 0
+    - `cd src-tauri && cargo test` — 21 tests passed (2 new process-relation tests)
+    - `npm run build` exit 0
+  - Marked B-501, B-502, B-503 done in PLAN.md; updated Status Counts to pending 9, done 48
+- Decisions:
+  - IPC peer detection limited to localhost TCP connections (most common IPC path). Named pipes / Unix domain sockets deferred.
+  - FsWatcher watches top-level user directories only (non-recursive). Recursive watching can be added if needed.
+  - Process relations use `#[serde(default)]` so frontend handles missing fields gracefully.
+- Commits: pending
+- Files:
+  - src-tauri/src/types.rs (mod)
+  - src-tauri/src/engine/platform.rs (mod)
+  - src-tauri/src/engine/system.rs (mod)
+  - src-tauri/src/engine/fs_watcher.rs (new)
+  - src-tauri/src/engine/mod.rs (mod)
+  - src-tauri/src/engine/windows.rs (mod)
+  - src-tauri/src/engine/macos.rs (mod)
+  - src-tauri/src/engine/mock.rs (mod)
+  - src-tauri/src/bridge/cache.rs (mod)
+  - src-tauri/Cargo.toml (mod)
+  - src/utils/types.ts (mod)
+  - PLAN.md (mod)
+  - PROGRESS.md (mod)
+  - src/utils/theme.test.ts (fix pre-existing type errors)
+  - src/components/CableFlow.test.tsx (fix pre-existing unused imports)
+  - src/components/CableSystem.test.tsx (fix pre-existing unused imports)
+- Next ready: B-504 (Plugin command API, requires user approval), F-501..F-503 (frontend, wait 夏天)
+- Notes: B-501 + B-502 + B-503 all done in one session. 3 backend Phase 5 tasks complete. Frontend counterparts (F-501..F-503) unblocked for 夏天.
+
 ### 2026-07-18 — Session #021 (docs / Phase 5 planning, ~25min)
 - Track: docs
 - Task: Expand Phase 5 task graph in PLAN.md
