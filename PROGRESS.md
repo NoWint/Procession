@@ -4,6 +4,25 @@
 
 ## Session Log
 
+### 2026-07-17 04:35 — Session #002 (frontend, ~15min)
+- Track: frontend
+- Task: F-004 + F-009 + F-010 + F-013 (parallel batch)
+- Status: done
+- Summary:
+  - Locked 4 parallel-ready frontend tasks (all hard deps satisfied by F-003)
+  - Created CityScene.tsx (R3F Canvas + OrbitControls + lights)
+  - Created CityGround.tsx (glowing grid + translucent plane)
+  - Created Atmosphere.tsx (200 floating particles + Bloom via @react-three/postprocessing)
+  - Created ErrorState.tsx (centered error overlay with optional Retry button)
+  - Installed @react-three/postprocessing dependency
+  - Verified `npx tsc --noEmit` and `npm run build` both exit 0
+  - Temporarily composed components in App.tsx; verified dev server at localhost:1420
+- Decisions: none
+- Commits: e6c9b65 (lock), d27b29e (F-004), cb2c393 (F-009), be91d7d (F-013), bbec2d8 (F-010 + deps), <handoff-sha>
+- Files: src/components/CityScene.tsx (new), src/components/CityGround.tsx (new), src/components/Atmosphere.tsx (new), src/components/ErrorState.tsx (new), package.json (mod), package-lock.json (mod)
+- Next ready: F-005 (TestCube) — hard dep F-004 now done
+- Notes: 4 tasks executed in one session due to true file isolation and no cross-dependencies. Each task got its own commit per small+often rule. App.tsx left as placeholder; F-012 will compose all components officially.
+
 ### 2026-07-17 04:10 — Session #001 (frontend, ~20min)
 - Track: frontend
 - Task: F-003 (Global styles + main.tsx + index.html)
