@@ -80,6 +80,23 @@ Constitution changes (STRATEGY/SPEC/ARCHITECTURE under `.docs/`) require a `D-*`
 | D-401 | README + demo video                                | 4     | done    | B-403, F-401, F-402               | M         |
 | I-401 | Phase 4 full acceptance                            | 4     | done    | B-401, B-402, B-403, F-401, F-402, F-403, F-404, D-401 | XL |
 
+### Phase 5 (B-*/F-*/D-*/I-*) — community extensions
+
+| ID    | Title                                              | Phase | Status  | Deps                              | Complexity |
+|-------|----------------------------------------------------|-------|---------|-----------------------------------|-----------|
+| B-501 | Process relation backend (ppid tree + IPC handles) | 5     | pending | B-002                             | L         |
+| B-502 | Listening ports collection (harbor data source)    | 5     | pending | B-002                             | M         |
+| B-503 | Filesystem activity backend (fsevents/inotify)     | 5     | pending | B-002                             | L         |
+| B-504 | Plugin command API (third-party data sources)      | 5     | pending | B-002                             | XL        |
+| F-501 | Process relationship graph (fork / IPC edges)      | 5     | pending | B-501                             | L         |
+| F-502 | Port visualization (listening ports as harbors)    | 5     | pending | B-502                             | M         |
+| F-503 | Filesystem hotspots (recent read/write heat zones) | 5     | pending | B-503                             | L         |
+| F-504 | Custom theme editor / JSON import                   | 5     | pending | F-403                             | M         |
+| F-505 | Screensaver / kiosk mode (fullscreen, auto-rotate) | 5     | pending | F-401                             | S         |
+| F-506 | Screenshot / GIF sharing                          | 5     | pending | F-401                             | M         |
+| D-501 | Plugin development guide                          | 5     | pending | B-504                             | M         |
+| I-501 | Phase 5 full acceptance                           | 5     | pending | B-501, B-502, B-503, B-504, F-501, F-502, F-503, F-504, F-505, F-506, D-501 | XL |
+
 ## Runtime Resources
 
 - vite_dev_ports: {}
@@ -90,7 +107,7 @@ Constitution changes (STRATEGY/SPEC/ARCHITECTURE under `.docs/`) require a `D-*`
 
 ## Status Counts
 
-- pending: 0
+- pending: 12
 - in_progress: 0
 - done: 45
 - blocked: 0
@@ -3156,21 +3173,654 @@ Per SKILL.md §6 Granularity Rule: future phases are milestone-level only. Expan
   notes: "Phase 4 milestone gate."
 ```
 
-### Phase 5 — 无限可能 · "远景规划"
+### Phase 5 — 无限可能 · "Community Extensions"
 
-**Goal:** Community-driven extensions. No specific timeline.
+**Goal:** Turn Procession from a polished single-player system monitor into an extensible platform: visualize deeper system relationships, expose listening ports, surface filesystem activity, let users author themes, and enable third-party data sources via a plugin API.
 
-**Possible future tasks (not committed):**
-- Process relationship graph (fork / IPC visualization)
-- Port visualization (listening ports as 'harbors')
-- Time playback (scrub timeline to see past city states)
-- Filesystem hotspots (recently read/written directories as 'heat zones')
-- Custom themes (user-defined color schemes)
-- Screensaver mode (fullscreen, kiosk-like)
-- Plugin system (third-party data sources)
-- Social sharing (screenshots / GIFs of your Procession city)
+**Motto:** The city should keep growing.
 
-**Acceptance criterion:** N/A — pick per interest.
+**Parallel pivot points:**
+- After B-501 / B-502 / B-503 / B-504 foundation tasks, their matching frontend tasks (F-501..F-503) and independent polish tasks (F-504..F-506) can fan out in parallel.
+- D-501 depends on B-504.
+- I-501 gates the phase.
+
+---
+
+#### Phase 5 task specs
+
+```yaml
+- id: B-501
+  track: backend
+  title: "Process relation backend (ppid tree + IPC handles)"
+  phase: 5
+  depends_on:
+    hard: [B-002]
+    soft: []
+  blocks: [F-501, I-501]
+  contract_refs: []
+  files_allowed_to_touch:
+    - src-tauri/src/types.rs
+    - src-tauri/src/engine/macos.rs
+    - src-tauri/src/engine/windows.rs
+    - src-tauri/src/bridge/**
+  forbidden:
+    - src/**
+    - public/**
+  estimated_complexity: L
+  requires_user_approval: false
+  acceptance:
+    mechanical:
+      - "cargo build && cargo clippy -- -D warnings exits 0"
+    existence:
+      - "Snapshot includes process_relations array (parent_pid, child_pids, ipc_peers)"
+      - "MacImpl and WindowsImpl both populate the field (Windows may be stub if API unavailable)"
+    behavioral:
+      - "Parent/child links reflect live process tree within 2 seconds"
+      - "IPC peer list is stable across snapshots (no flickering IDs)"
+  status: pending
+  owner: null
+  owner_started_at: null
+  retry_count: 0
+  linked_blocker: null
+  resume_hint: |
+    1. Read PLAN.md#B-501
+    2. Extend SystemSnapshot with process_relations
+    3. Use sysinfo process.ppid and add IPC handle scanning on macOS (lsof pipe/socket) and Windows (handle query)
+  steps:
+    - "Step 1: Extend SystemSnapshot with process_relations field"
+    - "Step 2: Implement MacImpl::get_process_relations using ppid + lsof pipe/socket peers"
+    - "Step 3: Implement WindowsImpl::get_process_relations using ppid + handle-based IPC peers (stub OK if complex)"
+    - "Step 4: Wire into DataBridge snapshot emission"
+    - "Step 5: Update frontend types.ts mirror"
+    - "Step 6: Run cargo build && cargo clippy -- -D warnings"
+    - "Step 7: Commit: 'feat(backend): process relation data for Phase 5 (B-501)'"
+  handoff_notes: ""
+  notes: "IPC peer detection is platform-specific; prioritize correctness for parent-child edges."
+```
+
+```yaml
+- id: B-502
+  track: backend
+  title: "Listening ports collection (harbor data source)"
+  phase: 5
+  depends_on:
+    hard: [B-002]
+    soft: []
+  blocks: [F-502, I-501]
+  contract_refs: []
+  files_allowed_to_touch:
+    - src-tauri/src/types.rs
+    - src-tauri/src/engine/macos.rs
+    - src-tauri/src/engine/windows.rs
+    - src-tauri/src/bridge/**
+  forbidden:
+    - src/**
+    - public/**
+  estimated_complexity: M
+  requires_user_approval: false
+  acceptance:
+    mechanical:
+      - "cargo build && cargo clippy -- -D warnings exits 0"
+    existence:
+      - "Snapshot includes listening_ports array (pid, port, protocol, address)"
+      - "At least one platform adapter populates real data"
+    behavioral:
+      - "Listening ports update within 2 seconds of opening/closing a socket"
+      - "Ports bound to 0.0.0.0 are tagged as public"
+  status: pending
+  owner: null
+  owner_started_at: null
+  retry_count: 0
+  linked_blocker: null
+  resume_hint: |
+    1. Read PLAN.md#B-502
+    2. Extend SystemSnapshot with listening_ports
+    3. macOS: parse netstat -anv or use lsof -iTCP -sTCP:LISTEN
+    4. Windows: use GetExtendedTcpTable/GetExtendedUdpTable
+  steps:
+    - "Step 1: Add listening_ports to SystemSnapshot and types.ts"
+    - "Step 2: Implement MacImpl collection via netstat/lsof parser"
+    - "Step 3: Implement WindowsImpl collection via IP Helper APIs"
+    - "Step 4: Wire into DataBridge"
+    - "Step 5: Run cargo build && cargo clippy -- -D warnings"
+    - "Step 6: Commit: 'feat(backend): listening ports collection (B-502)'"
+  handoff_notes: ""
+  notes: "Parsing CLI output on macOS is acceptable for reliability across macOS versions."
+```
+
+```yaml
+- id: B-503
+  track: backend
+  title: "Filesystem activity backend (fsevents/inotify)"
+  phase: 5
+  depends_on:
+    hard: [B-002]
+    soft: []
+  blocks: [F-503, I-501]
+  contract_refs: []
+  files_allowed_to_touch:
+    - src-tauri/src/types.rs
+    - src-tauri/src/engine/macos.rs
+    - src-tauri/src/engine/windows.rs
+    - src-tauri/src/bridge/**
+    - src-tauri/Cargo.toml
+  forbidden:
+    - src/**
+    - public/**
+  estimated_complexity: L
+  requires_user_approval: false
+  acceptance:
+    mechanical:
+      - "cargo build && cargo clippy -- -D warnings exits 0"
+    existence:
+      - "Snapshot includes fs_hotspots array (directory_path, read_bytes_delta, write_bytes_delta)"
+      - "Watcher thread runs without blocking snapshot emission"
+    behavioral:
+      - "Hotspots reflect recent file activity within 5 seconds"
+      - "Top-N directories (e.g., 20) are reported to keep payload small"
+  status: pending
+  owner: null
+  owner_started_at: null
+  retry_count: 0
+  linked_blocker: null
+  resume_hint: |
+    1. Read PLAN.md#B-503
+    2. Add fsevents (macOS) and notify (Windows) dependency or use sysinfo disk I/O deltas
+    3. Aggregate events by parent directory
+  steps:
+    - "Step 1: Add fs_hotspots to SystemSnapshot and types.ts"
+    - "Step 2: Add filesystem watcher crate (fsevent / notify)"
+    - "Step 3: Implement macOS FSEvents watcher and directory aggregation"
+    - "Step 4: Implement Windows notify watcher (or macOS-only first with cross-platform stub)"
+    - "Step 5: Wire deltas into DataBridge"
+    - "Step 6: Run cargo build && cargo clippy -- -D warnings"
+    - "Step 7: Commit: 'feat(backend): filesystem activity hotspots (B-503)'"
+  handoff_notes: ""
+  notes: "If platform watcher proves unstable, fall back to sysinfo disk usage deltas."
+```
+
+```yaml
+- id: B-504
+  track: backend
+  title: "Plugin command API (third-party data sources)"
+  phase: 5
+  depends_on:
+    hard: [B-002]
+    soft: []
+  blocks: [F-504, D-501, I-501]
+  contract_refs: []
+  files_allowed_to_touch:
+    - src-tauri/src/types.rs
+    - src-tauri/src/lib.rs
+    - src-tauri/src/commands.rs
+    - src-tauri/tauri.conf.json
+  forbidden:
+    - src/**
+    - public/**
+  estimated_complexity: XL
+  requires_user_approval: true
+  acceptance:
+    mechanical:
+      - "cargo build && cargo clippy -- -D warnings exits 0"
+    existence:
+      - "Tauri command `plugin_snapshot` accepts plugin name and returns JSON snapshot"
+      - "Plugin manifest format documented in docs/plugin.md"
+      - "Example plugin exists in examples/plugin-hello/"
+    behavioral:
+      - "Third-party executable can be registered and its stdout parsed into a snapshot"
+      - "Plugin failures are isolated and do not crash the app"
+  status: pending
+  owner: null
+  owner_started_at: null
+  retry_count: 0
+  linked_blocker: null
+  resume_hint: |
+    1. Read PLAN.md#B-504
+    2. Design plugin manifest schema
+    3. Implement spawn + JSON Lines parsing
+    4. Write example plugin and guide
+  steps:
+    - "Step 1: Design plugin manifest schema (id, name, executable, args, refresh_interval)"
+    - "Step 2: Add plugin registry config loader"
+    - "Step 3: Implement async plugin runner with JSON Lines stdout parser"
+    - "Step 4: Add Tauri command to query plugin snapshots from frontend"
+    - "Step 5: Create examples/plugin-hello/"
+    - "Step 6: Write docs/plugin.md"
+    - "Step 7: Run cargo build && cargo clippy -- -D warnings"
+    - "Step 8: Get user approval on plugin API design"
+    - "Step 9: Commit: 'feat(backend): plugin command API (B-504)'"
+  handoff_notes: ""
+  notes: "requires_user_approval because the plugin API is a public contract."
+```
+
+```yaml
+- id: F-501
+  track: frontend
+  title: "Process relationship graph (fork / IPC edges)"
+  phase: 5
+  depends_on:
+    hard: [B-501]
+    soft: [F-008]
+  blocks: [I-501]
+  contract_refs: []
+  files_allowed_to_touch:
+    - src/components/RelationGraph.tsx
+    - src/components/BuildingCluster.tsx
+    - src/App.tsx
+    - src/utils/layout.ts
+    - src/utils/colors.ts
+  forbidden:
+    - src-tauri/**
+    - src/utils/types.ts
+    - src/utils/theme.ts
+  estimated_complexity: L
+  requires_user_approval: false
+  acceptance:
+    mechanical:
+      - "npx tsc --noEmit exits 0"
+      - "npm run build exits 0"
+    existence:
+      - "RelationGraph component renders edges for parent-child and IPC relationships"
+      - "Edges use theme accent color with opacity fade"
+    behavioral:
+      - "Parent-child edges connect building bases"
+      - "IPC edges connect building tops with dashed or thinner lines"
+      - "Hovering a process highlights its relations"
+  status: pending
+  owner: null
+  owner_started_at: null
+  retry_count: 0
+  linked_blocker: null
+  resume_hint: |
+    1. Read PLAN.md#F-501
+    2. Consume process_relations from snapshot
+    3. Build edge geometry from positions
+    4. Render with instanced lines or Line component
+  steps:
+    - "Step 1: Create RelationGraph component scaffolding"
+    - "Step 2: Compute parent-child edges from process_relations and positions"
+    - "Step 3: Compute IPC edges and style them distinctly"
+    - "Step 4: Add hover highlight propagation"
+    - "Step 5: Integrate into App.tsx behind a toggle or always-on"
+    - "Step 6: Run npx tsc --noEmit && npm run build"
+    - "Step 7: Commit: 'feat(frontend): process relationship graph (F-501)'"
+  handoff_notes: ""
+  notes: "Avoid O(N^2) edge generation; cap visible relations to top-N processes."
+```
+
+```yaml
+- id: F-502
+  track: frontend
+  title: "Port visualization (listening ports as harbors)"
+  phase: 5
+  depends_on:
+    hard: [B-502]
+    soft: [F-008]
+  blocks: [I-501]
+  contract_refs: []
+  files_allowed_to_touch:
+    - src/components/PortHarbors.tsx
+    - src/App.tsx
+    - src/utils/colors.ts
+  forbidden:
+    - src-tauri/**
+    - src/utils/types.ts
+    - src/utils/theme.ts
+  estimated_complexity: M
+  requires_user_approval: false
+  acceptance:
+    mechanical:
+      - "npx tsc --noEmit exits 0"
+      - "npm run build exits 0"
+    existence:
+      - "PortHarbors component renders dock-like structures around the city perimeter"
+      - "Each harbor shows port number and protocol on hover"
+    behavioral:
+      - "Listening ports appear as glowing docks at fixed angles around the city"
+      - "Public ports (0.0.0.0) use warning color; private ports use system color"
+      - "Cables connect listening process buildings to their harbors"
+  status: pending
+  owner: null
+  owner_started_at: null
+  retry_count: 0
+  linked_blocker: null
+  resume_hint: |
+    1. Read PLAN.md#F-502
+    2. Map listening_ports to harbor positions on a circle
+    3. Render docks and labels
+    4. Connect to owning process building
+  steps:
+    - "Step 1: Create PortHarbors component"
+    - "Step 2: Compute harbor positions from port number hash"
+    - "Step 3: Render dock geometry and labels"
+    - "Step 4: Add cables from process buildings to harbors"
+    - "Step 5: Integrate into App.tsx"
+    - "Step 6: Run npx tsc --noEmit && npm run build"
+    - "Step 7: Commit: 'feat(frontend): listening port harbors (F-502)'"
+  handoff_notes: ""
+  notes: "Keep harbor count capped (e.g., top 40 ports) to maintain performance."
+```
+
+```yaml
+- id: F-503
+  track: frontend
+  title: "Filesystem hotspots (recent read/write heat zones)"
+  phase: 5
+  depends_on:
+    hard: [B-503]
+    soft: [F-009]
+  blocks: [I-501]
+  contract_refs: []
+  files_allowed_to_touch:
+    - src/components/FsHeatmap.tsx
+    - src/components/CityGround.tsx
+    - src/App.tsx
+    - src/utils/colors.ts
+  forbidden:
+    - src-tauri/**
+    - src/utils/types.ts
+    - src/utils/theme.ts
+  estimated_complexity: L
+  requires_user_approval: false
+  acceptance:
+    mechanical:
+      - "npx tsc --noEmit exits 0"
+      - "npm run build exits 0"
+    existence:
+      - "FsHeatmap component overlays colored zones on CityGround"
+      - "Heat intensity maps to read/write delta magnitude"
+    behavioral:
+      - "Hot zones pulse gently in the color of the active theme"
+      - "Zones fade out when activity stops"
+      - "No more than 20 zones rendered at once"
+  status: pending
+  owner: null
+  owner_started_at: null
+  retry_count: 0
+  linked_blocker: null
+  resume_hint: |
+    1. Read PLAN.md#F-503
+    2. Consume fs_hotspots from snapshot
+    3. Map directory paths to ground positions via hash
+    4. Render heat zones as instanced planes or decals
+  steps:
+    - "Step 1: Create FsHeatmap component"
+    - "Step 2: Map directories to stable ground coordinates"
+    - "Step 3: Render heat zones with opacity based on activity level"
+    - "Step 4: Add fade-out animation when activity stops"
+    - "Step 5: Integrate into App.tsx"
+    - "Step 6: Run npx tsc --noEmit && npm run build"
+    - "Step 7: Commit: 'feat(frontend): filesystem heat zones (F-503)'"
+  handoff_notes: ""
+  notes: "Use a small number of instanced planes for performance."
+```
+
+```yaml
+- id: F-504
+  track: frontend
+  title: "Custom theme editor / JSON import"
+  phase: 5
+  depends_on:
+    hard: [F-403]
+    soft: []
+  blocks: [I-501]
+  contract_refs: []
+  files_allowed_to_touch:
+    - src/components/ThemeEditor.tsx
+    - src/utils/theme.ts
+    - src/App.tsx
+    - public/themes/**
+  forbidden:
+    - src-tauri/**
+    - src/utils/types.ts
+    - src/utils/layout.ts
+    - src/utils/colors.ts
+  estimated_complexity: M
+  requires_user_approval: false
+  acceptance:
+    mechanical:
+      - "npx tsc --noEmit exits 0"
+      - "npm run build exits 0"
+    existence:
+      - "ThemeEditor UI allows editing colors, typography, and scene fog"
+      - "Import/export JSON theme buttons exist"
+    behavioral:
+      - "Live preview updates as colors change"
+      - "Exported JSON validates against Theme schema"
+      - "Imported themes are saved to localStorage and appear in ThemeSelector"
+  status: pending
+  owner: null
+  owner_started_at: null
+  retry_count: 0
+  linked_blocker: null
+  resume_hint: |
+    1. Read PLAN.md#F-504
+    2. Extend theme.ts with theme validation and import helpers
+    3. Build ThemeEditor UI
+    4. Persist custom themes alongside registry
+  steps:
+    - "Step 1: Add Theme validation function to theme.ts"
+    - "Step 2: Add import/export helpers and localStorage persistence for custom themes"
+    - "Step 3: Create ThemeEditor component with color pickers and JSON preview"
+    - "Step 4: Integrate editor into App.tsx (e.g., behind a settings button)"
+    - "Step 5: Run npx tsc --noEmit && npm run build"
+    - "Step 6: Commit: 'feat(frontend): custom theme editor (F-504)'"
+  handoff_notes: ""
+  notes: "Keep the editor optional; default UI should not clutter the main view."
+```
+
+```yaml
+- id: F-505
+  track: frontend
+  title: "Screensaver / kiosk mode (fullscreen, auto-rotate)"
+  phase: 5
+  depends_on:
+    hard: [F-401]
+    soft: []
+  blocks: [I-501]
+  contract_refs: []
+  files_allowed_to_touch:
+    - src/components/ScreensaverMode.tsx
+    - src/App.tsx
+    - src/App.css
+  forbidden:
+    - src-tauri/**
+    - src/utils/types.ts
+    - src/utils/theme.ts
+  estimated_complexity: S
+  requires_user_approval: false
+  acceptance:
+    mechanical:
+      - "npx tsc --noEmit exits 0"
+      - "npm run build exits 0"
+    existence:
+      - "ScreensaverMode component enters fullscreen and hides UI chrome"
+      - "Auto-rotate camera option exists"
+    behavioral:
+      - "Pressing a configurable key (e.g., `K`) toggles kiosk mode"
+      - "Camera slowly orbits the city when auto-rotate is enabled"
+      - "UI reappears on mouse movement or Escape"
+  status: pending
+  owner: null
+  owner_started_at: null
+  retry_count: 0
+  linked_blocker: null
+  resume_hint: |
+    1. Read PLAN.md#F-505
+    2. Add fullscreen request and UI hide
+    3. Add camera orbit animation
+  steps:
+    - "Step 1: Create ScreensaverMode component"
+    - "Step 2: Add keyboard toggle and fullscreen API call"
+    - "Step 3: Implement auto-rotate camera orbit in CityScene or App.tsx"
+    - "Step 4: Show UI on mouse move / Escape"
+    - "Step 5: Run npx tsc --noEmit && npm run build"
+    - "Step 6: Commit: 'feat(frontend): screensaver kiosk mode (F-505)'"
+  handoff_notes: ""
+  notes: "Use CSS fullscreen class; avoid forcing fullscreen on launch."
+```
+
+```yaml
+- id: F-506
+  track: frontend
+  title: "Screenshot / GIF sharing"
+  phase: 5
+  depends_on:
+    hard: [F-401]
+    soft: []
+  blocks: [I-501]
+  contract_refs: []
+  files_allowed_to_touch:
+    - src/components/ScreenshotButton.tsx
+    - src/App.tsx
+    - src/App.css
+    - src-tauri/tauri.conf.json
+  forbidden:
+    - src/utils/types.ts
+    - src/utils/theme.ts
+  estimated_complexity: M
+  requires_user_approval: false
+  acceptance:
+    mechanical:
+      - "npx tsc --noEmit exits 0"
+      - "npm run build exits 0"
+    existence:
+      - "Screenshot button captures the canvas to PNG"
+      - "GIF recording captures 3-second animated clip"
+    behavioral:
+      - "PNG saved to user-selected location via Tauri dialog"
+      - "GIF encoding does not freeze the main thread"
+      - "Shared image includes the current theme styling"
+  status: pending
+  owner: null
+  owner_started_at: null
+  retry_count: 0
+  linked_blocker: null
+  resume_hint: |
+    1. Read PLAN.md#F-506
+    2. Use Tauri fs/dialog for PNG save
+    3. Use gif.js or similar for client-side GIF encoding
+  steps:
+    - "Step 1: Add screenshot capture using canvas.toDataURL and Tauri dialog"
+    - "Step 2: Add 3-second GIF recorder using requestAnimationFrame frames"
+    - "Step 3: Wire buttons into App.tsx UI layer"
+    - "Step 4: Add Tauri dialog permission to tauri.conf.json"
+    - "Step 5: Run npx tsc --noEmit && npm run build"
+    - "Step 6: Commit: 'feat(frontend): screenshot and GIF sharing (F-506)'"
+  handoff_notes: ""
+  notes: "GIF encoding can be CPU-heavy; cap resolution and frame rate."
+```
+
+```yaml
+- id: D-501
+  track: docs
+  title: "Plugin development guide"
+  phase: 5
+  depends_on:
+    hard: [B-504]
+    soft: []
+  blocks: [I-501]
+  contract_refs: []
+  files_allowed_to_touch:
+    - docs/plugin.md
+    - examples/plugin-hello/**
+  forbidden:
+    - src/**
+    - src-tauri/src/**
+    - public/**
+  estimated_complexity: M
+  requires_user_approval: true
+  acceptance:
+    mechanical:
+      - "docs/plugin.md renders without markdown lint errors"
+    existence:
+      - "Guide includes manifest schema, lifecycle, stdout format, and example"
+      - "examples/plugin-hello/ builds and runs independently"
+    behavioral:
+      - "New reader can create a plugin in under 30 minutes from the guide"
+  status: pending
+  owner: null
+  owner_started_at: null
+  retry_count: 0
+  linked_blocker: null
+  resume_hint: |
+    1. Read PLAN.md#D-501
+    2. Document manifest schema and JSON Lines output format
+    3. Write step-by-step hello-world plugin tutorial
+  steps:
+    - "Step 1: Write docs/plugin.md with manifest schema and examples"
+    - "Step 2: Create examples/plugin-hello/ (shell or Python script)"
+    - "Step 3: Verify example registers and produces snapshot"
+    - "Step 4: Get user approval on guide"
+    - "Step 5: Commit: 'docs(plugin): plugin development guide (D-501)'"
+  handoff_notes: ""
+  notes: "requires_user_approval because it defines the public plugin contract."
+```
+
+```yaml
+- id: I-501
+  track: integration
+  title: "Phase 5 full acceptance"
+  phase: 5
+  depends_on:
+    hard: [B-501, B-502, B-503, B-504, F-501, F-502, F-503, F-504, F-505, F-506, D-501]
+    soft: []
+  blocks: []
+  contract_refs: []
+  files_allowed_to_touch:
+    - src/App.tsx
+    - PLAN.md
+  forbidden:
+    - src-tauri/src/types.rs
+    - src-tauri/src/engine/**
+    - src-tauri/src/bridge/**
+    - src/utils/types.ts
+    - src/utils/layout.ts
+    - src/utils/colors.ts
+    - src/utils/theme.ts
+    - src/hooks/**
+    - src/components/**
+  estimated_complexity: XL
+  requires_user_approval: false
+  acceptance:
+    mechanical:
+      - "npx tsc --noEmit exits 0"
+      - "npm run build exits 0"
+      - "cd src-tauri && cargo build exits 0"
+      - "cd src-tauri && cargo clippy -- -D warnings exits 0"
+      - "npm run tauri build produces .dmg (macOS) and .msi (Windows)"
+    existence:
+      - "All Phase 5 tasks status=done in PLAN.md"
+      - "docs/plugin.md and examples/plugin-hello/ exist"
+    behavioral:
+      - "Relation graph, port harbors, and filesystem heat zones render on real data"
+      - "Custom theme editor imports/exports valid themes"
+      - "Screensaver mode fullscreen and auto-rotate work"
+      - "Screenshot and GIF sharing save files without errors"
+      - "FPS ≥ 30 with all Phase 5 visual features enabled"
+  status: pending
+  owner: null
+  owner_started_at: null
+  retry_count: 0
+  linked_blocker: null
+  resume_hint: |
+    1. Read PLAN.md#I-501
+    2. Verify all hard deps done
+    3. Run full mechanical acceptance
+    4. Run npm run tauri dev and perform behavioral checks
+    5. Update PLAN.md status counts and current phase
+    6. Append PROGRESS.md entry
+  steps:
+    - "Step 1: Confirm all Phase 5 tasks done"
+    - "Step 2: Run npx tsc --noEmit && npm run build && cd src-tauri && cargo build && cargo clippy -- -D warnings"
+    - "Step 3: Run npm run tauri build on macOS and Windows"
+    - "Step 4: Verify relation graph, harbors, heatmap, theme editor, screensaver, sharing"
+    - "Step 5: Update PLAN.md (I-501 done, counts, current phase 6)"
+    - "Step 6: Append PROGRESS.md entry"
+    - "Step 7: Commit: 'milestone: Phase 5 acceptance passed'"
+  handoff_notes: ""
+  notes: "Phase 5 milestone gate."
+```
 
 ---
 

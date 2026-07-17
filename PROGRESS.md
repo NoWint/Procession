@@ -4,6 +4,37 @@
 
 ## Session Log
 
+### 2026-07-18 — Session #021 (docs / Phase 5 planning, ~25min)
+- Track: docs
+- Task: Expand Phase 5 task graph in PLAN.md
+- Status: done
+- Summary:
+  - Pulled latest code from origin/main; confirmed local branch already up to date
+  - Expanded Phase 5 milestone outline into step-level task definitions per SKILL.md §6 Granularity Rule
+  - Added 12 Phase 5 tasks across 4 tracks:
+    - Backend: B-501 (process relation backend), B-502 (listening ports), B-503 (filesystem hotspots), B-504 (plugin command API)
+    - Frontend: F-501 (process relationship graph), F-502 (port harbors), F-503 (filesystem heat zones), F-504 (custom theme editor), F-505 (screensaver/kiosk mode), F-506 (screenshot/GIF sharing)
+    - Docs: D-501 (plugin development guide)
+    - Integration: I-501 (Phase 5 full acceptance)
+  - Defined dependencies: B-501 → F-501; B-502 → F-502; B-503 → F-503; B-504 → F-504 + D-501; F-504 depends on F-403; F-505/F-506 depend on F-401; all → I-501
+  - Added Task Index table under Phase 5 in PLAN.md header
+  - Updated Status Counts: pending 12, in_progress 0, done 45 (current phase remains 5)
+  - Defined full YAML task specs with acceptance criteria (mechanical/existence/behavioral), file scopes, and resume hints
+  - Mechanical acceptance passed:
+    - `npx tsc --noEmit` exit 0
+    - `npm run build` exit 0
+    - `cd src-tauri && cargo clippy -- -D warnings` exit 0
+    - `cd src-tauri && cargo test` — 19 tests passed
+- Decisions:
+  - B-504 and D-501 marked `requires_user_approval: true` because the plugin API is a public contract
+  - Phase 5 motto: "The city should keep growing"
+- Commits: pending
+- Files:
+  - PLAN.md (mod)
+  - PROGRESS.md (mod)
+- Next ready: Any Phase 5 backend task (B-501..B-504) or frontend polish task (F-504..F-506); B-501/B-502/B-503/B-504 unlock matching frontend visualizations
+- Notes: Phase 5 planning complete. No code changes were required; only task ledger updates. Mechanical acceptance passed cleanly.
+
 ### 2026-07-18 — Session #020 (backend, B-402 + B-403 + B-401, ~45min)
 - Track: backend
 - Task: B-402 (GPU/temperature), B-403 (Tauri packaging), B-401 (MacImpl)
