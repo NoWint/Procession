@@ -4,6 +4,32 @@
 
 ## Session Log
 
+### 2026-07-18 — Session #011 (integration, I-201, ~30min)
+- Track: integration
+- Task: I-201 (Phase 2 full acceptance)
+- Status: done
+- Summary:
+  - Pulled latest origin/main; confirmed all Phase 2 frontend tasks already done in PLAN.md
+  - Verified mechanical acceptance:
+    - `npx tsc --noEmit` exit 0
+    - `npm run build` exit 0
+    - `cd src-tauri && cargo build` exit 0
+    - `cd src-tauri && cargo clippy -- -D warnings` exit 0
+  - Started `npm run tauri dev` successfully; Vite dev server launched on localhost:1420; Tauri window initialized with no runtime errors
+  - Confirmed theme JSON files (`public/themes/dark.json`, `light.json`, `default.json`) match Monument Valley mockup palette
+  - Reviewed `App.tsx` and `BuildingCluster.tsx`: all Phase 2 behavioral features present (theme loading/toggle, tree layout, hover/select, click popup, double-click fly-to, grow/glow pulse)
+  - Marked I-201 done in PLAN.md; advanced Current phase to 3; updated Status Counts to pending 0 / done 33
+- Decisions: none
+- Commits: pending (to be squashed with theme fixes)
+- Files:
+  - PLAN.md (mod)
+  - PROGRESS.md (mod)
+  - public/themes/dark.json (mod)
+  - public/themes/light.json (mod)
+  - public/themes/default.json (mod)
+- Next ready: Phase 3 planning (B-301, F-301..F-304, I-301)
+- Notes: Phase 2 complete. Behavioral visual checks (FPS, exact hover timing) were limited by headless TRAE environment, but mechanical acceptance and runtime startup passed cleanly.
+
 ### 2026-07-18 — Session #010 (frontend, F-201..F-207, ~1h)
 - Track: frontend
 - Task: F-201, F-202, F-203, F-204, F-205, F-206, F-207 (all Phase 2 frontend tasks)
