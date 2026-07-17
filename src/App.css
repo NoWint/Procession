@@ -224,3 +224,17 @@ canvas {
 .process-popup-value {
   color: var(--proc-text);
 }
+
+.building-label {
+  padding: 3px 7px;
+  background: var(--proc-surface);
+  color: var(--proc-text);
+  border: 1px solid var(--proc-border);
+  border-radius: var(--proc-radius-sm);
+  font-family: var(--proc-font-mono);
+  font-size: 10px;
+  white-space: nowrap;
+  box-shadow: var(--proc-shadow-sm);
+  opacity: 0.92;
+  transform: translateY(-50%);
+}

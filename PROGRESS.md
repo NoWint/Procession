@@ -4,6 +4,37 @@
 
 ## Session Log
 
+### 2026-07-18 — Session #018 (frontend, F-401 + F-402 + F-403 integration, ~25min)
+- Track: frontend
+- Task: F-401 (HUD StatsPanel) + F-402 (Space-bar utility mode) + F-403 (Color theme system)
+- Status: done
+- Summary:
+  - Pulled latest code from origin/main; already up to date
+  - Fixed `App.tsx` integration for Phase 4 frontend components:
+    - Added `HudPanel` rendering with live CPU/memory/network/process metrics
+    - Added `UtilityMode` toggled by Space, closed by Escape; sortable by CPU/memory; clicking row selects process and flies camera
+    - Added `ThemeSelector` dropdown backed by theme registry + localStorage persistence
+    - Linked `BuildingCluster.showLabels` to `utilityMode` state
+    - Removed stale undefined `toggleTheme` button
+    - Added `currentThemeUrl` state to keep selector in sync with loaded theme
+  - Mechanical acceptance passed:
+    - `npx tsc --noEmit` exit 0
+    - `npm run build` exit 0
+    - `cd src-tauri && cargo clippy -- -D warnings` exit 0
+  - Marked F-401/F-402/F-403 done in PLAN.md
+- Decisions:
+  - Theme URL tracked as React state so `ThemeSelector` always reflects the active theme
+  - Utility mode labels reuse existing `BuildingCluster` label path; no duplicate DOM overlay
+- Commits: pending
+- Files:
+  - src/App.tsx (mod)
+  - PLAN.md (mod)
+  - PROGRESS.md (mod)
+- Next ready: F-404 performance optimization, or any of B-401/B-402/B-403 backend tasks
+- Notes: |
+    Phase 4 frontend MVP complete. HUD, utility dashboard, and theme switching are wired into the main app.
+    Remaining Phase 4 work: F-404 performance, B-401/B-402/B-402 backend/platform, B-403 packaging, D-401 docs, I-401 acceptance.
+
 ### 2026-07-18 — Session #017 (integration, F-303 + I-301, ~30min)
 - Track: integration
 - Task: F-303 (Protocol color mapping) + I-301 (Phase 3 full acceptance)

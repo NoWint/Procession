@@ -1,0 +1,36 @@
+{
+  "name": "Midnight Blue",
+  "mode": "dark",
+  "typography": {
+    "heading": "\"Helvetica Neue\", \"Songti SC\", \"Source Han Serif SC\", serif",
+    "body": "-apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+    "mono": "\"SF Mono\", \"Cascadia Code\", \"Fira Code\", monospace"
+  },
+  "colors": {
+    "background": "#050a14",
+    "surface": "#0c1626",
+    "surfaceElevated": "#132036",
+    "text": "#d8e4f0",
+    "textMuted": "#6a7a94",
+    "accent": "#7eb8ff",
+    "border": "#1b2d4a",
+    "grid": "#0f1c30",
+    "gridSecondary": "#081020",
+    "ground": "#060e1a",
+    "system": "#5c8fbd",
+    "user": "#7e9bbd",
+    "active": "#a8d4ff",
+    "idle": "#3a4a64",
+    "sleeping": "#4a5e7c",
+    "stopped": "#2e3c54",
+    "zombie": "#1f2b40",
+    "particle": "#6a9fd6"
+  },
+  "scene": {
+    "ambientIntensity": 0.45,
+    "directionalIntensity": 0.95,
+    "fogColor": "#050a14",
+    "fogNear": 25,
+    "fogFar": 95
+  }
+}

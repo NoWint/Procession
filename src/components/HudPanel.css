@@ -1,0 +1,37 @@
+.hud-panel {
+  position: absolute;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 20px;
+  padding: 10px 18px;
+  background: var(--proc-surface);
+  border: 1px solid var(--proc-border);
+  border-radius: var(--proc-radius-md);
+  backdrop-filter: blur(8px);
+  box-shadow: var(--proc-shadow-sm);
+  pointer-events: auto;
+}
+
+.hud-row {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 48px;
+}
+
+.hud-label {
+  font-family: var(--proc-font-mono);
+  font-size: 10px;
+  color: var(--proc-text-muted);
+  letter-spacing: 0.05em;
+}
+
+.hud-value {
+  font-family: var(--proc-font-mono);
+  font-size: 13px;
+  color: var(--proc-text);
+  font-weight: 600;
+}

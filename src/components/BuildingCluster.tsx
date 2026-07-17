@@ -1,6 +1,7 @@
 import { useRef, useMemo, useEffect, useCallback, useState } from "react";
 import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
+import { Html } from "@react-three/drei";
 import type { ThreeEvent } from "@react-three/fiber";
 import type { ProcessInfo } from "../utils/types";
 import { computeTreePositions } from "../utils/layout";
@@ -13,6 +14,7 @@ interface BuildingClusterProps {
   selectedPid?: number | null;
   layout?: "radial" | "tree";
   maxBuildings?: number;
+  showLabels?: boolean;
   onClick?: (process: ProcessInfo) => void;
   onDoubleClick?: (process: ProcessInfo) => void;
   onHover?: (process: ProcessInfo | null) => void;
@@ -28,6 +30,7 @@ export default function BuildingCluster({
   selectedPid = null,
   layout = "tree",
   maxBuildings = 200,
+  showLabels = false,
   onClick,
   onDoubleClick,
   onHover,
@@ -159,20 +162,38 @@ export default function BuildingCluster({
   );
 
   return (
-    <instancedMesh
-      ref={meshRef}
-      args={[undefined, undefined, positions.length]}
-      onClick={handleClick}
-      onDoubleClick={handleDoubleClick}
-      onPointerOver={handlePointerOver}
-      onPointerOut={handlePointerOut}
-    >
-      <boxGeometry args={[0.9, 1, 0.9]} />
-      <meshStandardMaterial
-        ref={materialRef}
-        roughness={0.7}
-        metalness={0.15}
-      />
-    </instancedMesh>
+    <group>
+      <instancedMesh
+        ref={meshRef}
+        args={[undefined, undefined, positions.length]}
+        onClick={handleClick}
+        onDoubleClick={handleDoubleClick}
+        onPointerOver={handlePointerOver}
+        onPointerOut={handlePointerOut}
+      >
+        <boxGeometry args={[0.9, 1, 0.9]} />
+        <meshStandardMaterial
+          ref={materialRef}
+          roughness={0.7}
+          metalness={0.15}
+        />
+      </instancedMesh>
+      {showLabels &&
+        positions.map((pos) => {
+          const process = processes.find((p) => p.pid === pos.pid);
+          if (!process) return null;
+          return (
+            <Html
+              key={`label-${pos.pid}`}
+              position={[pos.x, pos.height + 0.8, pos.z]}
+              center
+              distanceFactor={12}
+              style={{ pointerEvents: "none" }}
+            >
+              <div className="building-label">{process.name}</div>
+            </Html>
+          );
+        })}
+    </group>
   );
 }

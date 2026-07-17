@@ -8,11 +8,25 @@ import CityGround from "./components/CityGround";
 import Atmosphere from "./components/Atmosphere";
 import ProcessPopup from "./components/ProcessPopup";
 import ErrorState from "./components/ErrorState";
+import HudPanel from "./components/HudPanel";
+import UtilityMode from "./components/UtilityMode";
+import ThemeSelector from "./components/ThemeSelector";
 import { useSystemData } from "./hooks/useSystemData";
 import type { ProcessInfo } from "./utils/types";
 import { computeTreePositions } from "./utils/layout";
-import { loadTheme, applyTheme, DEFAULT_THEME_URL, FALLBACK_THEME, type Theme } from "./utils/theme";
+import {
+  loadTheme,
+  applyTheme,
+  DEFAULT_THEME_URL,
+  FALLBACK_THEME,
+  getSavedThemeUrl,
+  saveThemeUrl,
+  type Theme,
+} from "./utils/theme";
 import "./App.css";
+import "./components/HudPanel.css";
+import "./components/UtilityMode.css";
+import "./components/ThemeSelector.css";
 
 const DATA_TIMEOUT_MS = 4000;
 
@@ -21,13 +35,18 @@ export default function App() {
   const [timedOut, setTimedOut] = useState(false);
   const [selectedProcess, setSelectedProcess] = useState<ProcessInfo | null>(null);
   const [cameraTarget, setCameraTarget] = useState<{ x: number; y: number; z: number } | null>(null);
+  const [utilityMode, setUtilityMode] = useState(false);
   const [theme, setTheme] = useState<Theme>(FALLBACK_THEME);
+  const [currentThemeUrl, setCurrentThemeUrl] = useState(DEFAULT_THEME_URL);
   const [themeReady, setThemeReady] = useState(false);
 
-  // Load theme on mount.
+  // Load theme on mount, restoring saved preference.
   useEffect(() => {
     let cancelled = false;
-    loadTheme(DEFAULT_THEME_URL).then((t) => {
+    const savedUrl = getSavedThemeUrl();
+    const initialUrl = savedUrl && savedUrl.startsWith("/themes/") ? savedUrl : DEFAULT_THEME_URL;
+    setCurrentThemeUrl(initialUrl);
+    loadTheme(initialUrl).then((t) => {
       if (cancelled) return;
       applyTheme(t);
       setTheme(t);
@@ -93,13 +112,40 @@ export default function App() {
     window.location.reload();
   }, []);
 
-  const toggleTheme = useCallback(() => {
-    const nextUrl = theme.mode === "dark" ? "/themes/light.json" : "/themes/dark.json";
-    loadTheme(nextUrl).then((t) => {
+  const handleThemeChange = useCallback((url: string) => {
+    loadTheme(url).then((t) => {
       applyTheme(t);
       setTheme(t);
+      setCurrentThemeUrl(url);
+      saveThemeUrl(url);
     });
-  }, [theme.mode]);
+  }, []);
+
+  const handleSelectProcessFromUtility = useCallback((process: ProcessInfo) => {
+    setSelectedProcess(process);
+    const pos = positions.find((p) => p.pid === process.pid);
+    if (pos) {
+      setCameraTarget({ x: pos.x, y: pos.height, z: pos.z });
+    }
+  }, [positions]);
+
+  // Toggle utility mode with Space; close with Escape.
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === " " && !["INPUT", "SELECT", "TEXTAREA"].includes((e.target as HTMLElement).tagName)) {
+        e.preventDefault();
+        setUtilityMode((prev) => !prev);
+      }
+      if (e.key === "Escape") {
+        setUtilityMode(false);
+        setSelectedProcess(null);
+        setCameraTarget(null);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   if (!themeReady) {
     return <ErrorState message="Loading visual system..." loading />;
@@ -138,6 +184,7 @@ export default function App() {
           processes={snapshot.processes}
           theme={theme}
           selectedPid={selectedProcess?.pid ?? null}
+          showLabels={utilityMode}
           onClick={handleBuildingClick}
           onDoubleClick={handleBuildingDoubleClick}
         />
@@ -161,10 +208,17 @@ export default function App() {
             {snapshot.processes.length} processes · {snapshot.cpu.total.toFixed(1)}% CPU
           </span>
         </div>
+        <HudPanel snapshot={snapshot} theme={theme} />
+        {utilityMode && (
+          <UtilityMode
+            snapshot={snapshot}
+            positions={positions}
+            theme={theme}
+            onSelectProcess={handleSelectProcessFromUtility}
+          />
+        )}
         <div className="app-controls">
-          <button className="app-theme-toggle" onClick={toggleTheme}>
-            {theme.mode === "dark" ? "Light" : "Noir"}
-          </button>
+          <ThemeSelector currentUrl={currentThemeUrl} onChange={handleThemeChange} />
         </div>
         <ProcessPopup
           process={selectedProcess}

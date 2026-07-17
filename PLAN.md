@@ -73,9 +73,9 @@ Constitution changes (STRATEGY/SPEC/ARCHITECTURE under `.docs/`) require a `D-*`
 | B-401 | MacImpl (sysinfo + IOKit for mac-specific sensors)| 4     | pending | B-002                             | L         |
 | B-402 | GPU / temperature detection (Windows: NVAPI/AMD SDK)| 4   | pending | B-002                             | L         |
 | B-403 | Tauri packaging config (Windows MSI + macOS DMG)  | 4     | pending | I-001                             | M         |
-| F-401 | HUD StatsPanel (CPU/memory/network overlay)        | 4     | pending | F-012                             | M         |
-| F-402 | Space-bar utility mode (labels + dashboard)        | 4     | pending | F-012                             | L         |
-| F-403 | Color theme system (user-selectable)               | 4     | pending | F-204                             | M         |
+| F-401 | HUD StatsPanel (CPU/memory/network overlay)        | 4     | done    | F-012                             | M         |
+| F-402 | Space-bar utility mode (labels + dashboard)        | 4     | done    | F-012                             | L         |
+| F-403 | Color theme system (user-selectable)               | 4     | done    | F-204                             | M         |
 | F-404 | Performance optimization (LOD, 1000+ processes)    | 4     | pending | F-008                             | XL        |
 | D-401 | README + demo video                                | 4     | pending | B-403, F-401, F-402               | M         |
 | I-401 | Phase 4 full acceptance                            | 4     | pending | B-401, B-402, B-403, F-401, F-402, F-403, F-404, D-401 | XL |

@@ -1,0 +1,25 @@
+.theme-selector {
+  background: var(--proc-surface);
+  color: var(--proc-text);
+  border: 1px solid var(--proc-border);
+  border-radius: var(--proc-radius-md);
+  padding: 8px 28px 8px 12px;
+  font-size: 13px;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath fill='%238a8a95' d='M0 1.5L5 6l5-4.5L9 0 5 3.75 1 0 0 1.5z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  box-shadow: var(--proc-shadow-sm);
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.theme-selector:hover {
+  background-color: var(--proc-surface-elevated);
+  border-color: var(--proc-accent);
+}
+
+.theme-selector:focus {
+  outline: none;
+  border-color: var(--proc-accent);
+}

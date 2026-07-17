@@ -43,7 +43,46 @@ export interface Theme {
   scene: ThemeScene;
 }
 
+export interface ThemeMeta {
+  id: string;
+  name: string;
+  mode: "dark" | "light";
+  url: string;
+}
+
 export const DEFAULT_THEME_URL = "/themes/default.json";
+
+const THEME_REGISTRY: ThemeMeta[] = [
+  { id: "default", name: "Monument Valley Noir", mode: "dark", url: "/themes/default.json" },
+  { id: "light", name: "Monument Valley Light", mode: "light", url: "/themes/light.json" },
+  { id: "midnight-blue", name: "Midnight Blue", mode: "dark", url: "/themes/midnight-blue.json" },
+];
+
+const THEME_STORAGE_KEY = "procession-theme-url";
+
+export function getThemeRegistry(): ThemeMeta[] {
+  return [...THEME_REGISTRY];
+}
+
+export function findThemeMetaByUrl(url: string): ThemeMeta | undefined {
+  return THEME_REGISTRY.find((t) => t.url === url);
+}
+
+export function getSavedThemeUrl(): string | null {
+  try {
+    return localStorage.getItem(THEME_STORAGE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function saveThemeUrl(url: string): void {
+  try {
+    localStorage.setItem(THEME_STORAGE_KEY, url);
+  } catch {
+    // Ignore storage errors (e.g., private mode).
+  }
+}
 
 export const FALLBACK_THEME: Theme = {
   name: "Monument Valley Noir",
