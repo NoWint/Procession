@@ -73,6 +73,47 @@
 - Next ready: B-504 (Plugin command API, requires user approval), F-501..F-503 (frontend, wait 夏天)
 - Notes: B-501 + B-502 + B-503 all done in one session. 3 backend Phase 5 tasks complete. Frontend counterparts (F-501..F-503) unblocked for 夏天.
 
+### 2026-07-18 08:35 — Session #023 (docs, D-502 UI Design System approval, ~5min)
+- Track: docs
+- Task: D-502 (UI Design System v1.0 document)
+- Status: done
+- Summary:
+  - User approved the constitution-level UI Design System v2.0 in .docs/UI_DESIGN_SYSTEM.md.
+  - Committed UI_DESIGN_SYSTEM.md, ui-wireframes.svg, PLAN.md, and PROGRESS.md updates.
+  - D-502 status moved to done in PLAN.md; status counts updated.
+- Decisions:
+  - UI Design System v2.0 becomes the binding spec for all future UI/UX work in Procession.
+- Commits: 26fea20
+- Files:
+  - .docs/UI_DESIGN_SYSTEM.md (new)
+  - .docs/assets/ui-wireframes.svg (new)
+  - PLAN.md (mod)
+  - PROGRESS.md (mod)
+- Next ready: WORLD_GENERATION_DESIGN.md, VFX_DESIGN.md, or begin implementing theme tokens in src/utils/theme.ts.
+- Notes: User approved without changes; light-mode palette details and cursor states remain documented gaps to address if user requests later.
+
+### 2026-07-18 00:34 — Session #022 (docs, D-502 UI Design System, ~40min)
+- Track: docs
+- Task: D-502 (UI Design System v1.0 document)
+- Status: partial
+- Summary:
+  - Drafted constitution-level UI Design System in .docs/UI_DESIGN_SYSTEM.md based on the product-design prompt and existing component baseline.
+  - Defined core principles: world-first, observation-instrument, spatialized information, alive animation, restrained premium aesthetics.
+  - Specified color system (electric cyan / cold blue / amber / deep red on dark graphite), material system (glass / ceramic / liquid metal / hologram), typography (Songti headings + SF Pro/Inter body + SF Mono data).
+  - Designed Spatial Console navigation (Universe/Civilization/Energy/Network/History/Observer) replacing traditional sidebar.
+  - Redesigned existing components: SpatialHud, BuildingDetail, UtilityConsole, ThemeSelector, ErrorState, ObserverPanel.
+  - Added animation timing, easing curves, responsive breakpoints, performance degradation rules, and implementation mapping to theme tokens / CSS variables.
+  - Added D-502 to PLAN.md Phase 5 task graph and I-501 dependencies; updated Status Counts.
+- Decisions:
+  - UI Design System treated as a constitution-level design spec, requiring user approval before marking D-502 done.
+  - Heading font keeps Songti SC (serif) for Chinese humanistic warmth; body stays SF Pro/Inter/Neue Haas Grotesk.
+- Commits: none yet (pending user approval)
+- Files:
+  - .docs/UI_DESIGN_SYSTEM.md (new)
+  - PLAN.md (mod)
+- Next ready: D-502 remains pending user approval; after approval, commit and mark done.
+- Notes: Self-review identified minor gaps (light-mode palette details, iconography style, cursor states) to address if user requests. No code changes made.
+
 ### 2026-07-18 — Session #021 (docs / Phase 5 planning, ~25min)
 - Track: docs
 - Task: Expand Phase 5 task graph in PLAN.md
@@ -416,7 +457,7 @@
 - Task: F-201, F-202, F-203, F-204, F-205, F-206, F-207 (all Phase 2 frontend tasks)
 - Status: done
 - Summary:
-  - Pulled latest origin/main; backend B-201 was done but did not compile on macOS due to unconditional `windows` module import
+  - Pulled latest code from origin/main; backend B-201 was done but did not compile on macOS due to unconditional `windows` module import
   - Minimal backend fix to unblock frontend verification: made `engine/windows` module and `WindowsImpl` usage conditional on `target_os = "windows"`; non-Windows builds fall back to `MockAdapter`
   - F-201: Added `computeTreePositions` to `src/utils/layout.ts` — BFS tree-radial layout with parent-child clustering and overlap resolution
   - F-202: Extended `src/utils/colors.ts` with state-aware theme colors; `BuildingCluster` now pulses emissive glow for high-CPU processes
@@ -495,7 +536,7 @@
 - Next ready: B-201 (backend), F-201/F-202/F-203/F-204/F-205/F-206/F-207 (frontend, all deps done)
 - Notes: Phase 2 task graph is now fully expanded. Ready for track execution. F-205 requires user approval before starting.
 
-### 2026-07-17 — Session #007 (integration / Phase 1 acceptance, ~30min)
+### 2026-07-18 — Session #007 (integration / Phase 1 acceptance, ~30min)
 - Track: integration
 - Task: I-002 + I-003 (Phase 1 milestone acceptance)
 - Status: done
@@ -562,7 +603,7 @@
   - Verified `npm run dev` starts without Vite/React errors
   - Browser visual check blocked by TRAE browser panel WebGL unavailability
 - Decisions: none
-- Commits: 3d721a2 (TestCube), 5df31cc (handoff), bc6c46f (merge), 9453a9d (merge queue update)
+- Commits: 3d721a2 (TestCube), 5df31cc (handoff), bc6c46f (merge), 9453a9d (merge merge queue update)
 - Files:
   - src/components/TestCube.tsx (new)
 - Next ready: F-001 (frontend types mirror, B-001 done), I-002 (E2E mock push → cube render, depends on F-005 + B-004)

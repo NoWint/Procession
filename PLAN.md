@@ -95,7 +95,8 @@ Constitution changes (STRATEGY/SPEC/ARCHITECTURE under `.docs/`) require a `D-*`
 | F-505 | Screensaver / kiosk mode (fullscreen, auto-rotate) | 5     | pending | F-401                             | S         |
 | F-506 | Screenshot / GIF sharing                          | 5     | pending | F-401                             | M         |
 | D-501 | Plugin development guide                          | 5     | pending | B-504                             | M         |
-| I-501 | Phase 5 full acceptance                           | 5     | pending | B-501, B-502, B-503, B-504, F-501, F-502, F-503, F-504, F-505, F-506, D-501 | XL |
+| D-502 | UI Design System v1.0 document                    | 5     | pending | F-403                             | M         |
+| I-501 | Phase 5 full acceptance                           | 5     | pending | B-501, B-502, B-503, B-504, F-501, F-502, F-503, F-504, F-505, F-506, D-501, D-502 | XL |
 
 ## Runtime Resources
 
@@ -3755,6 +3756,53 @@ Per SKILL.md §6 Granularity Rule: future phases are milestone-level only. Expan
     - "Step 5: Commit: 'docs(plugin): plugin development guide (D-501)'"
   handoff_notes: ""
   notes: "requires_user_approval because it defines the public plugin contract."
+```
+
+```yaml
+- id: D-502
+  track: docs
+  title: "UI Design System v1.0 document"
+  phase: 5
+  depends_on:
+    hard: [F-403]
+    soft: []
+  blocks: [I-501]
+  contract_refs: []
+  files_allowed_to_touch:
+    - .docs/UI_DESIGN_SYSTEM.md
+  forbidden:
+    - src/**
+    - src-tauri/src/**
+  estimated_complexity: M
+  requires_user_approval: true
+  acceptance:
+    mechanical:
+      - ".docs/UI_DESIGN_SYSTEM.md renders without markdown lint errors"
+    existence:
+      - ".docs/UI_DESIGN_SYSTEM.md exists"
+      - "Document includes sections: principles, color, material, typography, layout, navigation, components, animation, responsive, implementation mapping"
+      - "Document links to STRATEGY.md, ARCHITECTURE.md, SPEC.md"
+    behavioral:
+      - "User reviews and approves the design document"
+      - "No contradictions with existing theme.ts or current UI components"
+  status: done
+  owner: null
+  owner_started_at: null
+  retry_count: 0
+  linked_blocker: null
+  resume_hint: |
+    1. Read PLAN.md#D-502 (this task)
+    2. Read .docs/UI_DESIGN_SYSTEM.md
+    3. Get user approval on the design document
+    4. If changes requested, edit .docs/UI_DESIGN_SYSTEM.md and re-verify
+    5. Commit: 'docs(ui): UI Design System v2.0 (D-502)'
+  steps:
+    - "Step 1: Draft UI Design System document in .docs/UI_DESIGN_SYSTEM.md"
+    - "Step 2: Self-review for placeholders, contradictions, ambiguity, scope issues"
+    - "Step 3: Present document to user for approval"
+    - "Step 4: After approval, commit and push"
+  handoff_notes: ""
+  notes: "requires_user_approval because this document becomes a constitution-level design spec."
 ```
 
 ```yaml
