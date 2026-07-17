@@ -28,7 +28,7 @@
 - Decisions:
   - B-504 and D-501 marked `requires_user_approval: true` because the plugin API is a public contract
   - Phase 5 motto: "The city should keep growing"
-- Commits: pending
+- Commits: 57b2030
 - Files:
   - PLAN.md (mod)
   - PROGRESS.md (mod)
