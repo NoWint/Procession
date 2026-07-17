@@ -18,7 +18,7 @@
   - Verified `npx tsc --noEmit` and `npm run build` both exit 0
   - Temporarily composed components in App.tsx; verified dev server at localhost:1420
 - Decisions: none
-- Commits: e6c9b65 (lock), d27b29e (F-004), cb2c393 (F-009), be91d7d (F-013), bbec2d8 (F-010 + deps), <handoff-sha>
+- Commits: e6c9b65 (lock), d27b29e (F-004), cb2c393 (F-009), be91d7d (F-013), bbec2d8 (F-010 + deps), 8b80195 (handoff), c4b7510 (merge)
 - Files: src/components/CityScene.tsx (new), src/components/CityGround.tsx (new), src/components/Atmosphere.tsx (new), src/components/ErrorState.tsx (new), package.json (mod), package-lock.json (mod)
 - Next ready: F-005 (TestCube) — hard dep F-004 now done
 - Notes: 4 tasks executed in one session due to true file isolation and no cross-dependencies. Each task got its own commit per small+often rule. App.tsx left as placeholder; F-012 will compose all components officially.
