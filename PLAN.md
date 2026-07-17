@@ -48,7 +48,7 @@ Constitution changes (STRATEGY/SPEC/ARCHITECTURE under `.docs/`) require a `D-*`
 | F-002 | `useSystemData` hook (Tauri event → state)        | 1     | pending | F-001                 | M         |
 | F-003 | Global styles + `main.tsx` + `index.html`         | 1     | done    | I-001                 | S         |
 | F-004 | `CityScene` container (R3F + camera + lights)      | 1     | done    | F-003                 | M         |
-| F-005 | `TestCube` (cube height driven by mock CPU)        | 1     | pending | F-004                 | S         |
+| F-005 | `TestCube` (cube height driven by mock CPU)        | 1     | done    | F-004                 | S         |
 | F-006 | `layout.ts` (`computePositions` algorithm)         | 1     | pending | F-001                 | M         |
 | F-007 | `colors.ts` (system/user/active color system)      | 1     | pending | F-001                 | S         |
 | F-008 | `BuildingCluster` (`InstancedMesh`) — bottleneck   | 1     | pending | F-006, F-007          | L         |
@@ -76,9 +76,9 @@ Constitution changes (STRATEGY/SPEC/ARCHITECTURE under `.docs/`) require a `D-*`
 
 ## Status Counts
 
-- pending: 10
+- pending: 9
 - in_progress: 0
-- done: 14
+- done: 15
 - blocked: 0
 - failed: 0
 - stale: 0
