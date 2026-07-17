@@ -879,9 +879,9 @@ Constitution changes (STRATEGY/SPEC/ARCHITECTURE under `.docs/`) require a `D-*`
       - "grep 'perspectiveCamera' src/components/CityScene.tsx ≥ 1 OR grep '<perspectiveCamera' src/components/CityScene.tsx ≥ 1 OR (camera is default)"
     behavioral:
       - "Render <CityScene /> in App.tsx temporarily, run `npm run dev`, verify a black 3D scene renders with camera responsive to mouse drag (OrbitControls)"
-  status: pending
-  owner: null
-  owner_started_at: null
+  status: in_progress
+  owner: trae-20260717-002
+  owner_started_at: 2026-07-17T04:20:00+08:00
   retry_count: 0
   linked_blocker: null
   resume_hint: |
@@ -1183,9 +1183,9 @@ Constitution changes (STRATEGY/SPEC/ARCHITECTURE under `.docs/`) require a `D-*`
     behavioral:
       - "Render CityGround inside CityScene, verify a glowing grid plane is visible at y=0, semi-transparent, extends at least 50 units in each direction"
       - "Grid color matches project palette (subtle blue/cyan glow on dark background)"
-  status: pending
-  owner: null
-  owner_started_at: null
+  status: in_progress
+  owner: trae-20260717-002
+  owner_started_at: 2026-07-17T04:20:00+08:00
   retry_count: 0
   linked_blocker: null
   resume_hint: |
@@ -1244,9 +1244,9 @@ Constitution changes (STRATEGY/SPEC/ARCHITECTURE under `.docs/`) require a `D-*`
     behavioral:
       - "Render Atmosphere inside CityScene, verify floating particles visible in background"
       - "Bloom effect visible: bright objects (high-CPU buildings) have a soft glow halo"
-  status: pending
-  owner: null
-  owner_started_at: null
+  status: in_progress
+  owner: trae-20260717-002
+  owner_started_at: 2026-07-17T04:20:00+08:00
   retry_count: 0
   linked_blocker: null
   resume_hint: |
@@ -1436,9 +1436,9 @@ Constitution changes (STRATEGY/SPEC/ARCHITECTURE under `.docs/`) require a `D-*`
     behavioral:
       - "Render ErrorState with message='Failed to receive data', verify centered text with retry button visible"
       - "Component is presentational (pure): given a message prop, displays it"
-  status: pending
-  owner: null
-  owner_started_at: null
+  status: in_progress
+  owner: trae-20260717-002
+  owner_started_at: 2026-07-17T04:20:00+08:00
   retry_count: 0
   linked_blocker: null
   resume_hint: |
