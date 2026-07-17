@@ -1626,7 +1626,7 @@ Per SKILL.md §6 Granularity Rule: future phases are milestone-level only. Expan
 
 | ID    | Title                                              | Phase | Status  | Deps                              | Complexity |
 |-------|----------------------------------------------------|-------|---------|-----------------------------------|-----------|
-| B-301 | Real network connection collection (Windows API)  | 3     | pending | B-201                             | M         |
+| B-301 | Real network connection collection (Windows API)  | 3     | done    | B-201                             | M         |
 | B-302 | Remote IP → geolocation mapping (optional)         | 3     | pending | B-301                             | S         |
 | F-301 | LineGeometry cable rendering                       | 3     | pending | F-008, B-301                      | L         |
 | F-302 | Particle flow along cables                         | 3     | pending | F-301                             | M         |

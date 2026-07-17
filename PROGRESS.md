@@ -4,32 +4,24 @@
 
 ## Session Log
 
-### 2026-07-18 — Session #013 (frontend, F-304, ~15min)
-- Track: frontend
-- Task: F-304 (Building top halo pulse for running processes)
+### 2026-07-18 — Session #013 (parallel: frontend F-304 + backend B-301)
+- Track: multiple
+- Task: F-304 (BuildingHalo) + B-301 (Network I/O rates + UDP)
 - Status: done
 - Summary:
-  - Created `src/components/BuildingHalo.tsx` — instanced ring halos above Running processes
-  - Filtered instances by `state === "Running"` and matched them to building positions
-  - Initialized instance matrices/colors in `useEffect`; animated scale with slow sinusoidal pulse in `useFrame`
-  - Fixed instance-index bug: used array index `i` instead of `pos.pid` for `setMatrixAt`
-  - Wired `BuildingHalo` into `App.tsx` as sibling of `BuildingCluster` inside `CityScene`, passing `processes`, `positions`, and `theme`
-  - Mechanical acceptance passed:
-    - `npx tsc --noEmit` exit 0
-    - `npm run build` exit 0
-    - `cd src-tauri && cargo build` exit 0
-  - Marked F-304 done in PLAN.md; updated Status Counts to pending 6, done 34
-- Decisions:
-  - Halo rendered as `ringGeometry` with `meshBasicMaterial`, transparent, double-sided, depthWrite disabled
-  - Pulse speed set to 1.5 rad/s with scale range 0.85–1.15 to keep effect subtle
+  - **F-304 (夏天):** Created BuildingHalo.tsx — instanced ringGeometry halos above Running processes, sinusoidal pulse
+  - **B-301 (严梓峻):** Network I/O rates (sysinfo cumulative delta), UDP enumeration (GetExtendedUdpTable), protocol tagging
+  - Marked F-304 and B-301 done in PLAN.md; Status Counts: pending 5, done 35
+- Decisions: none
 - Commits: pending
 - Files:
   - src/components/BuildingHalo.tsx (new)
   - src/App.tsx (mod)
+  - src-tauri/src/engine/windows.rs (mod)
+  - src-tauri/src/engine/mock.rs (mod)
   - PLAN.md (mod)
-  - PROGRESS.md (mod)
-- Next ready: B-301 (backend), F-301/F-302/F-303 (frontend; all blocked by B-301), I-301 (integration)
-- Notes: F-304 is the first Phase 3 task complete. All other Phase 3 frontend work depends on B-301 (real network connections).
+- Next ready: F-301 (CableSystem, bottleneck — deps F-008 + B-301 now both done)
+- Notes: F-303 (protocol colors) no longer depends on B-301 — it only depends on F-301. F-304 done independently by 夏天 in parallel.
 
 ### 2026-07-18 — Session #012 (docs / Phase 3 planning, ~20min)
 - Track: docs

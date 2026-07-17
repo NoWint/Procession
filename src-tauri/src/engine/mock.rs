@@ -175,7 +175,8 @@ impl PlatformAdapter for MockAdapter {
 
     async fn get_network(&self) -> Option<NetworkInfo> {
         let t = self.start_time.elapsed().as_secs_f64();
-        let connections = (0..25)
+        // TCP connections (20)
+        let mut connections: Vec<Connection> = (0..20)
             .map(|i| Connection {
                 pid: 1000 + (i % 10) as u64,
                 local_addr: format!("192.168.1.100:{}", 30000 + i),
@@ -185,10 +186,20 @@ impl PlatformAdapter for MockAdapter {
                     0 => "http".into(),
                     1 => "https".into(),
                     2 => "ssh".into(),
-                    _ => "dns".into(),
+                    _ => "tcp".into(),
                 },
             })
             .collect();
+        // UDP listeners (5)
+        for i in 0..5 {
+            connections.push(Connection {
+                pid: 1000 + (i % 5) as u64,
+                local_addr: format!("0.0.0.0:{}", 50000 + i),
+                remote_addr: "0.0.0.0:0".to_string(),
+                state: "listen".to_string(),
+                protocol: "udp".to_string(),
+            });
+        }
         Some(NetworkInfo {
             up_bytes_per_sec: (100_000.0 + (t * 0.5).sin() * 50_000.0 + 50_000.0).max(0.0),
             down_bytes_per_sec: (500_000.0 + (t * 0.3).sin() * 200_000.0 + 100_000.0).max(0.0),
