@@ -76,9 +76,9 @@ Constitution changes (STRATEGY/SPEC/ARCHITECTURE under `.docs/`) require a `D-*`
 
 ## Status Counts
 
-- pending: 7
+- pending: 6
 - in_progress: 0
-- done: 33
+- done: 34
 - blocked: 0
 - failed: 0
 - stale: 0
@@ -1631,7 +1631,7 @@ Per SKILL.md §6 Granularity Rule: future phases are milestone-level only. Expan
 | F-301 | LineGeometry cable rendering                       | 3     | pending | F-008, B-301                      | L         |
 | F-302 | Particle flow along cables                         | 3     | pending | F-301                             | M         |
 | F-303 | Protocol color mapping (TCP/UDP/HTTP)              | 3     | pending | F-301                             | S         |
-| F-304 | Building top halo pulse for running processes      | 3     | pending | F-008, F-202                      | M         |
+| F-304 | Building top halo pulse for running processes      | 3     | done    | F-008, F-202                      | M         |
 | I-301 | Phase 3 full acceptance                            | 3     | pending | B-301, F-301, F-302, F-303, F-304 | L         |
 
 **Acceptance criterion:** Open browser, download file → see corresponding buildings connected by glowing cables with flowing particles.
@@ -2484,9 +2484,9 @@ Per SKILL.md §6 Granularity Rule: future phases are milestone-level only. Expan
       - "Running processes display a soft halo ring at the top of their building"
       - "Halo pulses slowly (sinusoidal opacity/scale) and does not drop FPS below 30"
       - "Halo color respects theme accent / active color"
-  status: pending
-  owner: null
-  owner_started_at: null
+  status: done
+  owner: 夏天
+  owner_started_at: "2026-07-18"
   retry_count: 0
   linked_blocker: null
   resume_hint: |

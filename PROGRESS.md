@@ -4,6 +4,33 @@
 
 ## Session Log
 
+### 2026-07-18 — Session #013 (frontend, F-304, ~15min)
+- Track: frontend
+- Task: F-304 (Building top halo pulse for running processes)
+- Status: done
+- Summary:
+  - Created `src/components/BuildingHalo.tsx` — instanced ring halos above Running processes
+  - Filtered instances by `state === "Running"` and matched them to building positions
+  - Initialized instance matrices/colors in `useEffect`; animated scale with slow sinusoidal pulse in `useFrame`
+  - Fixed instance-index bug: used array index `i` instead of `pos.pid` for `setMatrixAt`
+  - Wired `BuildingHalo` into `App.tsx` as sibling of `BuildingCluster` inside `CityScene`, passing `processes`, `positions`, and `theme`
+  - Mechanical acceptance passed:
+    - `npx tsc --noEmit` exit 0
+    - `npm run build` exit 0
+    - `cd src-tauri && cargo build` exit 0
+  - Marked F-304 done in PLAN.md; updated Status Counts to pending 6, done 34
+- Decisions:
+  - Halo rendered as `ringGeometry` with `meshBasicMaterial`, transparent, double-sided, depthWrite disabled
+  - Pulse speed set to 1.5 rad/s with scale range 0.85–1.15 to keep effect subtle
+- Commits: pending
+- Files:
+  - src/components/BuildingHalo.tsx (new)
+  - src/App.tsx (mod)
+  - PLAN.md (mod)
+  - PROGRESS.md (mod)
+- Next ready: B-301 (backend), F-301/F-302/F-303 (frontend; all blocked by B-301), I-301 (integration)
+- Notes: F-304 is the first Phase 3 task complete. All other Phase 3 frontend work depends on B-301 (real network connections).
+
 ### 2026-07-18 — Session #012 (docs / Phase 3 planning, ~20min)
 - Track: docs
 - Task: Expand Phase 3 task graph in PLAN.md

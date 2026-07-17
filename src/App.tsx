@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import CityScene from "./components/CityScene";
 import BuildingCluster from "./components/BuildingCluster";
+import BuildingHalo from "./components/BuildingHalo";
 import CityGround from "./components/CityGround";
 import Atmosphere from "./components/Atmosphere";
 import ProcessPopup from "./components/ProcessPopup";
@@ -129,6 +130,11 @@ export default function App() {
           selectedPid={selectedProcess?.pid ?? null}
           onClick={handleBuildingClick}
           onDoubleClick={handleBuildingDoubleClick}
+        />
+        <BuildingHalo
+          processes={snapshot.processes}
+          positions={positions}
+          theme={theme}
         />
       </CityScene>
 
