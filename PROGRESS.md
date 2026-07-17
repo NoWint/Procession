@@ -15,11 +15,11 @@
   - Verified `npm run dev` starts without Vite/React errors
   - Browser visual check blocked by TRAE browser panel WebGL unavailability
 - Decisions: none
-- Commits: 3d721a2
+- Commits: 3d721a2 (TestCube), 5df31cc (handoff), bc6c46f (merge), 9453a9d (merge queue update)
 - Files:
   - src/components/TestCube.tsx (new)
 - Next ready: F-001 (frontend types mirror, B-001 done), I-002 (E2E mock push → cube render, depends on F-005 + B-004)
-- Notes: Behavioral acceptance (5 visible cubes) could not be fully verified because the browser panel failed to acquire a WebGL context; the implementation matches PLAN.md#F-005 step-by-step.
+- Notes: Behavioral acceptance (5 visible cubes) could not be fully verified because the browser panel failed to acquire a WebGL context; the implementation matches PLAN.md#F-005 step-by-step. Post-merge mechanical acceptance passed (tsc + cargo build exit 0).
 
 ### 2026-07-17 — Session #004 (backend, code review fixes, ~1h)
 - Track: backend
