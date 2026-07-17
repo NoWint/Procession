@@ -66,6 +66,20 @@ Constitution changes (STRATEGY/SPEC/ARCHITECTURE under `.docs/`) require a `D-*`
 | I-002 | E2E mock push → cube render                        | 1     | done    | B-004, F-005                      | M         |
 | I-003 | Phase 1 full acceptance                             | 1     | done    | I-002, B-005, F-012, F-013        | M         |
 
+### Phase 4 (B-*/F-*/D-*/I-*) — product polish
+
+| ID    | Title                                              | Phase | Status  | Deps                              | Complexity |
+|-------|----------------------------------------------------|-------|---------|-----------------------------------|-----------|
+| B-401 | MacImpl (sysinfo + IOKit for mac-specific sensors)| 4     | pending | B-002                             | L         |
+| B-402 | GPU / temperature detection (Windows: NVAPI/AMD SDK)| 4   | pending | B-002                             | L         |
+| B-403 | Tauri packaging config (Windows MSI + macOS DMG)  | 4     | pending | I-001                             | M         |
+| F-401 | HUD StatsPanel (CPU/memory/network overlay)        | 4     | pending | F-012                             | M         |
+| F-402 | Space-bar utility mode (labels + dashboard)        | 4     | pending | F-012                             | L         |
+| F-403 | Color theme system (user-selectable)               | 4     | pending | F-204                             | M         |
+| F-404 | Performance optimization (LOD, 1000+ processes)    | 4     | pending | F-008                             | XL        |
+| D-401 | README + demo video                                | 4     | pending | B-403, F-401, F-402               | M         |
+| I-401 | Phase 4 full acceptance                            | 4     | pending | B-401, B-402, B-403, F-401, F-402, F-403, F-404, D-401 | XL |
+
 ## Runtime Resources
 
 - vite_dev_ports: {}
@@ -76,7 +90,7 @@ Constitution changes (STRATEGY/SPEC/ARCHITECTURE under `.docs/`) require a `D-*`
 
 ## Status Counts
 
-- pending: 0
+- pending: 9
 - in_progress: 0
 - done: 40
 - blocked: 0
@@ -2590,6 +2604,557 @@ Per SKILL.md §6 Granularity Rule: future phases are milestone-level only. Expan
 - I-401: Phase 4 full acceptance (Windows + macOS both run, packaged installer works)
 
 **Acceptance criterion:** Windows + macOS both functional; utility mode available; packaged installer works.
+
+```yaml
+- id: B-401
+  track: backend
+  title: "MacImpl (sysinfo + IOKit for mac-specific sensors)"
+  phase: 4
+  depends_on:
+    hard: [B-002]
+    soft: [B-005]
+  blocks: [I-401]
+  contract_refs: [src-tauri/src/types.rs]
+  files_allowed_to_touch:
+    - src-tauri/src/engine/macos.rs
+    - src-tauri/src/engine/mod.rs
+    - src-tauri/src/engine/mock.rs
+    - src-tauri/src/lib.rs
+    - src-tauri/Cargo.toml
+  forbidden:
+    - src/**
+    - src-tauri/src/types.rs
+    - src-tauri/src/bridge/**
+  estimated_complexity: L
+  requires_user_approval: false
+  acceptance:
+    mechanical:
+      - "cd src-tauri && cargo build exits 0 on macOS"
+      - "cd src-tauri && cargo build exits 0 on non-macOS (falls back to MockAdapter)"
+      - "cd src-tauri && cargo clippy -- -D warnings exits 0"
+    existence:
+      - "src-tauri/src/engine/macos.rs exists"
+      - "grep 'impl PlatformAdapter for MacImpl' src-tauri/src/engine/macos.rs ≥ 1"
+      - "grep '#[cfg(target_os = \"macos\")]' src-tauri/src/engine/mod.rs OR src-tauri/src/lib.rs ≥ 1"
+    behavioral:
+      - "On macOS, MacImpl returns real process list, CPU, memory, disk, and network data"
+      - "On non-macOS, build still compiles and runtime falls back to MockAdapter"
+  status: pending
+  owner: null
+  owner_started_at: null
+  retry_count: 0
+  linked_blocker: null
+  resume_hint: |
+    1. Read PLAN.md#B-401
+    2. Read PROGRESS.md last entry
+    3. Read handoff_notes (if any)
+    4. Verify B-002 PlatformAdapter trait shape
+    5. Read src-tauri/src/engine/windows.rs as reference
+    6. Check current lib.rs adapter selection logic
+    7. Run `cd src-tauri && cargo build`
+    8. Execute steps below
+  steps:
+    - "Step 1: Create src-tauri/src/engine/macos.rs implementing PlatformAdapter for MacImpl"
+    - "Step 2: Use sysinfo crate for processes, CPU, memory, disk; stub network with Phase-3-equivalent or implement via scutil/netstat if reliable"
+    - "Step 3: Add optional IOKit sensor reads for temperature/fan via core-foundation or iokit-sys crates (fallback to None if unavailable)"
+    - "Step 4: Wire MacImpl into engine/mod.rs behind #[cfg(target_os = \"macos\")]"
+    - "Step 5: Update lib.rs adapter selection: macos → MacImpl, windows → WindowsImpl, other → MockAdapter"
+    - "Step 6: Run `cd src-tauri && cargo build && cargo clippy -- -D warnings`"
+    - "Step 7: Commit: 'feat(backend): add macOS PlatformAdapter with sysinfo + IOKit sensors'"
+  handoff_notes: ""
+  notes: "Core blocker for macOS support. Keep IOKit optional so build succeeds on older macOS versions."
+```
+
+```yaml
+- id: B-402
+  track: backend
+  title: "GPU / temperature detection (Windows: NVAPI / AMD SDK)"
+  phase: 4
+  depends_on:
+    hard: [B-002]
+    soft: [B-005]
+  blocks: [I-401]
+  contract_refs: [src-tauri/src/types.rs]
+  files_allowed_to_touch:
+    - src-tauri/src/engine/windows.rs
+    - src-tauri/src/engine/gpu.rs
+    - src-tauri/src/engine/mod.rs
+    - src-tauri/src/engine/mock.rs
+    - src-tauri/Cargo.toml
+  forbidden:
+    - src/**
+    - src-tauri/src/types.rs
+    - src-tauri/src/bridge/**
+    - src-tauri/src/engine/macos.rs
+  estimated_complexity: L
+  requires_user_approval: false
+  acceptance:
+    mechanical:
+      - "cd src-tauri && cargo build exits 0 on Windows"
+      - "cd src-tauri && cargo build exits 0 on non-Windows (stubs compile)"
+      - "cd src-tauri && cargo clippy -- -D warnings exits 0"
+    existence:
+      - "src-tauri/src/engine/gpu.rs exists"
+      - "grep 'pub fn get_gpu_info' src-tauri/src/engine/gpu.rs ≥ 1"
+      - "grep 'pub fn get_temperature' src-tauri/src/engine/gpu.rs OR grep in windows.rs ≥ 1"
+    behavioral:
+      - "On Windows with supported GPU, SystemSnapshot.gpu is Some(GpuInfo)"
+      - "On Windows, SystemSnapshot.temperature is Some(CpuGpuTemp) with cpu >= 0"
+      - "On unsupported systems, fields remain None without crashing"
+  status: pending
+  owner: null
+  owner_started_at: null
+  retry_count: 0
+  linked_blocker: null
+  resume_hint: |
+    1. Read PLAN.md#B-402
+    2. Read PROGRESS.md last entry
+    3. Read handoff_notes (if any)
+    4. Verify SystemSnapshot already has Option<GpuInfo> and Option<CpuGpuTemp>
+    5. Read current src-tauri/src/engine/windows.rs get_* stubs
+    6. Run `cd src-tauri && cargo build`
+    7. Execute steps below
+  steps:
+    - "Step 1: Create src-tauri/src/engine/gpu.rs with get_gpu_info() and get_temperature() stubs returning None"
+    - "Step 2: On Windows, implement GPU detection via nvml-wrapper (NVIDIA) or wmi/perf counters (generic fallback)"
+    - "Step 3: Implement CPU temperature via WMI (MSAcpi_ThermalZoneTemperature) or OpenHardwareMonitorLib fallback"
+    - "Step 4: Wire gpu.rs into windows.rs and mock.rs; ensure both return Option types"
+    - "Step 5: Update engine/mod.rs to expose gpu module only on windows or as cross-platform stub"
+    - "Step 6: Run `cd src-tauri && cargo build && cargo clippy -- -D warnings && cargo test`"
+    - "Step 7: Commit: 'feat(backend): add Windows GPU and temperature detection'"
+  handoff_notes: ""
+  notes: "Keep all GPU/temp APIs optional (Option<>) so missing hardware never crashes the app."
+```
+
+```yaml
+- id: B-403
+  track: backend
+  title: "Tauri packaging config (Windows MSI + macOS DMG)"
+  phase: 4
+  depends_on:
+    hard: [I-001]
+    soft: []
+  blocks: [D-401, I-401]
+  contract_refs: []
+  files_allowed_to_touch:
+    - src-tauri/tauri.conf.json
+    - src-tauri/Cargo.toml
+    - package.json
+    - .github/workflows/release.yml
+  forbidden:
+    - src/**
+    - src-tauri/src/**
+  estimated_complexity: M
+  requires_user_approval: false
+  acceptance:
+    mechanical:
+      - "npm run tauri build exits 0 on macOS"
+      - "npm run tauri build exits 0 on Windows (CI or local)"
+      - "Generated artifacts include .dmg (macOS) and .msi (Windows)"
+    existence:
+      - "tauri.conf.json bundle targets include dmg and msi"
+      - "tauri.conf.json identifier='com.noint.procession'"
+      - "icons exist in src-tauri/icons/"
+    behavioral:
+      - "Double-click .dmg mounts and shows app bundle"
+      - "Running .msi installs Procession on Windows"
+      - "App launches after installation without manual dependency setup"
+  status: pending
+  owner: null
+  owner_started_at: null
+  retry_count: 0
+  linked_blocker: null
+  resume_hint: |
+    1. Read PLAN.md#B-403
+    2. Read PROGRESS.md last entry
+    3. Read handoff_notes (if any)
+    4. Verify I-001 done (tauri scaffold exists)
+    5. Read src-tauri/tauri.conf.json current bundle section
+    6. Run `npm run tauri build` to see current packaging errors
+    7. Execute steps below
+  steps:
+    - "Step 1: Update tauri.conf.json bundle.targets to ['dmg', 'msi', 'updater'] with proper identifier and icons"
+    - "Step 2: Set productName='Procession', copyright, category='DeveloperTool'"
+    - "Step 3: Add macOS entitlements and Windows installer metadata"
+    - "Step 4: Ensure src-tauri/icons/ contains all required sizes (icon.ico, icon.icns, *.png)"
+    - "Step 5: Run `npm run tauri build` on macOS and verify .dmg output"
+    - "Step 6: Optionally add GitHub Actions release workflow for cross-platform builds"
+    - "Step 7: Commit: 'chore(release): configure Tauri bundles for Windows MSI and macOS DMG'"
+  handoff_notes: ""
+  notes: "No code changes in src/; only Tauri bundle configuration and CI."
+```
+
+```yaml
+- id: F-401
+  track: frontend
+  title: "HUD StatsPanel (real-time CPU/memory/network overview overlay)"
+  phase: 4
+  depends_on:
+    hard: [F-012]
+    soft: []
+  blocks: [D-401, I-401]
+  contract_refs: []
+  files_allowed_to_touch:
+    - src/components/HudPanel.tsx
+    - src/components/HudPanel.css
+    - src/App.tsx
+    - src/App.css
+  forbidden:
+    - src-tauri/**
+    - src/utils/types.ts
+    - src/utils/theme.ts
+    - src/components/CityScene.tsx
+    - src/components/BuildingCluster.tsx
+    - src/components/CableSystem.tsx
+    - src/components/CableFlow.tsx
+    - src/components/BuildingHalo.tsx
+  estimated_complexity: M
+  requires_user_approval: false
+  acceptance:
+    mechanical:
+      - "npx tsc --noEmit exits 0"
+      - "npm run build exits 0"
+    existence:
+      - "src/components/HudPanel.tsx exists"
+      - "grep 'SystemSnapshot' src/components/HudPanel.tsx ≥ 1"
+    behavioral:
+      - "HUD shows CPU %, memory used/total, network up/down, process count"
+      - "Values update every second matching snapshot frequency"
+      - "HUD is visually unobtrusive (semi-transparent, top-left or top-right corner)"
+  status: pending
+  owner: null
+  owner_started_at: null
+  retry_count: 0
+  linked_blocker: null
+  resume_hint: |
+    1. Read PLAN.md#F-401
+    2. Read PROGRESS.md last entry
+    3. Read handoff_notes (if any)
+    4. Verify F-012 done
+    5. Read src/utils/types.ts SystemSnapshot shape
+    6. Run `npx tsc --noEmit`
+    7. Execute steps below
+  steps:
+    - "Step 1: Create src/components/HudPanel.tsx with props { snapshot: SystemSnapshot; theme: Theme }"
+    - "Step 2: Display CPU total, memory used/total MB, network up/down KB/s, and process count"
+    - "Step 3: Add subtle animations only on value change; avoid constant re-render jitter"
+    - "Step 4: Style with CSS variables from theme (use existing --proc-* variables)"
+    - "Step 5: Wire HudPanel into App.tsx inside app-ui-layer"
+    - "Step 6: Run `npx tsc --noEmit && npm run build`"
+    - "Step 7: Commit: 'feat(frontend): add HUD StatsPanel overlay'"
+  handoff_notes: ""
+  notes: "Keep HUD minimal; it should feel like part of the scene, not a dashboard."
+```
+
+```yaml
+- id: F-402
+  track: frontend
+  title: "Space-bar utility mode (building labels + dashboard)"
+  phase: 4
+  depends_on:
+    hard: [F-012]
+    soft: [F-401]
+  blocks: [D-401, I-401]
+  contract_refs: []
+  files_allowed_to_touch:
+    - src/components/UtilityMode.tsx
+    - src/components/UtilityMode.css
+    - src/components/BuildingCluster.tsx
+    - src/App.tsx
+    - src/App.css
+  forbidden:
+    - src-tauri/**
+    - src/utils/types.ts
+    - src/utils/theme.ts
+    - src/components/CityScene.tsx
+    - src/components/CableSystem.tsx
+    - src/components/CableFlow.tsx
+    - src/components/BuildingHalo.tsx
+  estimated_complexity: L
+  requires_user_approval: false
+  acceptance:
+    mechanical:
+      - "npx tsc --noEmit exits 0"
+      - "npm run build exits 0"
+    existence:
+      - "src/components/UtilityMode.tsx exists"
+      - "grep 'Space' src/App.tsx OR grep 'keydown' src/App.tsx ≥ 1"
+    behavioral:
+      - "Pressing Space toggles utility mode overlay"
+      - "Utility mode shows a list/table of top processes sorted by CPU or memory"
+      - "Clicking a process in the list flies the camera to its building"
+      - "Building labels (PID + name) appear above buildings in utility mode"
+  status: pending
+  owner: null
+  owner_started_at: null
+  retry_count: 0
+  linked_blocker: null
+  resume_hint: |
+    1. Read PLAN.md#F-402
+    2. Read PROGRESS.md last entry
+    3. Read handoff_notes (if any)
+    4. Verify F-012 done
+    5. Read current CameraController fly-to API
+    6. Run `npx tsc --noEmit`
+    7. Execute steps below
+  steps:
+    - "Step 1: Create src/components/UtilityMode.tsx with props { snapshot, positions, theme, onSelectProcess }"
+    - "Step 2: Render a sortable process table (top CPU / top memory) using existing process colors"
+    - "Step 3: Add keyboard listener in App.tsx for Space key to toggle utility mode"
+    - "Step 4: Extend BuildingCluster to optionally render Html labels above buildings when utility mode is active"
+    - "Step 5: Clicking a table row calls onSelectProcess and triggers camera fly-to"
+    - "Step 6: Press Escape closes utility mode"
+    - "Step 7: Run `npx tsc --noEmit && npm run build`"
+    - "Step 8: Commit: 'feat(frontend): add Space-bar utility mode with process dashboard and labels'"
+  handoff_notes: ""
+  notes: "Utility mode is the bridge between the artistic 3D view and practical system monitoring."
+```
+
+```yaml
+- id: F-403
+  track: frontend
+  title: "Color theme system (user-selectable)"
+  phase: 4
+  depends_on:
+    hard: [F-204]
+    soft: []
+  blocks: [I-401]
+  contract_refs: []
+  files_allowed_to_touch:
+    - src/utils/theme.ts
+    - public/themes/*.json
+    - src/App.tsx
+    - src/App.css
+  forbidden:
+    - src-tauri/**
+    - src/utils/types.ts
+    - src/components/CityScene.tsx
+    - src/components/BuildingCluster.tsx
+    - src/components/CableSystem.tsx
+    - src/components/CableFlow.tsx
+    - src/components/BuildingHalo.tsx
+  estimated_complexity: M
+  requires_user_approval: false
+  acceptance:
+    mechanical:
+      - "npx tsc --noEmit exits 0"
+      - "npm run build exits 0"
+    existence:
+      - "public/themes/ directory contains at least 3 theme JSON files"
+      - "src/utils/theme.ts exports loadThemeList() or equivalent"
+    behavioral:
+      - "User can open a theme selector and switch between dark, light, and at least one additional theme"
+      - "Selected theme persists across app restarts (localStorage)"
+      - "Theme change applies instantly without reload"
+  status: pending
+  owner: null
+  owner_started_at: null
+  retry_count: 0
+  linked_blocker: null
+  resume_hint: |
+    1. Read PLAN.md#F-403
+    2. Read PROGRESS.md last entry
+    3. Read handoff_notes (if any)
+    4. Verify F-204 done (theme loader exists)
+    5. Read current src/utils/theme.ts and public/themes/*.json
+    6. Run `npx tsc --noEmit`
+    7. Execute steps below
+  steps:
+    - "Step 1: Create one additional theme (e.g., midnight-blue, warm-sepia, or high-contrast)"
+    - "Step 2: Add loadThemeList(): Promise<ThemeMeta[]> to theme.ts to enumerate public/themes/*.json"
+    - "Step 3: Add ThemeSelector UI in App.tsx (dropdown or button group)"
+    - "Step 4: Persist selected theme URL/name to localStorage and restore on mount"
+    - "Step 5: Ensure applyTheme updates CSS variables and React state atomically"
+    - "Step 6: Run `npx tsc --noEmit && npm run build`"
+    - "Step 7: Commit: 'feat(frontend): add user-selectable color theme system with persistence'"
+  handoff_notes: ""
+  notes: "Avoid generic dashboard look; new themes must still feel like a digital architecture."
+```
+
+```yaml
+- id: F-404
+  track: frontend
+  title: "Performance optimization (LOD, 1000+ processes, 60fps target)"
+  phase: 4
+  depends_on:
+    hard: [F-008]
+    soft: [F-401]
+  blocks: [I-401]
+  contract_refs: []
+  files_allowed_to_touch:
+    - src/components/BuildingCluster.tsx
+    - src/components/BuildingHalo.tsx
+    - src/components/CableSystem.tsx
+    - src/components/CableFlow.tsx
+    - src/utils/layout.ts
+    - src/App.tsx
+  forbidden:
+    - src-tauri/**
+    - src/utils/types.ts
+    - src/utils/theme.ts
+    - src/components/CityScene.tsx
+    - src/components/CityGround.tsx
+    - src/components/Atmosphere.tsx
+  estimated_complexity: XL
+  requires_user_approval: false
+  acceptance:
+    mechanical:
+      - "npx tsc --noEmit exits 0"
+      - "npm run build exits 0"
+    existence:
+      - "BuildingCluster uses instanced meshes (already true; verify no regressions)"
+      - "CableSystem caps maxCables and maxParticles"
+    behavioral:
+      - "App renders 1000 mock processes at ≥ 30 fps on M1 baseline"
+      - "Camera distance enables LOD: distant buildings use simpler geometry or lower update rate"
+      - "Halos and particles update at reduced rate or count when FPS drops"
+      - "No visible stutter during camera fly-to"
+  status: pending
+  owner: null
+  owner_started_at: null
+  retry_count: 0
+  linked_blocker: null
+  resume_hint: |
+    1. Read PLAN.md#F-404
+    2. Read PROGRESS.md last entry
+    3. Read handoff_notes (if any)
+    4. Verify F-008 done
+    5. Read src/components/BuildingCluster.tsx current instancing strategy
+    6. Run `npx tsc --noEmit`
+    7. Execute steps below
+  steps:
+    - "Step 1: Profile current frame time with 500 and 1000 processes; identify bottleneck (JS layout, GPU draw calls, or React re-renders)"
+    - "Step 2: Add layout throttling: only recompute positions when process set changes, not every snapshot"
+    - "Step 3: Implement distance-based LOD in BuildingCluster (fewer segments/lower detail for far buildings)"
+    - "Step 4: Cap halo instances to top-N running processes or visible set"
+    - "Step 5: Reduce CableFlow particle count based on FPS or cable distance"
+    - "Step 6: Use React.memo / useMemo aggressively for snapshot-derived arrays"
+    - "Step 7: Measure FPS after each change; target 60fps at 200 buildings, 30fps at 1000"
+    - "Step 8: Run `npx tsc --noEmit && npm run build`"
+    - "Step 9: Commit: 'perf(frontend): LOD and draw-call optimization for 1000+ processes'"
+  handoff_notes: ""
+  notes: "Performance work is empirical — profile first, optimize the real bottleneck."
+```
+
+```yaml
+- id: D-401
+  track: docs
+  title: "README + demo video"
+  phase: 4
+  depends_on:
+    hard: [B-403, F-401, F-402]
+    soft: []
+  blocks: [I-401]
+  contract_refs: []
+  files_allowed_to_touch:
+    - README.md
+    - docs/demo.md
+    - .github/workflows/release.yml
+  forbidden:
+    - src/**
+    - src-tauri/src/**
+    - public/**
+  estimated_complexity: M
+  requires_user_approval: true
+  acceptance:
+    mechanical:
+      - "README.md exists and renders without markdown lint errors"
+    existence:
+      - "README includes install section, screenshot/gif, and feature list"
+      - "docs/demo.md or README contains a link to demo video/gif"
+    behavioral:
+      - "New reader can clone, install deps, and run `npm run tauri dev` from README alone"
+      - "Demo video/gif shows theme toggle, cables, particles, utility mode, and HUD"
+  status: pending
+  owner: null
+  owner_started_at: null
+  retry_count: 0
+  linked_blocker: null
+  resume_hint: |
+    1. Read PLAN.md#D-401
+    2. Read PROGRESS.md last entry
+    3. Read handoff_notes (if any)
+    4. Verify B-403, F-401, F-402 done
+    5. Collect screenshots / screen recordings
+    6. Execute steps below
+  steps:
+    - "Step 1: Write README.md with hero screenshot, install instructions, feature list, architecture overview, and license"
+    - "Step 2: Record a 30-60s demo video or GIF showing the city, theme toggle, HUD, utility mode, and packaged app"
+    - "Step 3: Upload demo asset to GitHub releases or repository docs/ folder"
+    - "Step 4: Add docs/demo.md with video link and feature timestamps"
+    - "Step 5: Get user approval on README and demo before marking done"
+    - "Step 6: Commit: 'docs: add README and demo video'"
+  handoff_notes: ""
+  notes: "requires_user_approval because README/demo represent the public face of the project."
+```
+
+```yaml
+- id: I-401
+  track: integration
+  title: "Phase 4 full acceptance"
+  phase: 4
+  depends_on:
+    hard: [B-401, B-402, B-403, F-401, F-402, F-403, F-404, D-401]
+    soft: []
+  blocks: []
+  contract_refs: []
+  files_allowed_to_touch:
+    - src/App.tsx
+    - PLAN.md
+  forbidden:
+    - src-tauri/src/types.rs
+    - src-tauri/src/engine/**
+    - src-tauri/src/bridge/**
+    - src/utils/types.ts
+    - src/utils/layout.ts
+    - src/utils/colors.ts
+    - src/utils/theme.ts
+    - src/hooks/**
+    - src/components/**
+  estimated_complexity: XL
+  requires_user_approval: false
+  acceptance:
+    mechanical:
+      - "npx tsc --noEmit exits 0"
+      - "npm run build exits 0"
+      - "cd src-tauri && cargo build exits 0 on both Windows and macOS"
+      - "cd src-tauri && cargo clippy -- -D warnings exits 0"
+      - "npm run tauri build produces .dmg on macOS and .msi on Windows"
+    existence:
+      - "All Phase 4 tasks status=done in PLAN.md"
+      - "README.md and docs/demo.md exist"
+    behavioral:
+      - "App runs on macOS with real MacImpl data or graceful MockAdapter fallback"
+      - "App runs on Windows with real WindowsImpl data"
+      - "HUD, utility mode, and theme switching all functional"
+      - "Packaged installers launch the app successfully"
+      - "FPS ≥ 30 with 500 buildings on both platforms"
+  status: pending
+  owner: null
+  owner_started_at: null
+  retry_count: 0
+  linked_blocker: null
+  resume_hint: |
+    1. Read PLAN.md#I-401
+    2. Read PROGRESS.md last entry
+    3. Read handoff_notes (if any)
+    4. Verify all hard deps done
+    5. Run full cross-platform mechanical acceptance
+    6. Run packaged app on both platforms
+    7. Update PLAN.md status counts and current phase to 5
+    8. Append PROGRESS.md entry
+  steps:
+    - "Step 1: Confirm all Phase 4 tasks done"
+    - "Step 2: Run npx tsc --noEmit && npm run build && cd src-tauri && cargo build && cargo clippy -- -D warnings"
+    - "Step 3: Run npm run tauri build on macOS and Windows"
+    - "Step 4: Install and launch packaged app on both platforms"
+    - "Step 5: Verify HUD, utility mode, theme switching, cables, particles, halos"
+    - "Step 6: Update PLAN.md (I-401 done, counts, current phase 5)"
+    - "Step 7: Append PROGRESS.md entry"
+    - "Step 8: Commit: 'milestone: Phase 4 acceptance passed'"
+  handoff_notes: ""
+  notes: "Phase 4 milestone gate."
+```
 
 ### Phase 5 — 无限可能 · "远景规划"
 

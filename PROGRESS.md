@@ -32,7 +32,14 @@
   - PLAN.md (mod)
   - PROGRESS.md (mod)
 - Next ready: Phase 4 planning (B-401..B-403, F-401..F-404, D-401, I-401)
-- Notes: Phase 3 complete. Project enters Phase 4 — product polish, macOS support, packaging, performance.
+- Notes: |
+    Phase 3 complete. Project enters Phase 4 — product polish, macOS support, packaging, performance.
+    In the same session, expanded Phase 4 task graph in PLAN.md:
+    - Backend: B-401 MacImpl, B-402 GPU/temperature, B-403 Tauri packaging
+    - Frontend: F-401 HUD StatsPanel, F-402 Space-bar utility mode, F-403 theme system, F-404 performance optimization
+    - Docs: D-401 README + demo video (requires_user_approval)
+    - Integration: I-401 Phase 4 full acceptance
+    Status Counts updated to pending 9 / done 40.
 
 ### 2026-07-18 — Session #016 (frontend, F-302, ~20min)
 - Track: frontend
