@@ -22,10 +22,15 @@ fn is_private_ip(ip: &IpAddr) -> bool {
                 || v4.octets()[0] == 0
         }
         IpAddr::V6(v6) => {
+            // Handle IPv4-mapped addresses like ::ffff:192.168.1.1
+            if let Some(v4) = v6.to_ipv4_mapped() {
+                return is_private_ip(&IpAddr::V4(v4));
+            }
             v6.is_loopback()
                 || v6.is_unspecified()
                 || v6.is_multicast()
-                || v6.octets()[0..4] == [0xfe, 0x80, 0x00, 0x00]
+                // fe80::/10 — check first 10 bits: first octet must be 0xfe, second must start with 10xxxxxx
+                || (v6.octets()[0] == 0xfe && (v6.octets()[1] & 0xC0) == 0x80)
         }
     }
 }
@@ -96,6 +101,12 @@ pub fn lookup_geoip(ip: &str) -> Option<GeoInfo> {
         return None;
     }
 
+    // Delegate IPv4-mapped IPv6 addresses (e.g. ::ffff:8.8.8.8) to the IPv4 lookup
+    let addr = match addr {
+        IpAddr::V6(v6) => v6.to_ipv4_mapped().map(IpAddr::V4).unwrap_or(addr),
+        _ => addr,
+    };
+
     match addr {
         IpAddr::V4(v4) => known_v4(v4),
         IpAddr::V6(_) => Some(GeoInfo {
@@ -164,5 +175,70 @@ mod tests {
         assert!(lookup_geoip("not-an-ip").is_none());
         assert!(lookup_geoip("").is_none());
         assert!(lookup_geoip("256.256.256.256").is_none());
+    }
+
+    #[test]
+    fn test_ipv4_mapped_private() {
+        // ::ffff:192.168.1.1 is a private IPv4 address mapped to IPv6
+        assert!(lookup_geoip("::ffff:192.168.1.1").is_none());
+    }
+
+    #[test]
+    fn test_ipv4_mapped_known() {
+        // ::ffff:8.8.8.8 should resolve to the same as 8.8.8.8
+        let result = lookup_geoip("::ffff:8.8.8.8");
+        assert!(result.is_some());
+        assert_eq!(result.unwrap().city, "Mountain View");
+    }
+
+    #[test]
+    fn test_ipv6_link_local() {
+        // fe80::1 is link-local (private)
+        assert!(lookup_geoip("fe80::1").is_none());
+        // fe81::1 is also link-local under fe80::/10
+        assert!(lookup_geoip("fe81::1").is_none());
+        // febf::1 is the top of the fe80::/10 range
+        assert!(lookup_geoip("febf::1").is_none());
+    }
+
+    #[test]
+    fn test_github_range_boundaries() {
+        // 140.82.112.0/20 — lower boundary
+        assert_eq!(lookup_geoip("140.82.112.1").unwrap().city, "San Francisco");
+        // 140.82.127.255 — upper boundary
+        assert_eq!(lookup_geoip("140.82.127.255").unwrap().city, "San Francisco");
+        // 140.82.128.1 — just outside (/20 boundary)
+        assert_eq!(lookup_geoip("140.82.128.1").unwrap().country, "Unknown");
+    }
+
+    #[test]
+    fn test_cloudflare_cdn_boundaries() {
+        // 104.16.0.0/12 — lower boundary
+        assert_eq!(lookup_geoip("104.16.0.1").unwrap().city, "San Francisco");
+        // 104.31.255.255 — upper boundary
+        assert_eq!(lookup_geoip("104.31.255.255").unwrap().city, "San Francisco");
+        // 104.32.0.1 — just outside
+        assert_eq!(lookup_geoip("104.32.0.1").unwrap().country, "Unknown");
+    }
+
+    #[test]
+    fn test_aws_boundaries() {
+        // 52.0.0.0/10 — lower boundary
+        assert_eq!(lookup_geoip("52.0.0.1").unwrap().city, "Ashburn");
+        // 52.63.255.255 — upper boundary
+        assert_eq!(lookup_geoip("52.63.255.255").unwrap().city, "Ashburn");
+        // 52.64.0.1 — just outside /10
+        assert_eq!(lookup_geoip("52.64.0.1").unwrap().country, "Unknown");
+        // 54.0.0.0/8
+        assert_eq!(lookup_geoip("54.0.0.1").unwrap().city, "Ashburn");
+        assert_eq!(lookup_geoip("54.255.255.255").unwrap().city, "Ashburn");
+    }
+
+    #[test]
+    fn test_multicast_broadcast_private() {
+        assert!(lookup_geoip("224.0.0.1").is_none());
+        assert!(lookup_geoip("255.255.255.255").is_none());
+        assert!(lookup_geoip("0.42.42.42").is_none());
+        assert!(lookup_geoip("::ffff:224.0.0.1").is_none());
     }
 }

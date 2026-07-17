@@ -1,12 +1,13 @@
 use std::net::Ipv4Addr;
 use std::sync::{Mutex, PoisonError};
+use std::time::Instant;
 
 use async_trait::async_trait;
 use sysinfo::{CpuRefreshKind, Networks, ProcessStatus, ProcessesToUpdate, System};
 use windows::Win32::NetworkManagement::IpHelper::{
     GetExtendedTcpTable, GetExtendedUdpTable,
-    MIB_TCPROW_OWNER_PID as MibTcpRow, MIB_TCPTABLE_OWNER_PID as MibTcpTable,
-    MIB_UDPROW_OWNER_PID as MibUdpRow, MIB_UDPTABLE_OWNER_PID as MibUdpTable,
+    MIB_TCPROW_OWNER_PID as MibTcpRow,
+    MIB_UDPROW_OWNER_PID as MibUdpRow,
     TCP_TABLE_OWNER_PID_ALL, UDP_TABLE_OWNER_PID,
 };
 use windows::Win32::Networking::WinSock::AF_INET;
@@ -19,13 +20,14 @@ fn recover_mutex<T>(e: PoisonError<T>) -> T {
     e.into_inner()
 }
 
-/// Tracks cumulative network I/O and computes bytes/sec deltas.
+const MAX_CONNECTIONS: usize = 200;
+
+/// Tracks cumulative network I/O and computes bytes/sec deltas with time normalization.
 struct NetworkTracker {
     networks: Networks,
     prev_total_received: u64,
     prev_total_transmitted: u64,
-    up_bytes_per_sec: f64,
-    down_bytes_per_sec: f64,
+    last_refresh: Instant,
 }
 
 impl NetworkTracker {
@@ -37,22 +39,27 @@ impl NetworkTracker {
             networks,
             prev_total_received,
             prev_total_transmitted,
-            up_bytes_per_sec: 0.0,
-            down_bytes_per_sec: 0.0,
+            last_refresh: Instant::now(),
         }
     }
 
-    /// Refresh and compute I/O delta in bytes/sec.
-    fn refresh(&mut self) {
+    /// Refresh counters and return (down_bytes_per_sec, up_bytes_per_sec) normalized by elapsed time.
+    fn refresh_and_read(&mut self) -> (f64, f64) {
         self.networks.refresh(true);
+        let now = Instant::now();
+        let elapsed = (now - self.last_refresh).as_secs_f64().max(0.001); // avoid div-by-zero
+        self.last_refresh = now;
+
         let total_received: u64 = self.networks.list().values().map(|n| n.total_received()).sum();
         let total_transmitted: u64 = self.networks.list().values().map(|n| n.total_transmitted()).sum();
 
-        self.down_bytes_per_sec = (total_received.saturating_sub(self.prev_total_received)) as f64;
-        self.up_bytes_per_sec = (total_transmitted.saturating_sub(self.prev_total_transmitted)) as f64;
+        let down = (total_received.saturating_sub(self.prev_total_received)) as f64 / elapsed;
+        let up = (total_transmitted.saturating_sub(self.prev_total_transmitted)) as f64 / elapsed;
 
         self.prev_total_received = total_received;
         self.prev_total_transmitted = total_transmitted;
+
+        (down, up)
     }
 }
 
@@ -103,30 +110,43 @@ fn format_addr(raw_addr: u32, raw_port: u32) -> String {
     format!("{}:{}", ip, port)
 }
 
+/// Read dwNumEntries from the raw buffer, then return a slice of rows starting at buf[4..].
+/// Avoids creating a struct reference into a potentially 4-byte-only buffer (safe when 0 entries).
+unsafe fn parse_rows<T>(buf: &[u8]) -> &[T] {
+    if buf.len() < 4 {
+        return &[];
+    }
+    let count = u32::from_ne_bytes(buf[..4].try_into().unwrap_unchecked()) as usize;
+    let row_size = std::mem::size_of::<T>();
+    let available = buf.len().saturating_sub(4);
+    let max_rows = available / row_size;
+    let actual = count.min(max_rows);
+    if actual == 0 {
+        return &[];
+    }
+    let rows_ptr = buf.as_ptr().add(4) as *const T;
+    std::slice::from_raw_parts(rows_ptr, actual)
+}
+
 /// Query all TCP v4 connections with owning PID via GetExtendedTcpTable.
 fn get_tcp_connections() -> Vec<(u32, u32, u32, u32, u32, u32)> {
     unsafe {
         let mut buf_size: u32 = 0;
         let rc = GetExtendedTcpTable(None, &mut buf_size, false, AF_INET.0 as u32, TCP_TABLE_OWNER_PID_ALL, 0);
         if rc != 0 && buf_size == 0 {
-            eprintln!("[Procession] GetExtendedTcpTable size query failed: {}", rc);
             return vec![];
         }
 
-        let mut buf: Vec<u8> = vec![0u8; buf_size as usize];
+        let mut buf: Vec<u8> = vec![0u8; buf_size.max(4) as usize];
         let rc = GetExtendedTcpTable(
             Some(buf.as_mut_ptr() as *mut _), &mut buf_size, false,
             AF_INET.0 as u32, TCP_TABLE_OWNER_PID_ALL, 0,
         );
         if rc != 0 {
-            eprintln!("[Procession] GetExtendedTcpTable query failed: {}", rc);
             return vec![];
         }
 
-        let table = &*(buf.as_ptr() as *const MibTcpTable);
-        let count = table.dwNumEntries as usize;
-        let rows = std::slice::from_raw_parts(&table.table as *const _ as *const MibTcpRow, count);
-
+        let rows: &[MibTcpRow] = parse_rows(&buf);
         rows.iter()
             .map(|r| (r.dwState, r.dwLocalAddr, r.dwLocalPort, r.dwRemoteAddr, r.dwRemotePort, r.dwOwningPid))
             .collect()
@@ -139,24 +159,19 @@ fn get_udp_listeners() -> Vec<(u32, u32, u32)> {
         let mut buf_size: u32 = 0;
         let rc = GetExtendedUdpTable(None, &mut buf_size, false, AF_INET.0 as u32, UDP_TABLE_OWNER_PID, 0);
         if rc != 0 && buf_size == 0 {
-            eprintln!("[Procession] GetExtendedUdpTable size query failed: {}", rc);
             return vec![];
         }
 
-        let mut buf: Vec<u8> = vec![0u8; buf_size as usize];
+        let mut buf: Vec<u8> = vec![0u8; buf_size.max(4) as usize];
         let rc = GetExtendedUdpTable(
             Some(buf.as_mut_ptr() as *mut _), &mut buf_size, false,
             AF_INET.0 as u32, UDP_TABLE_OWNER_PID, 0,
         );
         if rc != 0 {
-            eprintln!("[Procession] GetExtendedUdpTable query failed: {}", rc);
             return vec![];
         }
 
-        let table = &*(buf.as_ptr() as *const MibUdpTable);
-        let count = table.dwNumEntries as usize;
-        let rows = std::slice::from_raw_parts(&table.table as *const _ as *const MibUdpRow, count);
-
+        let rows: &[MibUdpRow] = parse_rows(&buf);
         rows.iter()
             .map(|r| (r.dwLocalAddr, r.dwLocalPort, r.dwOwningPid))
             .collect()
@@ -210,14 +225,16 @@ impl PlatformAdapter for WindowsImpl {
     }
 
     async fn get_network(&self) -> Option<NetworkInfo> {
-        // 1. Refresh I/O counters
-        if let Ok(mut net) = self.net.lock() {
-            net.refresh();
-        }
+        // 1. Refresh I/O counters and read normalized rates (single lock acquisition)
+        let (down, up) = if let Ok(mut net) = self.net.lock() {
+            net.refresh_and_read()
+        } else {
+            (0.0, 0.0)
+        };
 
         // 2. Collect TCP connections
         let tcp_rows = get_tcp_connections();
-        let tcp_connections: Vec<Connection> = tcp_rows
+        let mut connections: Vec<Connection> = tcp_rows
             .into_iter()
             .map(|(state, local_addr, local_port, remote_addr, remote_port, pid)| Connection {
                 pid: pid as u64,
@@ -230,26 +247,16 @@ impl PlatformAdapter for WindowsImpl {
 
         // 3. Collect UDP listeners
         let udp_rows = get_udp_listeners();
-        let udp_connections: Vec<Connection> = udp_rows
-            .into_iter()
-            .map(|(local_addr, local_port, pid)| Connection {
-                pid: pid as u64,
-                local_addr: format_addr(local_addr, local_port),
-                remote_addr: "0.0.0.0:0".to_string(),
-                state: "listen".to_string(),
-                protocol: "udp".to_string(),
-            })
-            .collect();
+        connections.extend(udp_rows.into_iter().map(|(local_addr, local_port, pid)| Connection {
+            pid: pid as u64,
+            local_addr: format_addr(local_addr, local_port),
+            remote_addr: "0.0.0.0:0".to_string(),
+            state: "listen".to_string(),
+            protocol: "udp".to_string(),
+        }));
 
-        // 4. Combine and read I/O counters
-        let mut connections = tcp_connections;
-        connections.extend(udp_connections);
-
-        let (up, down) = if let Ok(net) = self.net.lock() {
-            (net.up_bytes_per_sec, net.down_bytes_per_sec)
-        } else {
-            (0.0, 0.0)
-        };
+        // 4. Cap total connections to protect frontend rendering
+        connections.truncate(MAX_CONNECTIONS);
 
         Some(NetworkInfo {
             up_bytes_per_sec: up.max(0.0),
