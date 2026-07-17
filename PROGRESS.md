@@ -4,6 +4,34 @@
 
 ## Session Log
 
+### 2026-07-18 — Session #015 (frontend, F-301, ~25min)
+- Track: frontend
+- Task: F-301 (LineGeometry cable rendering)
+- Status: done
+- Summary:
+  - Pulled latest origin/main; discovered B-301/B-302 already merged (backend network + geoip)
+  - Created `src/components/CableSystem.tsx` — renders network cables as quadratic bezier lines from source building tops to hashed external endpoints
+  - Added `computeCablePaths` and `remoteEndpointPosition` helpers, exported for F-302 particle flow reuse
+  - Mapped each `Connection.pid` to a `BuildingPosition`; skipped null hosts (`0.0.0.0`, `::`)
+  - Capped rendered cables at `maxCables` (default 100) to protect FPS
+  - Wired `CableSystem` into `App.tsx` inside `CityScene`, passing `snapshot.network.connections` and `positions`
+  - Mechanical acceptance passed:
+    - `npx tsc --noEmit` exit 0
+    - `npm run build` exit 0
+    - `cd src-tauri && cargo build` exit 0 (with expected dead-code warnings from B-302 geoip.rs)
+  - Marked F-301 done in PLAN.md; updated Status Counts to pending 4, done 36
+- Decisions:
+  - External endpoints derived from remote IP hash placed on a 12–16 radius perimeter to keep cables visually anchored
+  - Cable color uses theme accent; protocol-specific coloring deferred to F-303
+- Commits: pending
+- Files:
+  - src/components/CableSystem.tsx (new)
+  - src/App.tsx (mod)
+  - PLAN.md (mod)
+  - PROGRESS.md (mod)
+- Next ready: F-302 (frontend; hard dep F-301 now done), F-303 (frontend; hard dep F-301 now done), I-301 (integration)
+- Notes: B-301/B-302 were completed in separate sessions and merged to main before this session began.
+
 ### 2026-07-18 — Session #014 (backend, B-302 geoip, ~15min)
 - Track: backend
 - Task: B-302 (Remote IP → geolocation mapping, optional)

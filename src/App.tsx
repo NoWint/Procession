@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import CityScene from "./components/CityScene";
 import BuildingCluster from "./components/BuildingCluster";
 import BuildingHalo from "./components/BuildingHalo";
+import CableSystem from "./components/CableSystem";
 import CityGround from "./components/CityGround";
 import Atmosphere from "./components/Atmosphere";
 import ProcessPopup from "./components/ProcessPopup";
@@ -135,6 +136,12 @@ export default function App() {
           processes={snapshot.processes}
           positions={positions}
           theme={theme}
+        />
+        <CableSystem
+          connections={snapshot.network.connections}
+          positions={positions}
+          theme={theme}
+          maxCables={100}
         />
       </CityScene>
 
