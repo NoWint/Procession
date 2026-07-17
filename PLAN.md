@@ -46,7 +46,7 @@ Constitution changes (STRATEGY/SPEC/ARCHITECTURE under `.docs/`) require a `D-*`
 |-------|----------------------------------------------------|-------|---------|-----------------------|-----------|
 | F-001 | Frontend types mirror (`types.ts`)                | 1     | pending | B-001                 | S         |
 | F-002 | `useSystemData` hook (Tauri event → state)        | 1     | pending | F-001                 | M         |
-| F-003 | Global styles + `main.tsx` + `index.html`         | 1     | pending | I-001                 | S         |
+| F-003 | Global styles + `main.tsx` + `index.html`         | 1     | done    | I-001                 | S         |
 | F-004 | `CityScene` container (R3F + camera + lights)      | 1     | pending | F-003                 | M         |
 | F-005 | `TestCube` (cube height driven by mock CPU)        | 1     | pending | F-004                 | S         |
 | F-006 | `layout.ts` (`computePositions` algorithm)         | 1     | pending | F-001                 | M         |
@@ -76,9 +76,9 @@ Constitution changes (STRATEGY/SPEC/ARCHITECTURE under `.docs/`) require a `D-*`
 
 ## Status Counts
 
-- pending: 23
+- pending: 22
 - in_progress: 0
-- done: 1
+- done: 2
 - blocked: 0
 - failed: 0
 - stale: 0
@@ -820,9 +820,9 @@ Constitution changes (STRATEGY/SPEC/ARCHITECTURE under `.docs/`) require a `D-*`
       - "grep 'ReactDOM.createRoot' src/main.tsx ≥ 1"
     behavioral:
       - "Run `npm run dev` → browser at localhost:1420 shows blank page (no errors); body has zero margin; canvas-ready dark background"
-  status: in_progress
-  owner: trae-20260717-001
-  owner_started_at: 2026-07-17T03:50:00+08:00
+  status: done
+  owner: null
+  owner_started_at: null
   retry_count: 0
   linked_blocker: null
   resume_hint: |
