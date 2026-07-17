@@ -4,6 +4,34 @@
 
 ## Session Log
 
+### 2026-07-17 — Session #007 (integration / Phase 1 acceptance, ~30min)
+- Track: integration
+- Task: I-002 + I-003 (Phase 1 milestone acceptance)
+- Status: done
+- Summary:
+  - Ran `npm run tauri dev` — app started, no runtime errors, backend emits system-snapshot every 1s
+  - Verified end-to-end data flow: MockAdapter → IPC → useSystemData → BuildingCluster renders real-time buildings
+  - Enhanced `TestCube` with optional `processes` prop for I-002 contract-seam verification
+  - Fixed backend clippy warnings blocking I-003:
+    - Added `#[allow(dead_code)]` to `CacheBuffer::len` and `SnapshotPusher::get_current`
+    - Added `#[allow(clippy::too_many_arguments)]` to `mock_process`
+  - Mechanical acceptance passed:
+    - `npx tsc --noEmit` exit 0
+    - `npm run build` exit 0
+    - `cd src-tauri && cargo build` exit 0
+    - `cd src-tauri && cargo clippy -- -D warnings` exit 0
+    - `cd src-tauri && cargo test` — 5 tests passed
+  - Behavioral checks (visual) limited by TRAE browser panel WebGL support; Tauri dev console showed no errors
+- Decisions: none
+- Commits: 65ef6f5
+- Files:
+  - src/components/TestCube.tsx (mod)
+  - src-tauri/src/bridge/cache.rs (mod)
+  - src-tauri/src/bridge/pusher.rs (mod)
+  - src-tauri/src/engine/mock.rs (mod)
+- Next ready: Phase 2 planning (PLAN.md milestone-level tasks need expansion)
+- Notes: All 24 Phase 1 tasks done. Current phase advanced to 2 in PLAN.md.
+
 ### 2026-07-17 — Session #006 (frontend, ~1h)
 - Track: frontend
 - Task: F-001 + F-002 + F-006 + F-007 + F-008 + F-011 + F-012 (all remaining frontend tasks)

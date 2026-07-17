@@ -11,7 +11,7 @@
   - backend: `src-tauri/src/types.rs` (canonical — Rust owns the schema)
   - frontend: `src/utils/types.ts` (mirror — must stay in sync with backend)
 - Contract freeze: null    # null, or "I-XXX in progress, target vX.Y"
-- Current phase: 1
+- Current phase: 2
 - License: AGPL-3.0
 
 ## Track → Team Mapping (per D-002)
@@ -63,8 +63,8 @@ Constitution changes (STRATEGY/SPEC/ARCHITECTURE under `.docs/`) require a `D-*`
 | ID    | Title                                              | Phase | Status  | Deps                              | Complexity |
 |-------|----------------------------------------------------|-------|---------|-----------------------------------|-----------|
 | I-001 | Tauri project scaffold (bootstrap)                 | 1     | done        | -                                 | M         |
-| I-002 | E2E mock push → cube render                        | 1     | pending | B-004, F-005                      | M         |
-| I-003 | Phase 1 full acceptance                             | 1     | pending | I-002, B-005, F-012, F-013        | M         |
+| I-002 | E2E mock push → cube render                        | 1     | done    | B-004, F-005                      | M         |
+| I-003 | Phase 1 full acceptance                             | 1     | done    | I-002, B-005, F-012, F-013        | M         |
 
 ## Runtime Resources
 
@@ -76,9 +76,9 @@ Constitution changes (STRATEGY/SPEC/ARCHITECTURE under `.docs/`) require a `D-*`
 
 ## Status Counts
 
-- pending: 2
+- pending: 0
 - in_progress: 0
-- done: 22
+- done: 24
 - blocked: 0
 - failed: 0
 - stale: 0

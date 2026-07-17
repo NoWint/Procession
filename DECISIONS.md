@@ -4,6 +4,20 @@
 
 ## Active Decisions
 
+### D-003: Phase 1 Acceptance Passed
+- Date: 2026-07-17
+- Status: Accepted
+- Track: integration
+- Context: All hard dependencies for I-003 were complete (I-002, B-005, F-012, F-013). Mechanical acceptance required `cargo clippy -- -D warnings`, which failed on pre-existing backend dead-code and too-many-arguments warnings.
+- Decision: Suppress the warnings with documented `#[allow(...)]` attributes rather than removing the methods or refactoring `mock_process`, preserving future-use API surface and testability.
+- Consequences:
+  + Phase 1 milestone gate opens; current phase advances to 2
+  + `CacheBuffer::len` and `SnapshotPusher::get_current` remain available for future commands
+  + `mock_process` signature stays simple for the mock-data generator use case
+  - Allow attributes may mask future legitimate dead code; require periodic review
+- Supersedes: none
+- Affects: I-003, B-003, B-004
+
 ### D-002: Track-to-Team Mapping
 - Date: 2026-07-17
 - Status: Accepted
