@@ -76,7 +76,7 @@ Constitution changes (STRATEGY/SPEC/ARCHITECTURE under `.docs/`) require a `D-*`
 
 ## Status Counts
 
-- pending: 0
+- pending: 7
 - in_progress: 0
 - done: 33
 - blocked: 0
@@ -1622,7 +1622,19 @@ Per SKILL.md §6 Granularity Rule: future phases are milestone-level only. Expan
 | F-207 | Loading, empty, and error state polish             | 2     | done    | F-013                             | S         |
 | I-201 | Phase 2 full acceptance                            | 2     | done    | B-201, F-201, F-202, F-203, F-205 | L         |
 
-**Acceptance criterion:** Open Chrome / run Node → city buildings 'grow and glow'; click or hover a building → details popup with refined typography; camera can smoothly fly to a selected process; theme loads from JSON; ≥ 30fps with 200+ buildings.
+### Phase 3 — 网络光缆 · "让城市活起来"
+
+| ID    | Title                                              | Phase | Status  | Deps                              | Complexity |
+|-------|----------------------------------------------------|-------|---------|-----------------------------------|-----------|
+| B-301 | Real network connection collection (Windows API)  | 3     | pending | B-201                             | M         |
+| B-302 | Remote IP → geolocation mapping (optional)         | 3     | pending | B-301                             | S         |
+| F-301 | LineGeometry cable rendering                       | 3     | pending | F-008, B-301                      | L         |
+| F-302 | Particle flow along cables                         | 3     | pending | F-301                             | M         |
+| F-303 | Protocol color mapping (TCP/UDP/HTTP)              | 3     | pending | F-301                             | S         |
+| F-304 | Building top halo pulse for running processes      | 3     | pending | F-008, F-202                      | M         |
+| I-301 | Phase 3 full acceptance                            | 3     | pending | B-301, F-301, F-302, F-303, F-304 | L         |
+
+**Acceptance criterion:** Open browser, download file → see corresponding buildings connected by glowing cables with flowing particles.
 
 ### Phase 2 Task Definitions
 
@@ -2115,16 +2127,452 @@ Per SKILL.md §6 Granularity Rule: future phases are milestone-level only. Expan
 
 **Goal:** Flowing light cables between buildings representing network connections.
 
-**Milestone tasks:**
-- B-301: Real network connection collection (Windows: GetExtendedTcpTable) — backend
-- B-302: Remote IP → geolocation mapping (optional, IP geo API) — backend
-- F-301: LineGeometry cable rendering — frontend
-- F-302: Particle flow along cables — frontend
-- F-303: Protocol color mapping (TCP=blue, UDP=green, HTTP=cyan) — frontend
-- F-304: Building top halo pulse for running processes — frontend
-- I-301: Phase 3 full acceptance (download file → see cables light up)
-
 **Acceptance criterion:** Open browser, download file → see corresponding buildings connected by glowing cables with flowing particles.
+
+### Phase 3 Task Definitions
+
+```yaml
+- id: B-301
+  track: backend
+  title: "Real network connection collection (Windows API)"
+  phase: 3
+  depends_on:
+    hard: [B-201]
+    soft: []
+  blocks: [B-302, F-301, I-301]
+  contract_refs: [src-tauri/src/types.rs]
+  files_allowed_to_touch:
+    - src-tauri/src/engine/windows.rs
+    - src-tauri/src/engine/mock.rs
+  forbidden:
+    - src/**
+    - src-tauri/src/types.rs
+    - src-tauri/src/engine/platform.rs
+    - src-tauri/src/engine/mod.rs
+    - src-tauri/src/lib.rs
+    - src-tauri/src/bridge/**
+  estimated_complexity: M
+  requires_user_approval: false
+  acceptance:
+    mechanical:
+      - "cd src-tauri && cargo build exits 0"
+      - "cd src-tauri && cargo clippy -- -D warnings exits 0"
+    existence:
+      - "grep 'GetExtendedUdpTable' src-tauri/src/engine/windows.rs OR grep 'UDP' src-tauri/src/engine/windows.rs ≥ 1"
+      - "grep 'up_bytes_per_sec' src-tauri/src/engine/windows.rs ≥ 1"
+      - "grep 'down_bytes_per_sec' src-tauri/src/engine/windows.rs ≥ 1"
+      - "MockAdapter::get_network returns connections with protocol field populated"
+    behavioral:
+      - "On Windows: get_network returns ≥ 1 connection when network is active"
+      - "Network I/O counters (up_bytes_per_sec/down_bytes_per_sec) are non-zero during active transfer"
+      - "Connection protocol field contains 'tcp', 'udp', or 'other'"
+  status: pending
+  owner: null
+  owner_started_at: null
+  retry_count: 0
+  linked_blocker: null
+  resume_hint: |
+    1. Read PLAN.md#B-301
+    2. Read PROGRESS.md last entry
+    3. Read handoff_notes (if any)
+    4. Verify B-201 done (WindowsImpl already returns TCP connections)
+    5. Read src-tauri/src/types.rs Connection struct
+    6. Read sysinfo 0.32 Networks API docs
+    7. Run `cd src-tauri && cargo build`
+    8. Execute steps below
+  steps:
+    - "Step 1: Extend WindowsImpl with a Networks tracker field and refresh it in get_network"
+    - "Step 2: Compute up_bytes_per_sec/down_bytes_per_sec by diffing received/transmitted bytes between refreshes"
+    - "Step 3: Add UDP connection enumeration via GetExtendedUdpTable (or stub with empty vec if Windows API unavailable)"
+    - "Step 4: Populate Connection.protocol with 'tcp', 'udp', or 'other'"
+    - "Step 5: Filter or mark ephemeral loopback connections (optional: keep them but distinguish via state)"
+    - "Step 6: Update MockAdapter::get_network to return protocol-diverse fake connections and moving I/O counters"
+    - "Step 7: Run `cd src-tauri && cargo build && cargo clippy -- -D warnings`"
+    - "Step 8: Commit: 'feat(backend): extend network collection with I/O counters and UDP'"
+  handoff_notes: ""
+  notes: "B-201 already provides TCP v4 connections. B-301 adds I/O rates, UDP support, and protocol tagging for cable visualization."
+```
+
+```yaml
+- id: B-302
+  track: backend
+  title: "Remote IP → geolocation mapping (optional)"
+  phase: 3
+  depends_on:
+    hard: [B-301]
+    soft: []
+  blocks: []
+  contract_refs: []
+  files_allowed_to_touch:
+    - src-tauri/src/engine/geoip.rs
+    - src-tauri/src/engine/mod.rs
+    - src-tauri/src/engine/mock.rs
+    - src-tauri/Cargo.toml
+  forbidden:
+    - src/**
+    - src-tauri/src/types.rs
+    - src-tauri/src/engine/platform.rs
+    - src-tauri/src/engine/windows.rs
+    - src-tauri/src/lib.rs
+    - src-tauri/src/bridge/**
+  estimated_complexity: S
+  requires_user_approval: false
+  acceptance:
+    mechanical:
+      - "cd src-tauri && cargo build exits 0"
+    existence:
+      - "src-tauri/src/engine/geoip.rs exists"
+      - "grep 'pub fn lookup_geoip' src-tauri/src/engine/geoip.rs ≥ 1"
+      - "grep 'pub mod geoip' src-tauri/src/engine/mod.rs ≥ 1"
+    behavioral:
+      - "lookup_geoip('8.8.8.8') returns Some(GeoInfo { country: 'US', city: 'Mountain View' }) or offline fallback"
+      - "Private IP ranges (10.x, 192.168.x, 127.x) return None without network request"
+  status: pending
+  owner: null
+  owner_started_at: null
+  retry_count: 0
+  linked_blocker: null
+  resume_hint: |
+    1. Read PLAN.md#B-302
+    2. Read PROGRESS.md last entry
+    3. Read handoff_notes (if any)
+    4. Verify B-301 done
+    5. Decide: online API vs offline MMDB vs stub; stub is acceptable for Phase 3
+    6. Run `cd src-tauri && cargo build`
+    7. Execute steps below
+  steps:
+    - "Step 1: Create src-tauri/src/engine/geoip.rs with GeoInfo struct { country: String, city: String, lat: f64, lon: f64 }"
+    - "Step 2: Implement lookup_geoip(ip: &str) -> Option<GeoInfo> with private-range fast-return and optional async HTTP fallback"
+    - "Step 3: Add pub mod geoip to src-tauri/src/engine/mod.rs"
+    - "Step 4: Update MockAdapter to return fake GeoInfo for public-looking fake IPs"
+    - "Step 5: Run `cd src-tauri && cargo build`"
+    - "Step 6: Commit: 'feat(backend): add optional geoip mapping for remote IPs'"
+  handoff_notes: ""
+  notes: "Optional task. If skipped, cable visualization still works without geographic coloring."
+```
+
+```yaml
+- id: F-301
+  track: frontend
+  title: "LineGeometry cable rendering"
+  phase: 3
+  depends_on:
+    hard: [F-008, B-301]
+    soft: []
+  blocks: [F-302, F-303, I-301]
+  contract_refs: []
+  files_allowed_to_touch:
+    - src/components/CableSystem.tsx
+    - src/components/CityScene.tsx
+    - src/utils/layout.ts
+    - src/App.tsx
+  forbidden:
+    - src-tauri/**
+    - src/utils/types.ts
+    - src/utils/colors.ts
+    - src/utils/theme.ts
+    - src/hooks/**
+    - src/components/BuildingCluster.tsx
+    - src/components/Atmosphere.tsx
+    - src/components/CityGround.tsx
+    - src/components/ProcessPopup.tsx
+    - src/components/ErrorState.tsx
+  estimated_complexity: L
+  requires_user_approval: false
+  acceptance:
+    mechanical:
+      - "npx tsc --noEmit exits 0"
+      - "npm run build exits 0"
+    existence:
+      - "src/components/CableSystem.tsx exists"
+      - "grep 'Line' src/components/CableSystem.tsx OR grep 'lineGeometry' src/components/CableSystem.tsx ≥ 1"
+      - "grep 'Connection' src/components/CableSystem.tsx ≥ 1"
+      - "grep 'CableSystem' src/App.tsx ≥ 1"
+    behavioral:
+      - "Render CableSystem with 20 mock connections → at least 10 cables visible between building pairs"
+      - "Cables curve smoothly from source building roof to target building roof (Catmull-Rom or quadratic bezier)"
+      - "FPS ≥ 30 with 100 cables on M1 baseline"
+  status: pending
+  owner: null
+  owner_started_at: null
+  retry_count: 0
+  linked_blocker: null
+  resume_hint: |
+    1. Read PLAN.md#F-301
+    2. Read PROGRESS.md last entry
+    3. Read handoff_notes (if any)
+    4. Verify F-008 and B-301 done
+    5. Read three.js Line / LineBasicMaterial docs
+    6. Read src/utils/layout.ts BuildingPosition shape
+    7. Run `npx tsc --noEmit`
+    8. Execute steps below
+  steps:
+    - "Step 1: Create src/components/CableSystem.tsx"
+    - "Step 2: Props: { connections: Connection[]; positions: BuildingPosition[]; theme: Theme; maxCables?: number }"
+    - "Step 3: Map each connection to source/target PID via Connection.pid; fallback to PID 0 for external endpoints"
+    - "Step 4: Compute 3D cable path: start at source building top (x, height, z), control point at mid-height + horizontal offset, end at target building top"
+    - "Step 5: Render using <line> with BufferGeometry or @react-three/drei Line component"
+    - "Step 6: Cap rendered cables at maxCables (default 100) to protect FPS"
+    - "Step 7: Wire CableSystem into App.tsx inside CityScene, below BuildingCluster"
+    - "Step 8: Run `npx tsc --noEmit && npm run build`"
+    - "Step 9: Commit: 'feat(frontend): add LineGeometry cable rendering between processes'"
+  handoff_notes: ""
+  notes: "BOTTLENECK TASK — blocks all cable-visualization tasks. Keep geometry simple for FPS."
+```
+
+```yaml
+- id: F-302
+  track: frontend
+  title: "Particle flow along cables"
+  phase: 3
+  depends_on:
+    hard: [F-301]
+    soft: []
+  blocks: [I-301]
+  contract_refs: []
+  files_allowed_to_touch:
+    - src/components/CableFlow.tsx
+    - src/components/CableSystem.tsx
+    - src/App.tsx
+  forbidden:
+    - src-tauri/**
+    - src/utils/**
+    - src/hooks/**
+    - src/components/BuildingCluster.tsx
+    - src/components/Atmosphere.tsx
+    - src/components/CityGround.tsx
+    - src/components/ProcessPopup.tsx
+    - src/components/ErrorState.tsx
+    - src/components/CityScene.tsx
+  estimated_complexity: M
+  requires_user_approval: false
+  acceptance:
+    mechanical:
+      - "npx tsc --noEmit exits 0"
+    existence:
+      - "src/components/CableFlow.tsx exists"
+      - "grep 'useFrame' src/components/CableFlow.tsx ≥ 1"
+      - "grep 'Points' src/components/CableFlow.tsx OR grep 'points' src/components/CableFlow.tsx ≥ 1"
+    behavioral:
+      - "Active cables show small particles moving from source to target at visible speed"
+      - "Particle density correlates with connection count or bytes_per_sec"
+      - "FPS ≥ 30 with 100 cables and 300 particles"
+  status: pending
+  owner: null
+  owner_started_at: null
+  retry_count: 0
+  linked_blocker: null
+  resume_hint: |
+    1. Read PLAN.md#F-302
+    2. Read PROGRESS.md last entry
+    3. Read handoff_notes (if any)
+    4. Verify F-301 done (CableSystem renders cables)
+    5. Read @react-three/fiber useFrame docs
+    6. Run `npx tsc --noEmit`
+    7. Execute steps below
+  steps:
+    - "Step 1: Create src/components/CableFlow.tsx"
+    - "Step 2: Accept cable paths (array of Vector3 curves) and traffic intensity per cable"
+    - "Step 3: Use useFrame to advance particle positions along each curve by delta time"
+    - "Step 4: Render particles as <points> with pointsMaterial; recycle particles at end of curve"
+    - "Step 5: Vary particle color by protocol (defer to F-303; use accent color as placeholder)"
+    - "Step 6: Wire CableFlow into App.tsx, receiving paths from CableSystem via ref or derived state"
+    - "Step 7: Run `npx tsc --noEmit`"
+    - "Step 8: Commit: 'feat(frontend): add particle flow along network cables'"
+  handoff_notes: ""
+  notes: "Particles should be batched in a single Points object for performance."
+```
+
+```yaml
+- id: F-303
+  track: frontend
+  title: "Protocol color mapping (TCP/UDP/HTTP)"
+  phase: 3
+  depends_on:
+    hard: [F-301]
+    soft: []
+  blocks: [I-301]
+  contract_refs: []
+  files_allowed_to_touch:
+    - src/utils/colors.ts
+    - src/components/CableSystem.tsx
+    - src/components/CableFlow.tsx
+  forbidden:
+    - src-tauri/**
+    - src/utils/types.ts
+    - src/utils/layout.ts
+    - src/utils/theme.ts
+    - src/hooks/**
+    - src/App.tsx
+    - src/components/BuildingCluster.tsx
+    - src/components/Atmosphere.tsx
+    - src/components/CityGround.tsx
+    - src/components/ProcessPopup.tsx
+    - src/components/ErrorState.tsx
+    - src/components/CityScene.tsx
+  estimated_complexity: S
+  requires_user_approval: false
+  acceptance:
+    mechanical:
+      - "npx tsc --noEmit exits 0"
+    existence:
+      - "grep 'cableColorForProtocol' src/utils/colors.ts OR grep 'protocolColor' src/utils/colors.ts ≥ 1"
+      - "grep 'tcp' src/utils/colors.ts ≥ 1"
+      - "grep 'udp' src/utils/colors.ts ≥ 1"
+    behavioral:
+      - "TCP cables render in blue-ish tone, UDP in green-ish tone, HTTP/HTTPS in cyan-ish tone"
+      - "Unknown protocol falls back to theme accent color"
+  status: pending
+  owner: null
+  owner_started_at: null
+  retry_count: 0
+  linked_blocker: null
+  resume_hint: |
+    1. Read PLAN.md#F-303
+    2. Read PROGRESS.md last entry
+    3. Read handoff_notes (if any)
+    4. Verify F-301 done
+    5. Read src/utils/colors.ts current theme-driven color functions
+    6. Run `npx tsc --noEmit`
+    7. Execute steps below
+  steps:
+    - "Step 1: Add protocol palette to src/utils/colors.ts: TCP blue, UDP green, HTTP/HTTPS cyan, fallback accent"
+    - "Step 2: Implement cableColorForProtocol(protocol: string, theme: Theme): string"
+    - "Step 3: Update CableSystem to color each cable by Connection.protocol"
+    - "Step 4: Update CableFlow to tint particles by the same protocol color"
+    - "Step 5: Run `npx tsc --noEmit`"
+    - "Step 6: Commit: 'feat(frontend): add protocol-based cable colors'"
+  handoff_notes: ""
+  notes: "Keep colors defined in theme JSON so future user themes can override."
+```
+
+```yaml
+- id: F-304
+  track: frontend
+  title: "Building top halo pulse for running processes"
+  phase: 3
+  depends_on:
+    hard: [F-008, F-202]
+    soft: []
+  blocks: [I-301]
+  contract_refs: []
+  files_allowed_to_touch:
+    - src/components/BuildingHalo.tsx
+    - src/components/BuildingCluster.tsx
+    - src/App.tsx
+  forbidden:
+    - src-tauri/**
+    - src/utils/**
+    - src/hooks/**
+    - src/components/CityScene.tsx
+    - src/components/Atmosphere.tsx
+    - src/components/CityGround.tsx
+    - src/components/ProcessPopup.tsx
+    - src/components/ErrorState.tsx
+    - src/components/CableSystem.tsx
+    - src/components/CableFlow.tsx
+  estimated_complexity: M
+  requires_user_approval: false
+  acceptance:
+    mechanical:
+      - "npx tsc --noEmit exits 0"
+    existence:
+      - "src/components/BuildingHalo.tsx exists"
+      - "grep 'Ring' src/components/BuildingHalo.tsx OR grep 'ringGeometry' src/components/BuildingHalo.tsx ≥ 1"
+      - "grep 'ProcessState.Running' src/components/BuildingHalo.tsx OR grep 'running' src/components/BuildingHalo.tsx ≥ 1"
+    behavioral:
+      - "Running processes display a soft halo ring at the top of their building"
+      - "Halo pulses slowly (sinusoidal opacity/scale) and does not drop FPS below 30"
+      - "Halo color respects theme accent / active color"
+  status: pending
+  owner: null
+  owner_started_at: null
+  retry_count: 0
+  linked_blocker: null
+  resume_hint: |
+    1. Read PLAN.md#F-304
+    2. Read PROGRESS.md last entry
+    3. Read handoff_notes (if any)
+    4. Verify F-008 and F-202 done
+    5. Read three.js RingGeometry docs
+    6. Run `npx tsc --noEmit`
+    7. Execute steps below
+  steps:
+    - "Step 1: Create src/components/BuildingHalo.tsx"
+    - "Step 2: Props: { processes: ProcessInfo[]; positions: BuildingPosition[]; theme: Theme }"
+    - "Step 3: Filter to running processes (state === 'running')"
+    - "Step 4: Render a thin ring or plane at each building's top (y = height + small offset)"
+    - "Step 5: Animate opacity/scale with useFrame using a slow sine wave"
+    - "Step 6: Use instanced rendering if many halos; otherwise batch as one mesh per halo"
+    - "Step 7: Wire into App.tsx as sibling of BuildingCluster inside CityScene"
+    - "Step 8: Run `npx tsc --noEmit`"
+    - "Step 9: Commit: 'feat(frontend): add building top halo pulse for running processes'"
+  handoff_notes: ""
+  notes: "Subtle effect — should not compete with cable glow."
+```
+
+```yaml
+- id: I-301
+  track: integration
+  title: "Phase 3 full acceptance"
+  phase: 3
+  depends_on:
+    hard: [B-301, F-301, F-302, F-303, F-304]
+    soft: [B-302]
+  blocks: []
+  contract_refs: []
+  files_allowed_to_touch:
+    - src/App.tsx
+    - PLAN.md
+  forbidden:
+    - src-tauri/src/types.rs
+    - src-tauri/src/engine/**
+    - src-tauri/src/bridge/**
+    - src/utils/types.ts
+    - src/utils/layout.ts
+    - src/utils/colors.ts
+    - src/components/**
+    - src/hooks/**
+  estimated_complexity: L
+  requires_user_approval: false
+  acceptance:
+    mechanical:
+      - "npx tsc --noEmit exits 0"
+      - "npm run build exits 0"
+      - "cd src-tauri && cargo build exits 0"
+      - "cd src-tauri && cargo clippy -- -D warnings exits 0"
+    existence:
+      - "All Phase 3 tasks status=done in PLAN.md"
+    behavioral:
+      - "Open browser / start download → new connections appear as cables between buildings"
+      - "Cables show colored particles flowing along them"
+      - "Running process buildings have a soft top halo pulse"
+      - "FPS ≥ 30 with 100 cables + 200 buildings"
+  status: pending
+  owner: null
+  owner_started_at: null
+  retry_count: 0
+  linked_blocker: null
+  resume_hint: |
+    1. Read PLAN.md#I-301
+    2. Read PROGRESS.md last entry
+    3. Read handoff_notes (if any)
+    4. Verify all hard deps done
+    5. Run full mechanical acceptance
+    6. Run `npm run tauri dev` and perform behavioral checks
+    7. Update PLAN.md status counts and current phase to 4
+    8. Append PROGRESS.md entry
+  steps:
+    - "Step 1: Confirm all Phase 3 tasks done"
+    - "Step 2: Run npx tsc --noEmit && npm run build && cd src-tauri && cargo build && cargo clippy -- -D warnings"
+    - "Step 3: Run npm run tauri dev"
+    - "Step 4: Generate network activity (open Chrome, start download) and verify cables appear"
+    - "Step 5: Update PLAN.md (I-301 done, counts, current phase 4)"
+    - "Step 6: Append PROGRESS.md entry"
+    - "Step 7: Commit: 'milestone: Phase 3 acceptance passed'"
+  handoff_notes: ""
+  notes: "Phase 3 milestone gate."
+```
 
 ### Phase 4 — 产品打磨 · "让 Procession 值得骄傲"
 

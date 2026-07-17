@@ -4,6 +4,27 @@
 
 ## Session Log
 
+### 2026-07-18 — Session #012 (docs / Phase 3 planning, ~20min)
+- Track: docs
+- Task: Expand Phase 3 task graph in PLAN.md
+- Status: done
+- Summary:
+  - Expanded Phase 3 milestone outline into step-level task definitions per SKILL.md §6 Granularity Rule
+  - Added 7 Phase 3 tasks: B-301, B-302, F-301, F-302, F-303, F-304, I-301
+  - Defined dependencies: B-301 → F-301/F-302/F-303; F-301 → F-302/F-303; F-008/F-202 → F-304; all → I-301
+  - Added Task Index table under Phase 3 in PLAN.md header
+  - Updated Status Counts: pending 7, done 33 (current phase remains 3)
+  - Defined full YAML task specs with acceptance criteria (mechanical/existence/behavioral), file scopes, and resume hints
+- Decisions:
+  - B-302 (geoip) marked optional/soft dep; cable visualization does not depend on it
+  - F-301 designated bottleneck task blocking all cable-visualization tasks
+- Commits: pending
+- Files:
+  - PLAN.md (mod)
+  - PROGRESS.md (mod)
+- Next ready: B-301 (backend), F-304 (frontend; deps F-008 and F-202 already done)
+- Notes: Phase 3 planning complete. Ready for track execution.
+
 ### 2026-07-18 — Session #011 (integration, I-201, ~30min)
 - Track: integration
 - Task: I-201 (Phase 2 full acceptance)
