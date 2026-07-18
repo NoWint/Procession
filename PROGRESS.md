@@ -4,6 +4,31 @@
 
 ## Session Log
 
+### 2026-07-18 — Session #037 (frontend, F-604 Process lifecycle animations, ~35min)
+- Track: frontend
+- Task: F-604 (Process lifecycle animations)
+- Status: done
+- Summary:
+  - Refactored `BuildingCluster` to animate process lifecycle state transitions.
+  - Added `LifecycleEntry` map keyed by PID, tracking `born` / `alive` / `dying` states with progress 0..1.
+  - Newborn buildings scale up from 0 with a brief accent-color flare over 0.8 s.
+  - Dying buildings retain their last known position and scale down to 0 while fading to black over 1.0 s.
+  - Extracted pure `diffProcesses` helper into `src/utils/lifecycle.ts` with unit tests for births/deaths/turnover.
+  - Event handlers now ignore transient dying instances to prevent clicks on already-dead processes.
+  - Verified `tsc`, `npm test` (52/52), `npm run build`, and `cargo clippy`.
+  - Updated `PLAN.md`: F-604 → done; Status Counts → pending 7, done 63.
+- Decisions:
+  - Keep lifecycle animations purely visual; underlying data model still derives from `displaySnapshot`.
+  - Death animation duration slightly longer than birth to make process disappearance feel like a collapse rather than a pop.
+- Commits: pending
+- Files:
+  - src/components/BuildingCluster.tsx (mod)
+  - src/utils/lifecycle.ts (new)
+  - src/utils/lifecycle.test.ts (new)
+  - PLAN.md (mod)
+  - PROGRESS.md (mod)
+- Next ready: F-605 (Audio / sonification) or F-606 (City state save / load).
+
 ### 2026-07-18 — Session #036 (frontend, F-603 Time travel / history playback, ~45min)
 - Track: frontend
 - Task: F-603 (Time travel / history playback)

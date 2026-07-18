@@ -6,6 +6,7 @@ import type { ThreeEvent } from "@react-three/fiber";
 import type { ProcessInfo } from "../utils/types";
 import { computeTreePositions, type BuildingPosition } from "../utils/layout";
 import { colorForProcess, type Theme } from "../utils/colors";
+import { diffProcesses } from "../utils/lifecycle";
 import { FALLBACK_THEME } from "../utils/theme";
 
 interface BuildingClusterProps {
@@ -22,9 +23,19 @@ interface BuildingClusterProps {
   onHover?: (process: ProcessInfo | null) => void;
 }
 
+interface LifecycleEntry {
+  pid: number;
+  state: "born" | "alive" | "dying";
+  progress: number;
+  position: BuildingPosition;
+  color: THREE.Color;
+}
+
 const dummy = new THREE.Object3D();
 const _color = new THREE.Color();
 const _emissive = new THREE.Color();
+const BIRTH_DURATION = 0.8;
+const DEATH_DURATION = 1.0;
 
 export default function BuildingCluster({
   processes,
@@ -51,105 +62,145 @@ export default function BuildingCluster({
   );
 
   const [hoveredId, setHoveredId] = useState<number | null>(null);
+  const lifecycleRef = useRef<Map<number, LifecycleEntry>>(new Map());
+  const prevProcessesRef = useRef<ProcessInfo[]>([]);
+  const prevPositionsRef = useRef<BuildingPosition[]>([]);
 
-  // Base colors per instance, stored for glow calculations.
-  const baseColors = useMemo(() => {
-    const map = new Map<number, THREE.Color>();
-    positions.forEach((pos) => {
-      const process = processes.find((p) => p.pid === pos.pid);
-      if (process) {
-        map.set(pos.pid, new THREE.Color(colorForProcess(process, theme)));
-      }
-    });
-    return map;
-  }, [positions, processes, theme]);
-
-  // Track which instances are "active" (high CPU) for per-frame pulse.
-  const activeIndices = useMemo(() => {
-    const ids = new Set<number>();
-    positions.forEach((pos, i) => {
-      const p = processes.find((proc) => proc.pid === pos.pid);
-      if (p && p.cpu > 50) ids.add(i);
-    });
-    return ids;
-  }, [positions, processes]);
-
-  // Initialize instance matrices and colors.
+  // Detect births and deaths by diffing the current process list against the previous frame.
   useEffect(() => {
-    if (!meshRef.current) return;
+    const { births, deaths } = diffProcesses(prevProcessesRef.current, processes);
 
-    positions.forEach((pos, i) => {
-      dummy.position.set(pos.x, pos.height / 2, pos.z);
-      dummy.scale.set(1, pos.height, 1);
-      dummy.updateMatrix();
-      meshRef.current!.setMatrixAt(i, dummy.matrix);
-
-      const process = processes.find((p) => p.pid === pos.pid);
-      if (process) {
-        meshRef.current!.setColorAt(i, new THREE.Color(colorForProcess(process, theme)));
+    for (const p of processes) {
+      const entry = lifecycleRef.current.get(p.pid);
+      if (entry && entry.state === "dying") {
+        // Process returned while still fading out: re-birth from current position.
+        entry.state = "born";
+        entry.progress = 0;
+        const pos = positions.find((pos) => pos.pid === p.pid);
+        if (pos) entry.position = pos;
+        entry.color.set(colorForProcess(p, theme));
       }
-    });
-
-    meshRef.current.instanceMatrix.needsUpdate = true;
-    if (meshRef.current.instanceColor) {
-      meshRef.current.instanceColor.needsUpdate = true;
     }
-  }, [positions, processes, theme]);
 
-  // Apply hover/selection highlight whenever those states change.
-  useEffect(() => {
-    if (!meshRef.current || !meshRef.current.instanceColor) return;
+    for (const p of births) {
+      const pos = positions.find((pos) => pos.pid === p.pid);
+      if (pos) {
+        lifecycleRef.current.set(p.pid, {
+          pid: p.pid,
+          state: "born",
+          progress: 0,
+          position: pos,
+          color: new THREE.Color(colorForProcess(p, theme)),
+        });
+      }
+    }
 
-    positions.forEach((pos, i) => {
-      const base = baseColors.get(pos.pid);
-      if (!base) return;
+    for (const p of deaths) {
+      const pos = prevPositionsRef.current.find((pos) => pos.pid === p.pid);
+      if (pos) {
+        lifecycleRef.current.set(p.pid, {
+          pid: p.pid,
+          state: "dying",
+          progress: 1,
+          position: pos,
+          color: new THREE.Color(colorForProcess(p, theme)),
+        });
+      }
+    }
 
-      _color.copy(base);
+    prevProcessesRef.current = processes;
+    prevPositionsRef.current = positions;
+  }, [processes, positions, theme]);
 
-      const isHovered = hoveredId === i;
+  // Per-frame: advance lifecycle animations and update instance matrices/colors.
+  useFrame(({ clock }, delta) => {
+    const mesh = meshRef.current;
+    if (!mesh) return;
+
+    for (const entry of lifecycleRef.current.values()) {
+      if (entry.state === "born") {
+        entry.progress = Math.min(1, entry.progress + delta / BIRTH_DURATION);
+        if (entry.progress >= 1) entry.state = "alive";
+      } else if (entry.state === "dying") {
+        entry.progress = Math.max(0, entry.progress - delta / DEATH_DURATION);
+      }
+    }
+
+    for (const [pid, entry] of lifecycleRef.current) {
+      if (entry.state === "dying" && entry.progress <= 0) {
+        lifecycleRef.current.delete(pid);
+      }
+    }
+
+    let instanceIndex = 0;
+
+    for (let i = 0; i < positions.length; i++) {
+      const pos = positions[i];
+      const process = processes.find((p) => p.pid === pos.pid);
+      const entry = lifecycleRef.current.get(pos.pid);
+      const scale = entry?.progress ?? 1;
+
+      dummy.position.set(pos.x, (pos.height / 2) * scale, pos.z);
+      dummy.scale.set(scale, scale * pos.height, scale);
+      dummy.updateMatrix();
+      mesh.setMatrixAt(instanceIndex, dummy.matrix);
+
+      _color.copy(
+        process
+          ? new THREE.Color(colorForProcess(process, theme))
+          : entry?.color ?? new THREE.Color(theme.colors.idle),
+      );
+
+      if (entry?.state === "born") {
+        _color.lerp(new THREE.Color(theme.colors.accent), (1 - entry.progress) * 0.5);
+      }
+
+      if (process && process.cpu > 50) {
+        const pulse = (Math.sin(clock.elapsedTime * 3) + 1) * 0.5;
+        _color.lerp(new THREE.Color(theme.colors.accent), pulse * 0.35);
+      }
+
+      const isHovered = hoveredId === instanceIndex;
       const isSelected = selectedPid === pos.pid;
-
       if (isHovered || isSelected) {
         _color.lerp(new THREE.Color(theme.colors.accent), isSelected ? 0.45 : 0.25);
       }
 
-      meshRef.current!.setColorAt(i, _color);
-    });
-
-    meshRef.current.instanceColor.needsUpdate = true;
-  }, [hoveredId, selectedPid, positions, baseColors, theme]);
-
-  // Per-frame glow pulse for active processes only.
-  useFrame(({ clock }) => {
-    if (!meshRef.current || !meshRef.current.instanceColor) return;
-
-    const pulse = (Math.sin(clock.elapsedTime * 3) + 1) * 0.5; // 0..1
-    const glowIntensity = 0.15 + pulse * 0.25;
-
-    for (const i of activeIndices) {
-      const pos = positions[i];
-      if (!pos) continue;
-      const base = baseColors.get(pos.pid);
-      if (!base) continue;
-
-      _color.copy(base).lerp(new THREE.Color(theme.colors.accent), pulse * 0.35);
-      meshRef.current!.setColorAt(i, _color);
+      mesh.setColorAt(instanceIndex, _color);
+      instanceIndex++;
     }
+
+    for (const entry of lifecycleRef.current.values()) {
+      if (entry.state !== "dying") continue;
+
+      const scale = entry.progress;
+      dummy.position.set(entry.position.x, (entry.position.height / 2) * scale, entry.position.z);
+      dummy.scale.set(scale, scale * entry.position.height, scale);
+      dummy.updateMatrix();
+      mesh.setMatrixAt(instanceIndex, dummy.matrix);
+
+      _color.copy(entry.color).lerp(new THREE.Color(0x000000), 1 - scale);
+      mesh.setColorAt(instanceIndex, _color);
+      instanceIndex++;
+    }
+
+    mesh.count = instanceIndex;
+    mesh.instanceMatrix.needsUpdate = true;
+    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
 
     if (materialRef.current) {
       _emissive.set(theme.colors.active);
       materialRef.current.emissive = _emissive;
-      materialRef.current.emissiveIntensity = glowIntensity;
+      const pulse = (Math.sin(clock.elapsedTime * 3) + 1) * 0.5;
+      materialRef.current.emissiveIntensity = 0.15 + pulse * 0.25;
     }
-
-    meshRef.current.instanceColor.needsUpdate = true;
   });
 
   const handlePointerOver = useCallback(
     (event: ThreeEvent<PointerEvent>) => {
       event.stopPropagation();
       const instanceId = event.instanceId;
-      if (instanceId === undefined) return;
+      if (instanceId === undefined || instanceId >= positions.length) return;
       setHoveredId(instanceId);
       const pos = positions[instanceId];
       const process = processes.find((p) => p.pid === pos.pid);
@@ -171,7 +222,7 @@ export default function BuildingCluster({
     (event: ThreeEvent<MouseEvent>) => {
       event.stopPropagation();
       const instanceId = event.instanceId;
-      if (instanceId === undefined || !onClick) return;
+      if (instanceId === undefined || instanceId >= positions.length || !onClick) return;
 
       const pos = positions[instanceId];
       const process = processes.find((p) => p.pid === pos.pid);
@@ -184,7 +235,7 @@ export default function BuildingCluster({
     (event: ThreeEvent<MouseEvent>) => {
       event.stopPropagation();
       const instanceId = event.instanceId;
-      if (instanceId === undefined || !onDoubleClick) return;
+      if (instanceId === undefined || instanceId >= positions.length || !onDoubleClick) return;
 
       const pos = positions[instanceId];
       const process = processes.find((p) => p.pid === pos.pid);
@@ -197,7 +248,7 @@ export default function BuildingCluster({
     <group>
       <instancedMesh
         ref={meshRef}
-        args={[undefined, undefined, positions.length]}
+        args={[undefined, undefined, Math.max(1, maxBuildings * 2)]}
         onClick={handleClick}
         onDoubleClick={handleDoubleClick}
         onPointerOver={handlePointerOver}

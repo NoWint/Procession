@@ -110,7 +110,7 @@ Constitution changes (STRATEGY/SPEC/ARCHITECTURE under `.docs/`) require a `D-*`
 | F-601 | Rendering performance guarantee (FPS ≥ 30)         | 6     | done    | F-404                             | XL        |
 | F-602 | UI/UX polish and bug sweep                         | 6     | done    | F-505, F-506                      | M         |
 | F-603 | Time travel / history playback                     | 6     | done    | F-501, F-502, F-503               | XL        |
-| F-604 | Process lifecycle animations (birth / death)       | 6     | pending | F-008                             | L         |
+| F-604 | Process lifecycle animations (birth / death)       | 6     | done    | F-008                             | L         |
 | F-605 | Audio / sonification layer                         | 6     | pending | F-401                             | L         |
 | F-606 | City state save / load                             | 6     | pending | F-603                             | M         |
 | D-601 | Release notes + distribution guide                 | 6     | pending | B-603                             | M         |
@@ -126,9 +126,9 @@ Constitution changes (STRATEGY/SPEC/ARCHITECTURE under `.docs/`) require a `D-*`
 
 ## Status Counts
 
-- pending: 8
+- pending: 7
 - in_progress: 0
-- done: 62
+- done: 63
 - blocked: 0
 - failed: 0
 - stale: 0
