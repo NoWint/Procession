@@ -88,8 +88,6 @@ export default function BuildingCluster({
   selectedPid = null,
   layout = "tree",
   maxBuildings = 200,
-  showLabels = true,
-  maxLabels,
   onClick,
   onDoubleClick,
   onHover,
