@@ -4,6 +4,27 @@
 
 ## Session Log
 
+### 2026-07-18 — Session #040 (integration, I-601 Phase 6 full acceptance, ~10min)
+- Track: integration
+- Task: I-601 (Phase 6 full acceptance)
+- Status: done
+- Summary:
+  - Verified all 10 deps are done: B-601..B-603, F-601..F-606, D-601
+  - Mechanical acceptance passed:
+    - `npx tsc --noEmit` exits 0
+    - `cd src-tauri && cargo build` exits 0
+    - `cd src-tauri && cargo clippy --all-targets` exits 0
+    - `cd src-tauri && cargo test` → 21/21 Rust tests pass
+    - `npm test -- --run` → 59/59 frontend tests pass
+  - Existence checks: all 10 task deliverables confirmed via file listing
+  - Updated PLAN.md: I-601 → done, status counts updated
+- Decisions: none
+- Commits: (included in push below)
+- Files:
+  - PLAN.md (mod) — I-601 done, F-605 done, counts updated
+- Next ready: All Phase 6 tasks complete. No pending tasks remain.
+- Notes: Phase 6 milestone gate closed. Project is fully complete across all 6 phases.
+
 ### 2026-07-18 — Session #039 (frontend, visual replication of digital-city mockup, ~2h)
 - Track: frontend
 - Task: visual replication of design image (comprehensive visual refactoring)
