@@ -1,5 +1,6 @@
 import { useMemo, useEffect, useRef } from "react";
 import * as THREE from "three";
+import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import type { Connection } from "../utils/types";
 import type { BuildingPosition } from "../utils/layout";
 import { cableColorForProtocol } from "../utils/colors";
@@ -20,8 +21,7 @@ export interface CableData {
 
 const EXTERNAL_RADIUS_MIN = 12;
 const EXTERNAL_RADIUS_VAR = 4;
-const CURVE_SEGMENTS = 20;
-const ARCH_HEIGHT = 2.5;
+const ARCH_HEIGHT = 4.0;
 
 function hashString(str: string): number {
   let h = 0;
@@ -75,13 +75,16 @@ export function computeCableData(
     const dst = remoteEndpointPosition(c.remote_addr);
     if (dst.x === 0 && dst.y === 0 && dst.z === 0) continue;
 
-    const start = new THREE.Vector3(src.x, src.height, src.z);
-    const end = new THREE.Vector3(dst.x, dst.y, dst.z);
+    const start = new THREE.Vector3(src.x, src.height * 0.7, src.z);
+    const end = new THREE.Vector3(dst.x, dst.y + 1, dst.z);
     const mid = new THREE.Vector3().lerpVectors(start, end, 0.5);
     mid.y = Math.max(start.y, end.y) + ARCH_HEIGHT;
 
-    const curve = new THREE.QuadraticBezierCurve3(start, mid, end);
-    cables.push({ path: curve.getPoints(CURVE_SEGMENTS), protocol: c.protocol });
+    const control1 = new THREE.Vector3().lerpVectors(start, mid, 0.5);
+    const control2 = new THREE.Vector3().lerpVectors(mid, end, 0.5);
+
+    const curve = new THREE.CatmullRomCurve3([start, control1, control2, end]);
+    cables.push({ path: curve.getPoints(50), protocol: c.protocol });
   }
 
   return cables;
@@ -95,56 +98,33 @@ export function computeCablePaths(
   return computeCableData(connections, positions, maxCables).map((c) => c.path);
 }
 
-function hexToRgbNormalized(hex: string): [number, number, number] {
-  const clean = hex.replace("#", "");
-  const bigint = parseInt(clean, 16);
-  const r = ((bigint >> 16) & 255) / 255;
-  const g = ((bigint >> 8) & 255) / 255;
-  const b = (bigint & 255) / 255;
-  return Number.isNaN(bigint) ? [1, 1, 1] : [r, g, b];
-}
-
 export function buildBatchedCableGeometry(
   cables: CableData[],
   theme: Theme = FALLBACK_THEME,
 ): THREE.BufferGeometry {
-  let vertexCount = 0;
-  for (const cable of cables) {
-    vertexCount += Math.max(0, cable.path.length - 1) * 2;
-  }
-
-  const positions = new Float32Array(vertexCount * 3);
-  const colors = new Float32Array(vertexCount * 3);
-  let offset = 0;
+  const geometries: THREE.BufferGeometry[] = [];
+  const colorArray: number[] = [];
 
   for (const cable of cables) {
-    const [r, g, b] = hexToRgbNormalized(cableColorForProtocol(cable.protocol, theme));
-    for (let i = 0; i < cable.path.length - 1; i++) {
-      const a = cable.path[i];
-      const c = cable.path[i + 1];
-      if (!a || !c) continue;
-
-      positions[offset * 6] = a.x;
-      positions[offset * 6 + 1] = a.y;
-      positions[offset * 6 + 2] = a.z;
-      positions[offset * 6 + 3] = c.x;
-      positions[offset * 6 + 4] = c.y;
-      positions[offset * 6 + 5] = c.z;
-
-      colors[offset * 6] = r;
-      colors[offset * 6 + 1] = g;
-      colors[offset * 6 + 2] = b;
-      colors[offset * 6 + 3] = r;
-      colors[offset * 6 + 4] = g;
-      colors[offset * 6 + 5] = b;
-      offset++;
+    const curve = new THREE.CatmullRomCurve3(cable.path);
+    const tube = new THREE.TubeGeometry(curve, 32, 0.08, 8, false);
+    const count = tube.attributes.position.count;
+    const color = new THREE.Color(cableColorForProtocol(cable.protocol, theme));
+    for (let i = 0; i < count; i++) {
+      colorArray.push(color.r, color.g, color.b);
     }
+    geometries.push(tube);
   }
 
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute("position", new THREE.BufferAttribute(positions, 3));
-  geo.setAttribute("color", new THREE.BufferAttribute(colors, 3));
-  return geo;
+  if (geometries.length === 0) {
+    return new THREE.BufferGeometry();
+  }
+
+  const merged = mergeGeometries(geometries, false);
+  if (!merged) return new THREE.BufferGeometry();
+
+  merged.setAttribute("color", new THREE.Float32BufferAttribute(colorArray, 3));
+  return merged;
 }
 
 export default function CableSystem({
@@ -179,14 +159,17 @@ export default function CableSystem({
   if (cables.length === 0) return null;
 
   return (
-    <lineSegments geometry={geometry} renderOrder={1}>
-      <lineBasicMaterial
+    <mesh geometry={geometry} renderOrder={1}>
+      <meshStandardMaterial
         vertexColors
         transparent
-        opacity={0.55}
+        opacity={0.7}
+        emissive="#ffffff"
+        emissiveIntensity={0.2}
+        roughness={0.4}
+        metalness={0.6}
         depthWrite={false}
-        linewidth={1.2}
       />
-    </lineSegments>
+    </mesh>
   );
 }
