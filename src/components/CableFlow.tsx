@@ -19,8 +19,29 @@ export interface Particle {
   t: number;
 }
 
-const DEFAULT_PARTICLES_PER_CABLE = 3;
-const PARTICLE_SIZE = 0.22;
+const DEFAULT_PARTICLES_PER_CABLE = 4;
+const PARTICLE_SIZE = 0.34;
+
+function createParticleTexture(): THREE.CanvasTexture {
+  const size = 64;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return new THREE.CanvasTexture(canvas);
+  const gradient = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+  gradient.addColorStop(0, "rgba(255, 255, 255, 1)");
+  gradient.addColorStop(0.35, "rgba(255, 255, 255, 0.55)");
+  gradient.addColorStop(0.7, "rgba(255, 255, 255, 0.15)");
+  gradient.addColorStop(1, "rgba(255, 255, 255, 0)");
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, size, size);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.needsUpdate = true;
+  return texture;
+}
+
+const PARTICLE_TEXTURE = createParticleTexture();
 
 export function updateParticles(
   particles: Particle[],
@@ -56,7 +77,7 @@ export default function CableFlow({
   theme = FALLBACK_THEME,
   baseParticlesPerCable = DEFAULT_PARTICLES_PER_CABLE,
   intensities,
-  speed = 1.8,
+  speed = 3.2,
 }: CableFlowProps) {
   const pointsRef = useRef<THREE.Points>(null);
   const particlesRef = useRef<Particle[]>([]);
@@ -65,7 +86,7 @@ export default function CableFlow({
 
   const { geometry, count } = useMemo(() => {
     // Reduce particle density as the number of cables grows.
-    const adaptiveParticlesPerCable = paths.length > 60 ? 2 : paths.length > 30 ? 2 : baseParticlesPerCable;
+    const adaptiveParticlesPerCable = paths.length > 60 ? 3 : paths.length > 30 ? 3 : baseParticlesPerCable;
     const p: Particle[] = [];
     for (let i = 0; i < paths.length; i++) {
       const intensity = intensities?.[i] ?? 1;
@@ -90,7 +111,7 @@ export default function CableFlow({
     for (let i = 0; i < p.length; i++) {
       const protocol = protocols[p[i].pathIndex] ?? "";
       const base = new THREE.Color(cableColorForProtocol(protocol, theme));
-      const bright = base.clone().offsetHSL(0, 0, 0.25);
+      const bright = base.clone().offsetHSL(0, 0, 0.35).lerp(new THREE.Color(0xffffff), 0.25);
       colors[i * 3] = bright.r;
       colors[i * 3 + 1] = bright.g;
       colors[i * 3 + 2] = bright.b;
@@ -124,11 +145,12 @@ export default function CableFlow({
       <pointsMaterial
         size={PARTICLE_SIZE}
         transparent
-        opacity={0.95}
+        opacity={0.98}
         depthWrite={false}
         sizeAttenuation
         vertexColors
         blending={THREE.AdditiveBlending}
+        map={PARTICLE_TEXTURE}
       />
     </points>
   );

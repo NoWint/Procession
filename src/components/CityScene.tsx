@@ -20,7 +20,7 @@ export default function CityScene({
 }: CitySceneProps) {
   return (
     <Canvas
-      camera={{ position: [28, 22, 28], fov: 45 }}
+      camera={{ position: [24, 30, 24], fov: 45 }}
       scene={{
         fog: new FogExp2(new Color(theme.scene.fogColor), 0.018),
         background: new Color(theme.colors.background),

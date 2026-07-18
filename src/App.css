@@ -69,6 +69,23 @@ canvas {
   gap: 8px;
 }
 
+.app-slogan {
+  position: absolute;
+  bottom: 26px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: var(--proc-font-heading);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  color: var(--proc-text-muted);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+  opacity: 0.75;
+  pointer-events: none;
+  user-select: none;
+  white-space: nowrap;
+}
+
 .screenshot-controls {
   display: flex;
   gap: 8px;

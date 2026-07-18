@@ -5,6 +5,7 @@ import BuildingHalo from "./components/BuildingHalo";
 import CableSystem, { computeCableData } from "./components/CableSystem";
 import CableFlow from "./components/CableFlow";
 import CityGround from "./components/CityGround";
+import CityBackground from "./components/CityBackground";
 import Atmosphere from "./components/Atmosphere";
 import RelationGraph from "./components/RelationGraph";
 import PortHarbors from "./components/PortHarbors";
@@ -325,6 +326,7 @@ export default function App() {
         autoRotate={autoRotate}
       >
         <Atmosphere theme={theme} />
+        <CityBackground theme={theme} />
         <CityGround theme={theme} />
         <FsHeatmap hotspots={displaySnapshot.fs_hotspots} theme={theme} />
         <BuildingCluster
@@ -431,6 +433,7 @@ export default function App() {
           />
         )}
         <ProcessPopup process={selectedProcess} onClose={handleClosePopup} />
+        <div className="app-slogan">Procession · 进程列队，系统成诗</div>
       </div>
       <ScreensaverMode enabled={kioskMode} onExit={handleExitKiosk} onUiShow={handleUiShow} />
     </div>

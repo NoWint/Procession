@@ -16,14 +16,14 @@ export default function CityGround({ theme = FALLBACK_THEME }: CityGroundProps) 
   return (
     <group>
       <gridHelper
-        args={[110, 80, theme.colors.grid, theme.colors.gridSecondary]}
+        args={[120, 100, theme.colors.gridSecondary, theme.colors.background]}
         position={[0, 0.01, 0]}
       />
       <mesh geometry={geometry} position={[0, -0.02, 0]} rotation={[0, 0, 0]}>
         <meshStandardMaterial
           color={theme.colors.ground}
           transparent
-          opacity={0.9}
+          opacity={0.85}
           roughness={0.95}
           metalness={0.1}
         />

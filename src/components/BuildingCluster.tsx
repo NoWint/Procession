@@ -64,20 +64,31 @@ const buildingFragmentShader = `
   varying vec3 vInstanceColor;
 
   void main() {
-    vec3 bottom = vInstanceColor * 0.6;
-    vec3 top = vInstanceColor * 1.4 + uEmissive * 0.25;
-    vec3 baseColor = mix(bottom, top, vUv.y);
+    vec3 bottom = vInstanceColor * 0.35;
+    vec3 top = vInstanceColor * 1.6 + uEmissive * 0.45;
+    vec3 baseColor = mix(bottom, top, pow(vUv.y, 0.85));
+
+    // Window grid pattern
+    float windowU = fract(vUv.x * 6.0);
+    float windowV = fract(vUv.y * 18.0);
+    float window = step(0.08, windowU) * step(0.08, windowV);
+    float windowGlow = (1.0 - window) * (0.5 + 0.5 * sin(uTime * 2.0 + vUv.y * 10.0));
+    baseColor += vInstanceColor * windowGlow * 0.35;
 
     // Fresnel edge glow
     vec3 viewDir = normalize(cameraPosition - vWorldPosition);
-    float fresnel = pow(1.0 - abs(dot(viewDir, vNormal)), 2.0);
-    baseColor += uEmissive * fresnel * 0.6;
+    float fresnel = pow(1.0 - abs(dot(viewDir, vNormal)), 2.5);
+    baseColor += uEmissive * fresnel * 0.8;
+
+    // Top cap glow
+    float topCap = step(0.96, vUv.y);
+    baseColor += uEmissive * topCap * 0.9;
 
     // Energy scan lines
-    float scan = sin(vUv.y * 20.0 - uTime * 2.0) * 0.5 + 0.5;
-    baseColor += uEmissive * scan * 0.08 * uEnergy;
+    float scan = sin(vUv.y * 24.0 - uTime * 2.5) * 0.5 + 0.5;
+    baseColor += uEmissive * scan * 0.1 * uEnergy;
 
-    gl_FragColor = vec4(baseColor, 0.92);
+    gl_FragColor = vec4(baseColor, 0.94);
   }
 `;
 
@@ -295,7 +306,7 @@ export default function BuildingCluster({
         onPointerOut={handlePointerOut}
         frustumCulled
       >
-        <boxGeometry args={[0.75, 1, 0.75]} />
+        <boxGeometry args={[0.5, 1, 0.5]} />
         <shaderMaterial
           ref={materialRef}
           vertexShader={buildingVertexShader}

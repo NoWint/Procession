@@ -6,6 +6,48 @@ import type { BuildingPosition } from "../utils/layout";
 import { cableColorForProtocol } from "../utils/colors";
 import { FALLBACK_THEME, type Theme } from "../utils/theme";
 
+const cableVertexShader = `
+  varying vec2 vUv;
+  varying vec3 vNormal;
+  varying vec3 vColor;
+  varying vec3 vWorldPosition;
+  attribute vec3 color;
+
+  void main() {
+    vUv = uv;
+    vNormal = normalize(normalMatrix * normal);
+    vColor = color;
+    vec4 worldPosition = modelMatrix * vec4(position, 1.0);
+    vWorldPosition = worldPosition.xyz;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }
+`;
+
+const cableFragmentShader = `
+  varying vec2 vUv;
+  varying vec3 vNormal;
+  varying vec3 vColor;
+  varying vec3 vWorldPosition;
+  uniform float uTime;
+
+  void main() {
+    vec3 viewDir = normalize(cameraPosition - vWorldPosition);
+    float fresnel = pow(1.0 - abs(dot(viewDir, vNormal)), 2.2);
+
+    // Time-based pulse along the cable
+    float pulse = sin(vUv.x * 12.0 - uTime * 3.0) * 0.5 + 0.5;
+
+    vec3 glow = vColor * 2.0 + vColor * fresnel * 1.6;
+    glow += vColor * pulse * 0.6;
+
+    // Head/tail fade along cable
+    float fade = smoothstep(0.0, 0.1, vUv.x) * (1.0 - smoothstep(0.9, 1.0, vUv.x));
+    glow *= 0.45 + 0.55 * fade;
+
+    gl_FragColor = vec4(glow, 0.92);
+  }
+`;
+
 interface CableSystemProps {
   connections?: Connection[];
   positions?: BuildingPosition[];
@@ -107,7 +149,7 @@ export function buildBatchedCableGeometry(
 
   for (const cable of cables) {
     const curve = new THREE.CatmullRomCurve3(cable.path);
-    const tube = new THREE.TubeGeometry(curve, 32, 0.08, 8, false);
+    const tube = new THREE.TubeGeometry(curve, 32, 0.14, 10, false);
     const count = tube.attributes.position.count;
     const color = new THREE.Color(cableColorForProtocol(cable.protocol, theme));
     for (let i = 0; i < count; i++) {
@@ -135,6 +177,20 @@ export default function CableSystem({
   maxCables = 100,
 }: CableSystemProps) {
   const prevGeoRef = useRef<THREE.BufferGeometry | null>(null);
+  const materialRef = useRef<THREE.ShaderMaterial>(null);
+
+  useEffect(() => {
+    const clock = new THREE.Clock();
+    let rafId = 0;
+    const animate = () => {
+      if (materialRef.current) {
+        materialRef.current.uniforms.uTime.value = clock.getElapsedTime();
+      }
+      rafId = requestAnimationFrame(animate);
+    };
+    rafId = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(rafId);
+  }, []);
 
   const cables = useMemo(
     () => providedCables ?? computeCableData(connections, positions, maxCables),
@@ -160,15 +216,16 @@ export default function CableSystem({
 
   return (
     <mesh geometry={geometry} renderOrder={1}>
-      <meshStandardMaterial
-        vertexColors
+      <shaderMaterial
+        ref={materialRef}
+        vertexShader={cableVertexShader}
+        fragmentShader={cableFragmentShader}
         transparent
-        opacity={0.7}
-        emissive="#ffffff"
-        emissiveIntensity={0.2}
-        roughness={0.4}
-        metalness={0.6}
         depthWrite={false}
+        blending={THREE.AdditiveBlending}
+        uniforms={{
+          uTime: { value: 0 },
+        }}
       />
     </mesh>
   );
