@@ -19,9 +19,7 @@ export default function CityScene({
 }: CitySceneProps) {
   return (
     <Canvas
-      camera={{ position: [24, 30, 24], fov: 45 }}
-      // No fog — was causing a "black barrier" that hid buildings at default
-      // camera distance. Fog color (#03040a) matched the background too closely.
+      camera={{ position: [8, 12, 12], fov: 60 }}
       gl={{ antialias: true, alpha: false }}
     >
       <color attach="background" args={[theme.colors.background]} />
