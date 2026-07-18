@@ -4,6 +4,28 @@
 
 ## Session Log
 
+### 2026-07-18 — Session #031 (docs, D-501 plugin development guide, ~20min)
+- Track: docs
+- Task: D-501 (Plugin development guide)
+- Status: done
+- Summary:
+  - Wrote `docs/plugin.md`, a complete plugin development guide covering quick start, directory layout, manifest schema, output format, lifecycle, scheduling, security rules, frontend consumption, troubleshooting, and next steps.
+  - Created `examples/plugin-hello/` with a working Python hello-world plugin (`manifest.json` + `hello.py`).
+  - Verified the example runs independently and prints a single valid JSON line.
+  - Updated `PLAN.md`: D-501 status → done; Status Counts → pending 1, done 58.
+- Decisions:
+  - Used Python for the example because it produces robust JSON without shell quoting issues.
+  - Documented the `snapshot.plugins[id]` frontend contract with a concise React snippet.
+- Commits: pending
+- Files:
+  - docs/plugin.md (new)
+  - examples/plugin-hello/manifest.json (new)
+  - examples/plugin-hello/hello.py (new)
+  - PLAN.md (mod)
+  - PROGRESS.md (mod)
+- Next ready: I-501 (Phase 5 full acceptance) is the only remaining Phase 5 task.
+- Notes: D-501 defines the public plugin contract and requires user approval before final acceptance.
+
 ### 2026-07-18 — Session #030 (frontend, F-506 screenshot / GIF sharing, ~25min)
 - Track: frontend
 - Task: F-506 (Screenshot / GIF sharing)

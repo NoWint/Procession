@@ -1,0 +1,8 @@
+{
+  "id": "hello",
+  "name": "Hello World",
+  "executable": "python3",
+  "args": ["hello.py"],
+  "refresh_interval_secs": 5,
+  "timeout_secs": 5
+}

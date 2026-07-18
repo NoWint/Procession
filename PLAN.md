@@ -94,7 +94,7 @@ Constitution changes (STRATEGY/SPEC/ARCHITECTURE under `.docs/`) require a `D-*`
 | F-504 | Custom theme editor / JSON import                   | 5     | done    | F-403                             | M         |
 | F-505 | Screensaver / kiosk mode (fullscreen, auto-rotate) | 5     | done    | F-401                             | S         |
 | F-506 | Screenshot / GIF sharing                          | 5     | done    | F-401                             | M         |
-| D-501 | Plugin development guide                          | 5     | pending | B-504                             | M         |
+| D-501 | Plugin development guide                          | 5     | done    | B-504                             | M         |
 | D-502 | UI Design System v1.0 document                    | 5     | done    | F-403                             | M         |
 | D-503 | 3D World Generation Design document               | 5     | done    | D-502                             | L         |
 | D-504 | Visual Effects Design document                    | 5     | done    | D-502                             | L         |
@@ -110,9 +110,9 @@ Constitution changes (STRATEGY/SPEC/ARCHITECTURE under `.docs/`) require a `D-*`
 
 ## Status Counts
 
-- pending: 2
+- pending: 1
 - in_progress: 0
-- done: 57
+- done: 58
 - blocked: 0
 - failed: 0
 - stale: 0
@@ -3741,7 +3741,7 @@ Per SKILL.md §6 Granularity Rule: future phases are milestone-level only. Expan
       - "examples/plugin-hello/ builds and runs independently"
     behavioral:
       - "New reader can create a plugin in under 30 minutes from the guide"
-  status: pending
+  status: done
   owner: null
   owner_started_at: null
   retry_count: 0
