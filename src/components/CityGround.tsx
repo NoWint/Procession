@@ -24,6 +24,7 @@ export default function CityGround({ theme = FALLBACK_THEME }: CityGroundProps) 
           color={theme.colors.ground}
           transparent
           opacity={0.85}
+          depthWrite={false}
           roughness={0.95}
           metalness={0.1}
         />

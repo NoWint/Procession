@@ -36,6 +36,7 @@ export default function CityBackground({
         color: theme.colors.system,
         transparent: true,
         opacity: 0.22,
+        depthWrite: false,
         emissive: theme.colors.coldBlue,
         emissiveIntensity: 0.15,
         roughness: 0.9,
