@@ -113,7 +113,7 @@ Constitution changes (STRATEGY/SPEC/ARCHITECTURE under `.docs/`) require a `D-*`
 | F-604 | Process lifecycle animations (birth / death)       | 6     | done    | F-008                             | L         |
 | F-605 | Audio / sonification layer                         | 6     | pending | F-401                             | L         |
 | F-606 | City state save / load                             | 6     | done    | F-603                             | M         |
-| D-601 | Release notes + distribution guide                 | 6     | pending | B-603                             | M         |
+| D-601 | Release notes + distribution guide                 | 6     | done    | B-603                             | M         |
 | I-601 | Phase 6 full acceptance                            | 6     | pending | B-601, B-602, B-603, F-601, F-602, F-603, F-604, F-605, F-606, D-601 | XL |
 
 ## Runtime Resources
@@ -126,9 +126,9 @@ Constitution changes (STRATEGY/SPEC/ARCHITECTURE under `.docs/`) require a `D-*`
 
 ## Status Counts
 
-- pending: 6
+- pending: 5
 - in_progress: 0
-- done: 64
+- done: 65
 - blocked: 0
 - failed: 0
 - stale: 0

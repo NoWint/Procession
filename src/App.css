@@ -56,6 +56,23 @@ canvas {
   margin-left: 4px;
 }
 
+.app-sound-indicator {
+  margin-left: 8px;
+  font-family: var(--proc-font-mono);
+  font-size: 13px;
+  color: var(--proc-text-muted);
+  cursor: pointer;
+  user-select: none;
+  transition: opacity 0.2s;
+}
+.app-sound-indicator:hover {
+  opacity: 0.8;
+}
+.app-sound-indicator.muted {
+  opacity: 0.35;
+  text-decoration: line-through;
+}
+
 .app-toggle-active {
   border-color: var(--proc-accent);
   color: var(--proc-accent);

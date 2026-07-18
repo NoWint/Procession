@@ -23,6 +23,7 @@ import TimelineConsole from "./components/TimelineConsole";
 import { useSystemData } from "./hooks/useSystemData";
 import { useSystemHistory } from "./hooks/useSystemHistory";
 import { useFpsMonitor } from "./hooks/useFpsMonitor";
+import { useAudioEngine } from "./hooks/useAudioEngine";
 import * as persistence from "./utils/persistence";
 import type { ProcessInfo } from "./utils/types";
 import { computeTreePositions, computeProcessSignature } from "./utils/layout";
@@ -59,6 +60,9 @@ export default function App() {
     sampleSize: 30,
     lowThreshold: 28,
     highThreshold: 50,
+  });
+  const { isMuted, isSupported, toggleMute } = useAudioEngine({
+    snapshot: liveSnapshot,
   });
   const [maxBuildings, setMaxBuildings] = useState(MAX_BUILDINGS_DEFAULT);
   const [timedOut, setTimedOut] = useState(false);
@@ -279,6 +283,11 @@ export default function App() {
         e.preventDefault();
         setUtilityMode((prev) => !prev);
       }
+      if (e.key === "m" && !isTypingTarget(e.target)) {
+        e.preventDefault();
+        toggleMute();
+        return;
+      }
       if (e.key === "Escape") {
         setUtilityMode(false);
         setSelectedProcess(null);
@@ -288,7 +297,7 @@ export default function App() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [kioskMode, timelineOpen]);
+  }, [kioskMode, timelineOpen, toggleMute]);
 
   if (!themeReady) {
     return <ErrorState message="Loading visual system..." loading />;
@@ -370,6 +379,18 @@ export default function App() {
               <span className="app-history-indicator"> · Time Lens</span>
             )}
           </span>
+          {isSupported && (
+            <span
+              className={`app-sound-indicator${isMuted ? " muted" : ""}`}
+              onClick={toggleMute}
+              title={`Sound ${isMuted ? "off" : "on"} — press M to toggle`}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => { if (e.key === "Enter") toggleMute(); }}
+            >
+              ±
+            </span>
+          )}
         </div>
         {false && displaySnapshot ? <HudPanel snapshot={displaySnapshot!} theme={theme} /> : null}
         {false && displaySnapshot && utilityMode ? (
