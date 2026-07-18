@@ -35,3 +35,11 @@
   color: var(--proc-text);
   font-weight: 600;
 }
+
+.hud-value.hud-warning {
+  color: #ffb84d;
+}
+
+.hud-value.hud-critical {
+  color: #ff6b6b;
+}

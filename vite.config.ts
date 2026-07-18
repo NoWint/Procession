@@ -29,4 +29,15 @@ export default defineConfig(async () => ({
       ignored: ["**/src-tauri/**"],
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          three: ["three"],
+          r3f: ["@react-three/fiber", "@react-three/drei", "@react-three/postprocessing"],
+        },
+      },
+    },
+    chunkSizeWarningLimit: 800,
+  },
 }));

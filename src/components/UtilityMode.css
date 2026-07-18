@@ -67,11 +67,22 @@
   padding: 7px 10px;
   border-radius: var(--proc-radius-sm);
   cursor: pointer;
-  transition: background 0.15s ease;
+  transition: background 0.15s ease, opacity 0.15s ease;
+  outline: none;
 }
 
-.utility-row:hover {
+.utility-row:hover:not(.utility-row-disabled) {
   background: var(--proc-surface-elevated);
+}
+
+.utility-row:focus-visible:not(.utility-row-disabled) {
+  background: var(--proc-surface-elevated);
+  box-shadow: inset 0 0 0 1px var(--proc-accent);
+}
+
+.utility-row-disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .utility-name {

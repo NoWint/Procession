@@ -1,5 +1,7 @@
 import { useState, useCallback } from "react";
 import * as gifshot from "gifshot";
+import { save } from "@tauri-apps/plugin-dialog";
+import { invoke } from "@tauri-apps/api/core";
 
 function downloadDataUrl(dataUrl: string, filename: string) {
   const a = document.createElement("a");
@@ -20,11 +22,6 @@ async function dataUrlToByteArray(dataUrl: string): Promise<number[]> {
 }
 
 async function saveWithDialog(dataUrl: string, filename: string, filterName: string, extensions: string[]) {
-  const [{ save }, { invoke }] = await Promise.all([
-    import("@tauri-apps/plugin-dialog"),
-    import("@tauri-apps/api/core"),
-  ]);
-
   const path = await save({
     defaultPath: filename,
     filters: [{ name: filterName, extensions }],

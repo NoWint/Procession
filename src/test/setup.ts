@@ -36,10 +36,35 @@ Object.defineProperty(HTMLCanvasElement.prototype, "getContext", {
   configurable: true,
 });
 
-// Suppress known R3F/Three warnings in test output.
+// Suppress known R3F/Three/jsdom warnings in test output.
 const originalWarn = console.warn;
 console.warn = (...args: unknown[]) => {
   const msg = args[0]?.toString() ?? "";
-  if (msg.includes("THREE") || msg.includes("react-three-fiber")) return;
+  if (
+    msg.includes("THREE") ||
+    msg.includes("react-three-fiber") ||
+    msg.includes("incorrect casing") ||
+    msg.includes("unrecognized in this browser") ||
+    msg.includes("does not recognize the") ||
+    msg.includes("non-boolean attribute") ||
+    msg.startsWith("<")
+  ) {
+    return;
+  }
   originalWarn(...args);
+};
+
+const originalError = console.error;
+console.error = (...args: unknown[]) => {
+  const msg = args[0]?.toString() ?? "";
+  if (
+    msg.includes("incorrect casing") ||
+    msg.includes("unrecognized in this browser") ||
+    msg.includes("does not recognize the") ||
+    msg.includes("non-boolean attribute") ||
+    msg.startsWith("<")
+  ) {
+    return;
+  }
+  originalError(...args);
 };

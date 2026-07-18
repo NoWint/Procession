@@ -27,10 +27,18 @@ export default function UtilityMode({
     return sorted.slice(0, 20);
   }, [snapshot.processes, sortKey]);
 
+  const visiblePids = useMemo(() => new Set(positions.map((p) => p.pid)), [positions]);
+
   const handleRowClick = (process: ProcessInfo) => {
-    const hasPosition = positions.some((p) => p.pid === process.pid);
-    if (hasPosition) {
+    if (visiblePids.has(process.pid)) {
       onSelectProcess(process);
+    }
+  };
+
+  const handleRowKeyDown = (e: React.KeyboardEvent, process: ProcessInfo) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      handleRowClick(process);
     }
   };
 
@@ -42,37 +50,42 @@ export default function UtilityMode({
           <button
             className={sortKey === "cpu" ? "active" : ""}
             onClick={() => setSortKey("cpu")}
+            aria-pressed={sortKey === "cpu"}
           >
             CPU
           </button>
           <button
             className={sortKey === "memory" ? "active" : ""}
             onClick={() => setSortKey("memory")}
+            aria-pressed={sortKey === "memory"}
           >
             Memory
           </button>
         </div>
       </div>
       <div className="utility-list">
-        {topProcesses.map((p) => (
-          <div
-            key={p.pid}
-            className="utility-row"
-            onClick={() => handleRowClick(p)}
-            role="button"
-            tabIndex={0}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") handleRowClick(p);
-            }}
-          >
-            <span className="utility-name" title={p.name}>
-              {p.name}
-            </span>
-            <span className="utility-metric">
-              {sortKey === "cpu" ? `${p.cpu.toFixed(1)}%` : `${p.memory_mb} MB`}
-            </span>
-          </div>
-        ))}
+        {topProcesses.map((p) => {
+          const isVisible = visiblePids.has(p.pid);
+          return (
+            <div
+              key={p.pid}
+              className={`utility-row ${isVisible ? "" : "utility-row-disabled"}`}
+              onClick={() => handleRowClick(p)}
+              role="button"
+              tabIndex={isVisible ? 0 : -1}
+              aria-disabled={!isVisible}
+              title={isVisible ? "Click to locate in city" : "Not visible in current city view"}
+              onKeyDown={(e) => handleRowKeyDown(e, p)}
+            >
+              <span className="utility-name" title={p.name}>
+                {p.name}
+              </span>
+              <span className="utility-metric">
+                {sortKey === "cpu" ? `${p.cpu.toFixed(1)}%` : `${p.memory_mb} MB`}
+              </span>
+            </div>
+          );
+        })}
       </div>
       <div className="utility-footer">Press Space to close</div>
     </div>

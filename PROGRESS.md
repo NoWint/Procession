@@ -80,6 +80,46 @@
 - Next ready: F-602 (UI/UX polish and bug sweep) or F-603 (Time travel / history playback).
 - Notes: FPS runtime target validated by code path and build; live FPS telemetry now visible in-app.
 
+### 2026-07-18 — Session #035 (frontend, F-602 UI/UX polish and bug sweep, ~30min)
+- Track: frontend
+- Task: F-602 (UI/UX polish and bug sweep)
+- Status: done
+- Summary:
+  - Fixed ScreenshotButton dynamic-import warning by switching to static imports from `@tauri-apps/plugin-dialog` and `@tauri-apps/api/core`.
+  - Improved ProcessPopup:
+    - Centered modal with overlay backdrop and click-outside-to-close.
+    - Added Escape handler, aria attributes, and formatted process state label.
+    - Removed hardcoded `position` prop from App.tsx.
+  - Improved UtilityMode accessibility:
+    - Disabled rows for processes not currently visible in the city.
+    - Added focus-visible ring and `aria-disabled`/`title` hints.
+  - Improved HudPanel:
+    - Now consumes `theme` prop and highlights CPU/memory values with warning/critical colors.
+  - Cleaned build/test output:
+    - Split vendor chunks in `vite.config.ts` (`three`, `r3f`) and raised chunk size warning limit to 800 kB.
+    - Suppressed known R3F/jsdom casing warnings in `src/test/setup.ts`.
+  - Verified mechanical checks: `tsc --noEmit`, `npm run build`, `cargo clippy -D warnings`, `npm test` (34/34).
+  - Updated `PLAN.md`: F-602 status → done; Status Counts → pending 9, done 61.
+- Decisions:
+  - Keep ProcessPopup as a centered modal rather than a 2D tracked tooltip because projecting 3D positions to screen space is complex and a modal is more reliable across camera angles.
+  - Accept three.js as a single large vendor chunk; it cannot be meaningfully split further without tree-shaking individual modules.
+- Commits: pending
+- Files:
+  - src/components/ScreenshotButton.tsx (mod)
+  - src/components/ProcessPopup.tsx (mod)
+  - src/components/UtilityMode.tsx (mod)
+  - src/components/UtilityMode.css (mod)
+  - src/components/HudPanel.tsx (mod)
+  - src/components/HudPanel.css (mod)
+  - src/App.tsx (mod)
+  - src/App.css (mod)
+  - src/test/setup.ts (mod)
+  - vite.config.ts (mod)
+  - PLAN.md (mod)
+  - PROGRESS.md (mod)
+- Next ready: F-603 (Time travel / history playback) or F-604 (Process lifecycle animations).
+- Notes: Build and test output are now clean; UI feedback for disabled/alert states is now consistent.
+
 ### 2026-07-18 — Session #031 (docs, D-501 plugin development guide, ~20min)
 - Track: docs
 - Task: D-501 (Plugin development guide)

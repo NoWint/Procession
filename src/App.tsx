@@ -371,11 +371,7 @@ export default function App() {
             onClose={handleCloseThemeEditor}
           />
         )}
-        <ProcessPopup
-          process={selectedProcess}
-          onClose={handleClosePopup}
-          position={{ x: 24, y: 24 }}
-        />
+        <ProcessPopup process={selectedProcess} onClose={handleClosePopup} />
       </div>
       <ScreensaverMode enabled={kioskMode} onExit={handleExitKiosk} onUiShow={handleUiShow} />
     </div>
