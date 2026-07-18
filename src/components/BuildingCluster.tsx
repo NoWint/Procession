@@ -38,12 +38,8 @@ const _black = new THREE.Color(0x000000);
 const BIRTH_DURATION = 0.8;
 const DEATH_DURATION = 1.0;
 
-// Custom attribute name — avoids Three.js built-in instanceColor pipeline
-// which has driver-specific issues on Windows with ShaderMaterial + r185.
-const COLOR_ATTR = "aColor";
-
 const vertexShader = `
-  attribute vec3 ${COLOR_ATTR};
+  attribute vec3 instanceColor;
   uniform float uTime;
   varying vec2 vUv;
   varying vec3 vPos;
@@ -53,7 +49,7 @@ const vertexShader = `
   void main() {
     vUv = uv;
     vNorm = normalize(normalMatrix * normal);
-    vCol = ${COLOR_ATTR};
+    vCol = instanceColor;
     vec4 wp = instanceMatrix * vec4(position, 1.0);
     vPos = wp.xyz;
     gl_Position = projectionMatrix * modelViewMatrix * wp;
@@ -96,7 +92,7 @@ export default function BuildingCluster({
   positions: propPositions,
   theme = FALLBACK_THEME,
   selectedPid = null,
-  layout = "tree",
+  layout: _layout = "tree",
   maxBuildings = 200,
   onClick,
   onDoubleClick,
@@ -113,7 +109,7 @@ export default function BuildingCluster({
   const prevProcessesRef = useRef<ProcessInfo[]>([]);
   const prevPositionsRef = useRef<BuildingPosition[]>([]);
   const initialRef = useRef(false);
-  const colorBufRef = useRef<THREE.BufferAttribute | null>(null);
+  const initRef = useRef(false);
 
   processesRef.current = processes;
   themeRef.current = theme;
@@ -122,14 +118,11 @@ export default function BuildingCluster({
   const positions = useMemo(
     () =>
       propPositions ??
-      (layout === "tree"
-        ? computeTreePositions(processes, maxBuildings)
-        : computeTreePositions(processes, maxBuildings)),
-    [propPositions, processes, layout, maxBuildings],
+      computeTreePositions(processes, maxBuildings),
+    [propPositions, processes, maxBuildings],
   );
   positionsRef.current = positions;
 
-  // Track color buffer lifetime — recreate when capacity changes.
   const capacity = Math.max(1, maxBuildings * 2);
 
   // ---- lifecycle effect ----
@@ -177,23 +170,41 @@ export default function BuildingCluster({
     initialRef.current = true;
   }, [processes, positions]);
 
-  // ---- fill helpers ----
-  function ensureColorAttribute(mesh: THREE.InstancedMesh, count: number) {
-    let attr = mesh.geometry.getAttribute(COLOR_ATTR) as THREE.BufferAttribute | undefined;
-    if (!attr || attr.count !== count) {
-      const arr = new Float32Array(count * 3);
-      attr = new THREE.BufferAttribute(arr, 3);
-      attr.setUsage(THREE.DynamicDrawUsage);
-      mesh.geometry.setAttribute(COLOR_ATTR, attr);
-      colorBufRef.current = attr;
+  // ---- per-frame update ----
+  useFrame((state, delta) => {
+    const mesh = meshRef.current;
+    if (!mesh) return;
+
+    // Advance lifecycle
+    for (const entry of lifecycleRef.current.values()) {
+      if (entry.state === "born") {
+        entry.progress = Math.min(1, entry.progress + delta / BIRTH_DURATION);
+        if (entry.progress >= 1) entry.state = "alive";
+      } else if (entry.state === "dying") {
+        entry.progress = Math.max(0, entry.progress - delta / DEATH_DURATION);
+      }
     }
-    return attr;
-  }
+    for (const [pid, entry] of lifecycleRef.current) {
+      if (entry.state === "dying" && entry.progress <= 0) {
+        lifecycleRef.current.delete(pid);
+      }
+    }
 
-  function fill(mesh: THREE.InstancedMesh, ppos: BuildingPosition[], pprocs: ProcessInfo[], elapsed: number) {
-    const colorAttr = ensureColorAttribute(mesh, capacity);
-    const colors = colorAttr.array as Float32Array;
+    // First-frame init: compute a huge bounding sphere so frustum culling
+    // never clips the instances, and ensure instanceColor attribute exists.
+    if (!initRef.current) {
+      mesh.geometry.computeBoundingSphere();
+      if (mesh.geometry.boundingSphere) {
+        mesh.geometry.boundingSphere.radius = 200;
+      }
+      // Force instanceColor attribute creation via setColorAt
+      // (this is the canonical Three.js path for InstancedMesh per-instance color)
+      mesh.setColorAt(0, _color);
+      initRef.current = true;
+    }
 
+    const ppos = positionsRef.current;
+    const pprocs = processesRef.current;
     let idx = 0;
 
     for (let i = 0; i < ppos.length; i++) {
@@ -213,7 +224,7 @@ export default function BuildingCluster({
       if (entry?.state === "born") {
         _color.lerp(_emissive.set(t.colors.pulseWhite), (1 - entry.progress) * 0.5);
       } else if (entry?.state === "alive" && proc && proc.cpu > 50) {
-        const pulse = (Math.sin(elapsed * 3) + 1) * 0.5;
+        const pulse = (Math.sin(state.clock.elapsedTime * 3) + 1) * 0.5;
         _color.lerp(_emissive.set(t.colors.pulseWhite), pulse * 0.25);
       }
 
@@ -223,54 +234,27 @@ export default function BuildingCluster({
         _color.lerp(_emissive.set(t.colors.pulseWhite), sel ? 0.45 : 0.25);
       }
 
-      colors[idx * 3] = _color.r;
-      colors[idx * 3 + 1] = _color.g;
-      colors[idx * 3 + 2] = _color.b;
+      mesh.setColorAt(idx, _color);
       idx++;
     }
 
     for (const entry of lifecycleRef.current.values()) {
       if (entry.state !== "dying") continue;
-      const lifeScale = entry.progress;
 
+      const lifeScale = entry.progress;
       dummy.position.set(entry.position.x, (entry.position.height / 2) * lifeScale, entry.position.z);
       dummy.scale.set(lifeScale, lifeScale * entry.position.height, lifeScale);
       dummy.updateMatrix();
       mesh.setMatrixAt(idx, dummy.matrix);
 
       _color.copy(entry.color).lerp(_black, 1 - lifeScale);
-      colors[idx * 3] = _color.r;
-      colors[idx * 3 + 1] = _color.g;
-      colors[idx * 3 + 2] = _color.b;
+      mesh.setColorAt(idx, _color);
       idx++;
     }
 
     mesh.count = idx;
     mesh.instanceMatrix.needsUpdate = true;
-    colorAttr.needsUpdate = true;
-  }
-
-  // ---- per-frame ----
-  useFrame((_state, delta) => {
-    for (const entry of lifecycleRef.current.values()) {
-      if (entry.state === "born") {
-        entry.progress = Math.min(1, entry.progress + delta / BIRTH_DURATION);
-        if (entry.progress >= 1) entry.state = "alive";
-      } else if (entry.state === "dying") {
-        entry.progress = Math.max(0, entry.progress - delta / DEATH_DURATION);
-      }
-    }
-    for (const [pid, entry] of lifecycleRef.current) {
-      if (entry.state === "dying" && entry.progress <= 0) {
-        lifecycleRef.current.delete(pid);
-      }
-    }
-
-    const mesh = meshRef.current;
-    if (!mesh) return;
-    const ppos = positionsRef.current;
-    const pprocs = processesRef.current;
-    fill(mesh, ppos, pprocs, 0.001);
+    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
 
     if (matRef.current) {
       matRef.current.uniforms.uTime.value += delta;
@@ -327,6 +311,7 @@ export default function BuildingCluster({
         onDoubleClick={handleDoubleClick}
         onPointerOver={handlePointerOver}
         onPointerOut={handlePointerOut}
+        frustumCulled={false}
       >
         <boxGeometry args={[0.5, 1, 0.5]} />
         <shaderMaterial
