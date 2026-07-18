@@ -1,7 +1,6 @@
 import { useMemo, useRef } from "react";
 import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
-import { EffectComposer, Bloom } from "@react-three/postprocessing";
 import { FALLBACK_THEME, type Theme } from "../utils/theme";
 
 interface AtmosphereProps {
@@ -33,27 +32,17 @@ export default function Atmosphere({
   });
 
   return (
-    <>
-      <points ref={ref}>
-        <bufferGeometry>
-          <bufferAttribute attach="attributes-position" args={[particles, 3]} />
-        </bufferGeometry>
-        <pointsMaterial
-          color={theme.colors.particle}
-          size={0.12}
-          transparent
-          opacity={0.5}
-          sizeAttenuation
-        />
-      </points>
-      <EffectComposer>
-        <Bloom
-          intensity={theme.mode === "dark" ? 0.85 : 0.55}
-          luminanceThreshold={theme.mode === "dark" ? 0.45 : 0.6}
-          luminanceSmoothing={0.35}
-          mipmapBlur
-        />
-      </EffectComposer>
-    </>
+    <points ref={ref}>
+      <bufferGeometry>
+        <bufferAttribute attach="attributes-position" args={[particles, 3]} />
+      </bufferGeometry>
+      <pointsMaterial
+        color={theme.colors.particle}
+        size={0.12}
+        transparent
+        opacity={0.5}
+        sizeAttenuation
+      />
+    </points>
   );
 }
