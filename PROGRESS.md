@@ -33,6 +33,25 @@
 - Next ready: Phase 6 planning (no Phase 6 tasks defined yet).
 - Notes: Phase 5 milestone gate closed. Project is ready to define Phase 6 scope.
 
+### 2026-07-18 — Session #033 (planning, Phase 6 milestone definition, ~10min)
+- Track: planning
+- Task: Phase 6 milestone scoping
+- Status: done
+- Summary:
+  - Pushed Phase 5 commits to origin/main (91116ec).
+  - Added Phase 6 milestone tasks to PLAN.md based on user selections (performance/polish, world depth/playability, release/distribution).
+  - Defined 11 new pending tasks: B-601..B-603, F-601..F-606, D-601, I-601.
+  - Updated Status Counts: pending 11, done 59.
+- Decisions:
+  - Phase 6 focuses on three tracks: performance/polish, world depth/playability, and release/distribution.
+  - Milestone-level specs only; step-level specs will be expanded when individual tasks start.
+- Commits: pending
+- Files:
+  - PLAN.md (mod)
+  - PROGRESS.md (mod)
+- Next ready: Pick first Phase 6 task to implement (recommend F-601 rendering performance guarantee).
+- Notes: Phase 6 scope locked at milestone level.
+
 ### 2026-07-18 — Session #031 (docs, D-501 plugin development guide, ~20min)
 - Track: docs
 - Task: D-501 (Plugin development guide)

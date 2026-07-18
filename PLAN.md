@@ -100,6 +100,22 @@ Constitution changes (STRATEGY/SPEC/ARCHITECTURE under `.docs/`) require a `D-*`
 | D-504 | Visual Effects Design document                    | 5     | done    | D-502                             | L         |
 | I-501 | Phase 5 full acceptance                           | 5     | done    | B-501, B-502, B-503, B-504, F-501, F-502, F-503, F-504, F-505, F-506, D-501, D-502, D-503, D-504 | XL |
 
+### Phase 6 (B-*/F-*/D-*/I-*) — polish, depth, and release
+
+| ID    | Title                                              | Phase | Status  | Deps                              | Complexity |
+|-------|----------------------------------------------------|-------|---------|-----------------------------------|-----------|
+| B-601 | Backend data pipeline optimization                 | 6     | pending | B-002                             | L         |
+| B-602 | Code signing + notarization config                 | 6     | pending | B-403                             | M         |
+| B-603 | Auto-updater integration                           | 6     | pending | B-602                             | L         |
+| F-601 | Rendering performance guarantee (FPS ≥ 30)         | 6     | pending | F-404                             | XL        |
+| F-602 | UI/UX polish and bug sweep                         | 6     | pending | F-505, F-506                      | M         |
+| F-603 | Time travel / history playback                     | 6     | pending | F-501, F-502, F-503               | XL        |
+| F-604 | Process lifecycle animations (birth / death)       | 6     | pending | F-008                             | L         |
+| F-605 | Audio / sonification layer                         | 6     | pending | F-401                             | L         |
+| F-606 | City state save / load                             | 6     | pending | F-603                             | M         |
+| D-601 | Release notes + distribution guide                 | 6     | pending | B-603                             | M         |
+| I-601 | Phase 6 full acceptance                            | 6     | pending | B-601, B-602, B-603, F-601, F-602, F-603, F-604, F-605, F-606, D-601 | XL |
+
 ## Runtime Resources
 
 - vite_dev_ports: {}
@@ -110,7 +126,7 @@ Constitution changes (STRATEGY/SPEC/ARCHITECTURE under `.docs/`) require a `D-*`
 
 ## Status Counts
 
-- pending: 0
+- pending: 11
 - in_progress: 0
 - done: 59
 - blocked: 0
