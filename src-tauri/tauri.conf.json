@@ -24,6 +24,16 @@
       "csp": null
     }
   },
+  "plugins": {
+    "updater": {
+      "active": true,
+      "dialog": true,
+      "endpoints": [
+        "https://releases.procession.app/{{target}}-{{arch}}/{{current_version}}"
+      ],
+      "pubkey": ""
+    }
+  },
   "bundle": {
     "active": true,
     "targets": ["msi", "dmg"],
@@ -39,11 +49,17 @@
       "wix": {
         "language": "zh-CN"
       },
-      "nsis": null
+      "nsis": null,
+      "digestAlgorithm": "sha256",
+      "timestampUrl": "http://timestamp.comodoca.com/authenticode",
+      "certificateThumbprint": null
     },
     "macOS": {
       "minimumSystemVersion": "10.15",
-      "signingIdentity": null
+      "signingIdentity": null,
+      "entitlements": "entitlements.plist",
+      "hardenedRuntime": true,
+      "providerShortName": null
     }
   }
 }

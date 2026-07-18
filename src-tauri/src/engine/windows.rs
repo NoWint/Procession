@@ -109,6 +109,48 @@ impl WindowsImpl {
         });
         (tcp, udp)
     }
+
+    /// Batch-collect processes, CPU, and memory with a single sysinfo lock
+    /// acquisition instead of three separate ones. Extracted so that
+    /// `collect_snapshot` can call this directly, bypassing the individual
+    /// getter methods (which each lock and refresh independently).
+    fn collect_sysinfo(&self) -> (Vec<ProcessInfo>, CpuInfo, MemoryInfo) {
+        let mut sys = self.sys.lock().unwrap_or_else(recover_mutex);
+        sys.refresh_processes(ProcessesToUpdate::All, false);
+        sys.refresh_cpu_specifics(CpuRefreshKind::everything());
+        sys.refresh_memory();
+
+        let processes: Vec<ProcessInfo> = sys
+            .processes()
+            .iter()
+            .map(|(pid, process)| ProcessInfo {
+                pid: pid.as_u32() as u64,
+                ppid: process.parent().map(|p| p.as_u32() as u64).unwrap_or(0),
+                name: process.name().to_string_lossy().to_string(),
+                cpu: process.cpu_usage() as f64,
+                memory_mb: process.memory() / 1024 / 1024,
+                state: map_process_status(process.status()),
+                user: String::new(),
+            })
+            .collect();
+
+        let per_core: Vec<f64> = sys.cpus().iter().map(|c| c.cpu_usage() as f64).collect();
+        let total = if per_core.is_empty() {
+            0.0
+        } else {
+            per_core.iter().sum::<f64>() / per_core.len() as f64
+        };
+        let cpu = CpuInfo { total, per_core };
+
+        let memory = MemoryInfo {
+            used_mb: sys.used_memory() / 1024 / 1024,
+            total_mb: sys.total_memory() / 1024 / 1024,
+            swap_used_mb: sys.used_swap() / 1024 / 1024,
+            swap_total_mb: sys.total_swap() / 1024 / 1024,
+        };
+
+        (processes, cpu, memory)
+    }
 }
 
 fn map_process_status(status: ProcessStatus) -> ProcessState {
@@ -214,6 +256,41 @@ fn fetch_udp_table() -> Vec<(u32, u32, u32)> {
 
 #[async_trait]
 impl PlatformAdapter for WindowsImpl {
+    /// Override collect_snapshot to batch sysinfo refreshes into a single
+    /// lock acquisition (processes + cpu + memory) instead of three separate
+    /// ones from the default trait impl.
+    async fn collect_snapshot(&self) -> SystemSnapshot {
+        let (processes, cpu, memory) = self.collect_sysinfo();
+
+        // Remaining queries run via their individual methods (own locks)
+        let network = self.get_network().await;
+        let disk = self.get_disk().await;
+        let gpu = self.get_gpu().await;
+        let temperature = self.get_temperature().await;
+        let process_relations = self.get_process_relations(&processes).await;
+        let listening_ports = self.get_listening_ports().await;
+        let fs_hotspots = self.get_fs_hotspots().await;
+
+        SystemSnapshot {
+            processes,
+            cpu,
+            memory,
+            network: network.unwrap_or_default(),
+            disk,
+            gpu,
+            temperature,
+            process_relations,
+            listening_ports,
+            fs_hotspots,
+            plugins: std::collections::HashMap::new(),
+            timestamp: std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_millis() as u64,
+            stale: false,
+        }
+    }
+
     async fn get_processes(&self) -> Vec<ProcessInfo> {
         let mut sys = self.sys.lock().unwrap_or_else(recover_mutex);
         sys.refresh_processes(ProcessesToUpdate::All, false);

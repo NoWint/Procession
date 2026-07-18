@@ -77,6 +77,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(pusher)
         .invoke_handler(tauri::generate_handler![get_snapshot, cmd_kill_process, get_config, save_file])
         .setup(|app| {
