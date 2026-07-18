@@ -4,6 +4,38 @@
 
 ## Session Log
 
+### 2026-07-18 — Session #038 (frontend, F-606 City state save / load, ~35min)
+- Track: frontend
+- Task: F-606 (City state save / load)
+- Status: done
+- Summary:
+  - Added `read_file` Rust command in `src-tauri/src/lib.rs` and registered it in the invoke handler, mirroring the existing `save_file` command.
+  - Created `src/utils/persistence.ts` with `saveHistory()` and `loadHistory()` helpers using Tauri dialog + invoke.
+  - City state file schema: `{ version: 1, exported_at, snapshots: SystemSnapshot[] }`; JSON export/import with capacity trim on import.
+  - Extended `useSystemHistory` with `loadHistory(snapshots)` to replace the rolling buffer with imported snapshots and jump to live at the newest frame.
+  - Added Save / Load buttons to `TimelineConsole`; Save disabled until at least two frames are buffered.
+  - Wired handlers in `App.tsx`; caught and logged load errors.
+  - Added unit tests for persistence and `useSystemHistory.loadHistory`; full suite now 59/59.
+  - Verified mechanical checks: `npx tsc --noEmit`, `npm run build`, `npm test`, `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings`.
+  - Fixed an unrelated naming collision in `App.tsx` (`handleClosePopup` was reused for the theme editor close handler; renamed to `handleCloseThemeEditor`).
+  - Updated `PLAN.md`: F-606 → done; Status Counts → pending 6, done 64.
+- Decisions:
+  - Use a simple versioned JSON file for city state; no compression for now to keep debugging easy.
+  - Imported history fully replaces the in-memory buffer; live stream resumes appending once a newer real snapshot arrives.
+- Commits: pending
+- Files:
+  - src-tauri/src/lib.rs (mod)
+  - src/utils/persistence.ts (new)
+  - src/utils/persistence.test.ts (new)
+  - src/hooks/useSystemHistory.ts (mod)
+  - src/hooks/useSystemHistory.test.ts (mod)
+  - src/components/TimelineConsole.tsx (mod)
+  - src/components/TimelineConsole.test.tsx (mod)
+  - src/App.tsx (mod)
+  - PLAN.md (mod)
+  - PROGRESS.md (mod)
+- Next ready: F-605 (Audio / sonification) or push current Phase 6 progress to origin/main.
+
 ### 2026-07-18 — Session #037 (frontend, F-604 Process lifecycle animations, ~35min)
 - Track: frontend
 - Task: F-604 (Process lifecycle animations)

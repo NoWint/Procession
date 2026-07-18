@@ -22,6 +22,7 @@ import TimelineConsole from "./components/TimelineConsole";
 import { useSystemData } from "./hooks/useSystemData";
 import { useSystemHistory } from "./hooks/useSystemHistory";
 import { useFpsMonitor } from "./hooks/useFpsMonitor";
+import * as persistence from "./utils/persistence";
 import type { ProcessInfo } from "./utils/types";
 import { computeTreePositions, computeProcessSignature } from "./utils/layout";
 import { shouldIgnoreSpace } from "./utils/keyboard";
@@ -172,6 +173,21 @@ export default function App() {
   const handleOpenThemeEditor = useCallback(() => {
     setThemeEditorOpen(true);
   }, []);
+
+  const handleSaveHistory = useCallback(() => {
+    void persistence.saveHistory(history.history);
+  }, [history.history]);
+
+  const handleLoadHistory = useCallback(async () => {
+    try {
+      const snapshots = await persistence.loadHistory();
+      if (snapshots) {
+        history.loadHistory(snapshots);
+      }
+    } catch (err) {
+      console.error("Failed to load city state:", err);
+    }
+  }, [history]);
 
   const handleCloseThemeEditor = useCallback(() => {
     setThemeEditorOpen(false);
@@ -399,6 +415,9 @@ export default function App() {
             onStep={history.step}
             onLive={history.exitHistory}
             onScrub={history.setIndex}
+            onSave={handleSaveHistory}
+            onLoad={handleLoadHistory}
+            canSave={history.history.length >= 2}
           />
         )}
         {themeEditorOpen && (

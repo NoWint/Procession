@@ -177,6 +177,22 @@ describe("useSystemHistory", () => {
     await waitFor(() => expect(result.current.mode).toBe("live"));
   });
 
+  it("loads an external history and switches to live", () => {
+    const { result } = renderHook(
+      ({ snapshot }) => useSystemHistory(snapshot, { capacity: 5 }),
+      { initialProps: { snapshot: null as SystemSnapshot | null } },
+    );
+
+    const external = [makeSnapshot(3000, 30), makeSnapshot(3001, 31)];
+    act(() => {
+      result.current.loadHistory(external);
+    });
+
+    expect(result.current.history).toHaveLength(2);
+    expect(result.current.isLive).toBe(true);
+    expect(result.current.displaySnapshot?.cpu.total).toBe(31);
+  });
+
   it("toggles pause while playing", () => {
     const { result, rerender } = renderHook(
       ({ snapshot }) => useSystemHistory(snapshot, { capacity: 5 }),

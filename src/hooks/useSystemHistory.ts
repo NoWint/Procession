@@ -25,6 +25,7 @@ export interface UseSystemHistoryResult {
   step: (delta: number) => void;
   togglePlay: () => void;
   setIndex: (index: number) => void;
+  loadHistory: (snapshots: SystemSnapshot[]) => void;
 }
 
 export function useSystemHistory(
@@ -95,7 +96,9 @@ export function useSystemHistory(
   }, [mode, history.length, playbackSpeed]);
 
   const isLive = mode === "live";
-  const displaySnapshot = isLive ? liveSnapshot : history[index] ?? liveSnapshot;
+  const displaySnapshot = isLive
+    ? (liveSnapshot ?? history[index] ?? null)
+    : (history[index] ?? liveSnapshot ?? null);
 
   const canStepBack = !isLive && index > 0;
   const canStepForward = !isLive && index < history.length - 1;
@@ -116,6 +119,15 @@ export function useSystemHistory(
     setMode("paused");
     setIndexState(clamped);
   }, []);
+
+  const loadHistory = useCallback((snapshots: SystemSnapshot[]) => {
+    const trimmed = snapshots.slice(-capacity);
+    const lastTs = trimmed.length > 0 ? trimmed[trimmed.length - 1].timestamp : 0;
+    latestTimestampRef.current = lastTs;
+    setHistory(trimmed);
+    setMode("live");
+    setIndexState(Math.max(0, trimmed.length - 1));
+  }, [capacity]);
 
   const step = useCallback((delta: number) => {
     setMode("paused");
@@ -150,6 +162,7 @@ export function useSystemHistory(
       step,
       togglePlay,
       setIndex,
+      loadHistory,
     }),
     [
       liveSnapshot,
@@ -166,6 +179,7 @@ export function useSystemHistory(
       step,
       togglePlay,
       setIndex,
+      loadHistory,
     ],
   );
 }

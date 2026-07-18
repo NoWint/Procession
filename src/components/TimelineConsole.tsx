@@ -13,6 +13,9 @@ export interface TimelineConsoleProps {
   onStep: (delta: number) => void;
   onLive: () => void;
   onScrub: (index: number) => void;
+  onSave?: () => void;
+  onLoad?: () => void;
+  canSave?: boolean;
 }
 
 function formatTime(timestamp: number): string {
@@ -45,6 +48,9 @@ export default function TimelineConsole({
   onStep,
   onLive,
   onScrub,
+  onSave,
+  onLoad,
+  canSave = true,
 }: TimelineConsoleProps) {
   const maxIndex = Math.max(0, history.length - 1);
   const sliderValue = isLive ? maxIndex : index;
@@ -118,6 +124,29 @@ export default function TimelineConsole({
           <option value={2}>2×</option>
           <option value={4}>4×</option>
         </select>
+
+        {onSave && (
+          <button
+            className="timeline-button"
+            onClick={onSave}
+            disabled={!canSave}
+            aria-label="Save city state"
+            title="Save city state"
+          >
+            Save
+          </button>
+        )}
+
+        {onLoad && (
+          <button
+            className="timeline-button"
+            onClick={onLoad}
+            aria-label="Load city state"
+            title="Load city state"
+          >
+            Load
+          </button>
+        )}
       </div>
 
       <div className="timeline-scrub">

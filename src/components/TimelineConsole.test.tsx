@@ -140,4 +140,33 @@ describe("TimelineConsole", () => {
     await userEvent.click(screen.getByTitle("Step forward"));
     expect(onStep).toHaveBeenCalledWith(1);
   });
+
+  it("calls onSave and onLoad when present", async () => {
+    const onSave = vi.fn();
+    const onLoad = vi.fn();
+    render(
+      <TimelineConsole
+        history={[makeSnapshot(1000), makeSnapshot(1001)]}
+        mode="live"
+        index={1}
+        isLive
+        canStepBack={false}
+        canStepForward={false}
+        playbackSpeed={1}
+        setPlaybackSpeed={vi.fn()}
+        onTogglePlay={vi.fn()}
+        onStep={vi.fn()}
+        onLive={vi.fn()}
+        onScrub={vi.fn()}
+        onSave={onSave}
+        onLoad={onLoad}
+      />,
+    );
+
+    await userEvent.click(screen.getByLabelText("Save city state"));
+    expect(onSave).toHaveBeenCalledTimes(1);
+
+    await userEvent.click(screen.getByLabelText("Load city state"));
+    expect(onLoad).toHaveBeenCalledTimes(1);
+  });
 });

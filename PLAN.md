@@ -112,7 +112,7 @@ Constitution changes (STRATEGY/SPEC/ARCHITECTURE under `.docs/`) require a `D-*`
 | F-603 | Time travel / history playback                     | 6     | done    | F-501, F-502, F-503               | XL        |
 | F-604 | Process lifecycle animations (birth / death)       | 6     | done    | F-008                             | L         |
 | F-605 | Audio / sonification layer                         | 6     | pending | F-401                             | L         |
-| F-606 | City state save / load                             | 6     | pending | F-603                             | M         |
+| F-606 | City state save / load                             | 6     | done    | F-603                             | M         |
 | D-601 | Release notes + distribution guide                 | 6     | pending | B-603                             | M         |
 | I-601 | Phase 6 full acceptance                            | 6     | pending | B-601, B-602, B-603, F-601, F-602, F-603, F-604, F-605, F-606, D-601 | XL |
 
@@ -126,9 +126,9 @@ Constitution changes (STRATEGY/SPEC/ARCHITECTURE under `.docs/`) require a `D-*`
 
 ## Status Counts
 
-- pending: 7
+- pending: 6
 - in_progress: 0
-- done: 63
+- done: 64
 - blocked: 0
 - failed: 0
 - stale: 0
