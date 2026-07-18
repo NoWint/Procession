@@ -4,6 +4,29 @@
 
 ## Session Log
 
+### 2026-07-18 — Session #025 (frontend, F-501 process relationship graph, ~25min)
+- Track: frontend
+- Task: F-501 (Process relationship graph)
+- Status: done
+- Summary:
+  - Created `src/components/RelationGraph.tsx` to render parent-child and IPC process relationships as batched line segments.
+  - `computeRelationEdges` filters edges to visible buildings, deduplicates IPC pairs, and caps parent-child + IPC counts for performance.
+  - Parent-child edges connect near building bases (`y = 0.12`); IPC edges connect near building tops (`y = height + 0.25`).
+  - Hover / selection highlight propagated from `BuildingCluster` through `App.tsx` to `RelationGraph`, brightening involved edges using `theme.colors.active`.
+  - Integrated `RelationGraph` into `App.tsx` with `process_relations` from the system snapshot.
+  - Updated `PLAN.md`: F-501 status → done; Status Counts → pending 7, done 52.
+- Decisions:
+  - Used AdditiveBlending + vertex colors with global opacity 0.45; IPC edges are visually dimmer than parent-child edges by color scaling.
+  - Avoided per-edge opacity attributes because `lineBasicMaterial` does not support vertex alpha; brightness variation achieves the same perceptual hierarchy.
+- Commits: pending
+- Files:
+  - src/components/RelationGraph.tsx (new)
+  - src/App.tsx (mod)
+  - PLAN.md (mod)
+  - PROGRESS.md (mod)
+- Next ready: F-502 (Port visualization) is the next frontend task; all hard deps done.
+- Notes: Behavioral check "IPC edges connect building tops" and "hover highlights relations" are observable in the 3D scene. WebGL `linewidth` is capped by the driver, so line thickness distinction is expressed through brightness rather than pixel width.
+
 ### 2026-07-18 08:42 — Session #024 (docs, D-503 + D-504 World Generation & VFX Design, ~55min)
 - Track: docs
 - Task: D-503 (3D World Generation Design), D-504 (Visual Effects Design)

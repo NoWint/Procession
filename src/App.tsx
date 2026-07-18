@@ -6,6 +6,7 @@ import CableSystem, { computeCableData } from "./components/CableSystem";
 import CableFlow from "./components/CableFlow";
 import CityGround from "./components/CityGround";
 import Atmosphere from "./components/Atmosphere";
+import RelationGraph from "./components/RelationGraph";
 import ProcessPopup from "./components/ProcessPopup";
 import ErrorState from "./components/ErrorState";
 import HudPanel from "./components/HudPanel";
@@ -35,6 +36,7 @@ export default function App() {
   const snapshot = useSystemData();
   const [timedOut, setTimedOut] = useState(false);
   const [selectedProcess, setSelectedProcess] = useState<ProcessInfo | null>(null);
+  const [hoveredProcess, setHoveredProcess] = useState<ProcessInfo | null>(null);
   const [cameraTarget, setCameraTarget] = useState<{ x: number; y: number; z: number } | null>(null);
   const [utilityMode, setUtilityMode] = useState(false);
   const [theme, setTheme] = useState<Theme>(FALLBACK_THEME);
@@ -194,6 +196,14 @@ export default function App() {
           showLabels={utilityMode}
           onClick={handleBuildingClick}
           onDoubleClick={handleBuildingDoubleClick}
+          onHover={setHoveredProcess}
+        />
+        <RelationGraph
+          positions={positions}
+          relations={snapshot.process_relations}
+          theme={theme}
+          selectedPid={selectedProcess?.pid ?? null}
+          hoveredPid={hoveredProcess?.pid ?? null}
         />
         <BuildingHalo
           processes={snapshot.processes}

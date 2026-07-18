@@ -88,7 +88,7 @@ Constitution changes (STRATEGY/SPEC/ARCHITECTURE under `.docs/`) require a `D-*`
 | B-502 | Listening ports collection (harbor data source)    | 5     | done    | B-002                             | M         |
 | B-503 | Filesystem activity backend (fsevents/inotify)     | 5     | done    | B-002                             | L         |
 | B-504 | Plugin command API (third-party data sources)      | 5     | done    | B-002                             | XL        |
-| F-501 | Process relationship graph (fork / IPC edges)      | 5     | pending | B-501                             | L         |
+| F-501 | Process relationship graph (fork / IPC edges)      | 5     | done    | B-501                             | L         |
 | F-502 | Port visualization (listening ports as harbors)    | 5     | pending | B-502                             | M         |
 | F-503 | Filesystem hotspots (recent read/write heat zones) | 5     | pending | B-503                             | L         |
 | F-504 | Custom theme editor / JSON import                   | 5     | pending | F-403                             | M         |
@@ -110,9 +110,9 @@ Constitution changes (STRATEGY/SPEC/ARCHITECTURE under `.docs/`) require a `D-*`
 
 ## Status Counts
 
-- pending: 8
+- pending: 7
 - in_progress: 0
-- done: 51
+- done: 52
 - blocked: 0
 - failed: 0
 - stale: 0
