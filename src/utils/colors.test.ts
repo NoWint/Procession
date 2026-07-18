@@ -39,9 +39,9 @@ describe("colorForProcess", () => {
     expect(colorForProcess(p, FALLBACK_THEME)).toBe(FALLBACK_THEME.colors.zombie);
   });
 
-  it("uses active color for high CPU running processes", () => {
+  it("uses amber color for high CPU running processes", () => {
     const p = makeProcess({ state: "Running", cpu: 60 });
-    expect(colorForProcess(p, FALLBACK_THEME)).toBe(FALLBACK_THEME.colors.active);
+    expect(colorForProcess(p, FALLBACK_THEME)).toBe(FALLBACK_THEME.colors.amber);
   });
 
   it("uses idle color for low CPU running processes", () => {
@@ -52,12 +52,12 @@ describe("colorForProcess", () => {
 
 describe("cableColorForProtocol", () => {
   it("maps known protocols to fixed colors", () => {
-    expect(cableColorForProtocol("tcp", FALLBACK_THEME)).toBe("#4a9eff");
-    expect(cableColorForProtocol("UDP", FALLBACK_THEME)).toBe("#9aff4a");
-    expect(cableColorForProtocol("https", FALLBACK_THEME)).toBe("#4af0ff");
+    expect(cableColorForProtocol("tcp", FALLBACK_THEME)).toBe("#4aa8ff");
+    expect(cableColorForProtocol("UDP", FALLBACK_THEME)).toBe("#5ce1a8");
+    expect(cableColorForProtocol("https", FALLBACK_THEME)).toBe("#00e5ff");
   });
 
-  it("falls back to theme accent for unknown protocols", () => {
-    expect(cableColorForProtocol("unknown", FALLBACK_THEME)).toBe(FALLBACK_THEME.colors.accent);
+  it("falls back to cold blue for unknown protocols", () => {
+    expect(cableColorForProtocol("unknown", FALLBACK_THEME)).toBe(FALLBACK_THEME.colors.coldBlue);
   });
 });

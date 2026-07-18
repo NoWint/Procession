@@ -286,17 +286,19 @@ canvas {
 }
 
 .building-label {
-  padding: 3px 7px;
-  background: var(--proc-surface);
-  color: var(--proc-text);
-  border: 1px solid var(--proc-border);
-  border-radius: var(--proc-radius-sm);
-  font-family: var(--proc-font-mono);
-  font-size: 10px;
+  color: #f2f4f8;
+  font-size: 12px;
+  font-family: var(--proc-font-body), -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
   white-space: nowrap;
-  box-shadow: var(--proc-shadow-sm);
-  opacity: 0.92;
-  transform: translateY(-50%);
+  letter-spacing: 0.02em;
+  opacity: 0.95;
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+
+.building-label:hover {
+  opacity: 1;
+  transform: scale(1.05);
 }
 
 .harbor-label {
