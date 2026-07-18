@@ -17,7 +17,9 @@ import ThemeSelector from "./components/ThemeSelector";
 import ThemeEditor from "./components/ThemeEditor";
 import ScreensaverMode from "./components/ScreensaverMode";
 import ScreenshotButton from "./components/ScreenshotButton";
+import FpsCounter from "./components/FpsCounter";
 import { useSystemData } from "./hooks/useSystemData";
+import { useFpsMonitor } from "./hooks/useFpsMonitor";
 import type { ProcessInfo } from "./utils/types";
 import { computeTreePositions, computeProcessSignature } from "./utils/layout";
 import { shouldIgnoreSpace } from "./utils/keyboard";
@@ -38,8 +40,20 @@ import "./components/ThemeSelector.css";
 
 const DATA_TIMEOUT_MS = 4000;
 
+// Adaptive quality: keep FPS ≥ 30 by adjusting rendered building count.
+const MAX_BUILDINGS_DEFAULT = 200;
+const MAX_BUILDINGS_MIN = 60;
+const MAX_BUILDINGS_MAX = 400;
+const BUILDINGS_STEP = 40;
+
 export default function App() {
   const snapshot = useSystemData();
+  const { isLow, isHigh } = useFpsMonitor({
+    sampleSize: 30,
+    lowThreshold: 28,
+    highThreshold: 50,
+  });
+  const [maxBuildings, setMaxBuildings] = useState(MAX_BUILDINGS_DEFAULT);
   const [timedOut, setTimedOut] = useState(false);
   const [selectedProcess, setSelectedProcess] = useState<ProcessInfo | null>(null);
   const [hoveredProcess, setHoveredProcess] = useState<ProcessInfo | null>(null);
@@ -84,14 +98,23 @@ export default function App() {
     return () => clearTimeout(timer);
   }, [snapshot]);
 
+  // Adaptive quality: reduce building count when FPS is low, increase when high.
+  useEffect(() => {
+    if (isLow) {
+      setMaxBuildings((prev) => Math.max(MAX_BUILDINGS_MIN, prev - BUILDINGS_STEP));
+    } else if (isHigh) {
+      setMaxBuildings((prev) => Math.min(MAX_BUILDINGS_MAX, prev + BUILDINGS_STEP));
+    }
+  }, [isLow, isHigh]);
+
   const processSignature = useMemo(
     () => (snapshot ? computeProcessSignature(snapshot.processes) : ""),
     [snapshot],
   );
 
   const positions = useMemo(
-    () => (snapshot ? computeTreePositions(snapshot.processes, 200) : []),
-    [processSignature],
+    () => (snapshot ? computeTreePositions(snapshot.processes, maxBuildings) : []),
+    [processSignature, maxBuildings],
   );
 
   const cableData = useMemo(
@@ -283,6 +306,7 @@ export default function App() {
           theme={theme}
           selectedPid={selectedProcess?.pid ?? null}
           showLabels={utilityMode}
+          maxBuildings={maxBuildings}
           onClick={handleBuildingClick}
           onDoubleClick={handleBuildingDoubleClick}
           onHover={setHoveredProcess}
@@ -338,6 +362,7 @@ export default function App() {
           </button>
           <ScreenshotButton />
         </div>
+        <FpsCounter />
         {themeEditorOpen && (
           <ThemeEditor
             theme={theme}

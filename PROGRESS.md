@@ -52,6 +52,34 @@
 - Next ready: Pick first Phase 6 task to implement (recommend F-601 rendering performance guarantee).
 - Notes: Phase 6 scope locked at milestone level.
 
+### 2026-07-18 — Session #034 (frontend, F-601 rendering performance guarantee, ~35min)
+- Track: frontend
+- Task: F-601 (Rendering performance guarantee FPS ≥ 30)
+- Status: done
+- Summary:
+  - Added `src/hooks/useFpsMonitor.ts` for rolling FPS measurement with low/high thresholds.
+  - Added `src/components/FpsCounter.tsx` + styles in `App.css` to display current FPS and low-FPS warning.
+  - Enabled `frustumCulled` on `BuildingCluster` instanced mesh.
+  - Wired adaptive quality into `App.tsx`:
+    - Default 200 buildings; scales down to 60 when FPS < 28, up to 400 when FPS > 50.
+    - Step size 40; adjustments debounced via persistent frame counters in `useFpsMonitor`.
+  - Verified mechanical checks: `tsc --noEmit`, `npm run build`, `cargo clippy -D warnings`, `npm test` (34/34).
+  - Updated `PLAN.md`: F-601 status → done; Status Counts → pending 10, done 60.
+- Decisions:
+  - Use building count as the primary adaptive lever because `computeTreePositions` already sorts by CPU and is the dominant per-frame cost.
+  - Keep FPS counter visible in the UI layer for user awareness.
+- Commits: pending
+- Files:
+  - src/hooks/useFpsMonitor.ts (new)
+  - src/components/FpsCounter.tsx (new)
+  - src/components/BuildingCluster.tsx (mod)
+  - src/App.tsx (mod)
+  - src/App.css (mod)
+  - PLAN.md (mod)
+  - PROGRESS.md (mod)
+- Next ready: F-602 (UI/UX polish and bug sweep) or F-603 (Time travel / history playback).
+- Notes: FPS runtime target validated by code path and build; live FPS telemetry now visible in-app.
+
 ### 2026-07-18 — Session #031 (docs, D-501 plugin development guide, ~20min)
 - Track: docs
 - Task: D-501 (Plugin development guide)

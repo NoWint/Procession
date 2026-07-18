@@ -281,3 +281,40 @@ canvas {
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
+
+.fps-counter {
+  position: absolute;
+  bottom: 20px;
+  left: 24px;
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  padding: 4px 10px;
+  background: var(--proc-surface);
+  border: 1px solid var(--proc-border);
+  border-radius: var(--proc-radius-md);
+  font-family: var(--proc-font-mono);
+  box-shadow: var(--proc-shadow-sm);
+  pointer-events: auto;
+}
+
+.fps-value {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--proc-text);
+}
+
+.fps-label {
+  font-size: 10px;
+  color: var(--proc-text-muted);
+  text-transform: uppercase;
+}
+
+.fps-counter.fps-low {
+  border-color: #ff6b6b;
+  background: rgba(255, 107, 107, 0.12);
+}
+
+.fps-counter.fps-low .fps-value {
+  color: #ff6b6b;
+}

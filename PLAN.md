@@ -107,7 +107,7 @@ Constitution changes (STRATEGY/SPEC/ARCHITECTURE under `.docs/`) require a `D-*`
 | B-601 | Backend data pipeline optimization                 | 6     | pending | B-002                             | L         |
 | B-602 | Code signing + notarization config                 | 6     | pending | B-403                             | M         |
 | B-603 | Auto-updater integration                           | 6     | pending | B-602                             | L         |
-| F-601 | Rendering performance guarantee (FPS ≥ 30)         | 6     | pending | F-404                             | XL        |
+| F-601 | Rendering performance guarantee (FPS ≥ 30)         | 6     | done    | F-404                             | XL        |
 | F-602 | UI/UX polish and bug sweep                         | 6     | pending | F-505, F-506                      | M         |
 | F-603 | Time travel / history playback                     | 6     | pending | F-501, F-502, F-503               | XL        |
 | F-604 | Process lifecycle animations (birth / death)       | 6     | pending | F-008                             | L         |
@@ -126,9 +126,9 @@ Constitution changes (STRATEGY/SPEC/ARCHITECTURE under `.docs/`) require a `D-*`
 
 ## Status Counts
 
-- pending: 11
+- pending: 10
 - in_progress: 0
-- done: 59
+- done: 60
 - blocked: 0
 - failed: 0
 - stale: 0

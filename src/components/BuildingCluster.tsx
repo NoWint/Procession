@@ -202,6 +202,7 @@ export default function BuildingCluster({
         onDoubleClick={handleDoubleClick}
         onPointerOver={handlePointerOver}
         onPointerOut={handlePointerOut}
+        frustumCulled
       >
         <boxGeometry args={[0.9, 1, 0.9]} />
         <meshStandardMaterial
