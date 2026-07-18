@@ -4,6 +4,42 @@
 
 ## Session Log
 
+### 2026-07-18 — Session #030 (frontend, F-506 screenshot / GIF sharing, ~25min)
+- Track: frontend
+- Task: F-506 (Screenshot / GIF sharing)
+- Status: done
+- Summary:
+  - Added npm dependencies `@tauri-apps/plugin-dialog` and `gifshot`.
+  - Added a type declaration for `gifshot` in `src/vite-env.d.ts`.
+  - Created `src/components/ScreenshotButton.tsx` with two controls:
+    - Screenshot: captures the R3F canvas as PNG and saves via Tauri dialog + backend `save_file` command.
+    - Record GIF: captures 30 frames over 3 seconds, encodes with `gifshot` in a web worker, then saves via the same dialog/backend path.
+  - Added backend support:
+    - `src-tauri/Cargo.toml`: added `tauri-plugin-dialog`.
+    - `src-tauri/src/lib.rs`: initialized the dialog plugin and added `save_file` command.
+    - `src-tauri/capabilities/default.json`: granted `dialog:default` permission.
+  - Wired `ScreenshotButton` into `App.tsx` controls and added `.screenshot-controls` styles in `App.css`.
+  - Fallback to browser `<a download>` when Tauri APIs are unavailable (e.g., browser dev).
+  - Updated `PLAN.md`: F-506 status → done; Status Counts → pending 2, done 57.
+- Decisions:
+  - Used `gifshot` for GIF encoding to offload work to a web worker and avoid blocking the main thread.
+  - Capped GIF width at 720px and frame rate at 10fps to keep encoding fast.
+- Commits: pending
+- Files:
+  - src/components/ScreenshotButton.tsx (new)
+  - src/App.tsx (mod)
+  - src/App.css (mod)
+  - src/vite-env.d.ts (mod)
+  - package.json (mod)
+  - package-lock.json (mod)
+  - src-tauri/Cargo.toml (mod)
+  - src-tauri/src/lib.rs (mod)
+  - src-tauri/capabilities/default.json (mod)
+  - PLAN.md (mod)
+  - PROGRESS.md (mod)
+- Next ready: All Phase 5 frontend tasks (F-501..F-506) are done. Remaining Phase 5 work: D-501 (Plugin development guide) and I-501 (Phase 5 full acceptance).
+- Notes: Mechanical acceptance passed: `npx tsc --noEmit`, `npm run build`, and `cargo check` in `src-tauri` all exit 0.
+
 ### 2026-07-18 — Session #029 (frontend, F-505 screensaver / kiosk mode, ~20min)
 - Track: frontend
 - Task: F-505 (Screensaver / kiosk mode)

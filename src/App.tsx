@@ -16,6 +16,7 @@ import UtilityMode from "./components/UtilityMode";
 import ThemeSelector from "./components/ThemeSelector";
 import ThemeEditor from "./components/ThemeEditor";
 import ScreensaverMode from "./components/ScreensaverMode";
+import ScreenshotButton from "./components/ScreenshotButton";
 import { useSystemData } from "./hooks/useSystemData";
 import type { ProcessInfo } from "./utils/types";
 import { computeTreePositions, computeProcessSignature } from "./utils/layout";
@@ -335,6 +336,7 @@ export default function App() {
           >
             {autoRotate ? "Stop Orbit" : "Orbit"}
           </button>
+          <ScreenshotButton />
         </div>
         {themeEditorOpen && (
           <ThemeEditor

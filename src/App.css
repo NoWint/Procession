@@ -59,6 +59,11 @@ canvas {
   gap: 8px;
 }
 
+.screenshot-controls {
+  display: flex;
+  gap: 8px;
+}
+
 .app-theme-toggle {
   background: var(--proc-surface);
   color: var(--proc-text);

@@ -28,6 +28,11 @@ async fn get_config() -> crate::types::Config {
 }
 
 #[tauri::command]
+fn save_file(path: String, data: Vec<u8>) -> Result<(), String> {
+    std::fs::write(&path, data).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 async fn cmd_kill_process(pid: u64) -> Result<(), String> {
     // Uses its own System instance to avoid sharing mutex state with the
     // running collector. PID-reuse races are inherent to the kill() syscall;
@@ -71,8 +76,9 @@ pub fn run() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
         .manage(pusher)
-        .invoke_handler(tauri::generate_handler![get_snapshot, cmd_kill_process, get_config])
+        .invoke_handler(tauri::generate_handler![get_snapshot, cmd_kill_process, get_config, save_file])
         .setup(|app| {
             let handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
