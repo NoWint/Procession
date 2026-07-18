@@ -336,7 +336,7 @@ export default function App() {
         autoRotate={autoRotate}
       >
         <Atmosphere theme={theme} />
-        <BloomEffect strength={0.25} radius={0.4} threshold={0.15} />
+        <BloomEffect strength={0.08} radius={0.3} threshold={0.4} />
         <CityBackground theme={theme} />
         <CityGround theme={theme} />
         <FsHeatmap hotspots={displaySnapshot.fs_hotspots} theme={theme} />
