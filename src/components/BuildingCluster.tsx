@@ -273,29 +273,37 @@ export default function BuildingCluster({
     // Determine LOD level from camera distance
     const dist = camera.position.length();
     const newLevel = dist < LOD_NEAR ? 0 : dist < LOD_MID ? 1 : 2;
-    if (newLevel !== lodLevelRef.current) {
+    const changed = newLevel !== lodLevelRef.current;
+    if (changed) {
       lodLevelRef.current = newLevel;
       setLodLevel(newLevel);
     }
 
-    // Update visibility
+    // First-frame init: populate ALL meshes so something renders immediately
     const elapsed = clockRef.current;
-    if (highRef.current) {
-      highRef.current.visible = newLevel === 0;
-      if (newLevel === 0) {
-        updateMesh(highRef.current, positions, processes, elapsed, "high");
+    const firstFrame = elapsed < delta;
+
+    const high = highRef.current;
+    const mid = midRef.current;
+    const low = lowRef.current;
+    const updateAll = firstFrame || changed;
+
+    if (high) {
+      high.visible = newLevel === 0;
+      if (newLevel === 0 || updateAll) {
+        updateMesh(high, positions, processes, elapsed, "high");
       }
     }
-    if (midRef.current) {
-      midRef.current.visible = newLevel === 1;
-      if (newLevel === 1) {
-        updateMesh(midRef.current, positions, processes, elapsed, "mid");
+    if (mid) {
+      mid.visible = newLevel === 1;
+      if (newLevel === 1 || updateAll) {
+        updateMesh(mid, positions, processes, elapsed, "mid");
       }
     }
-    if (lowRef.current) {
-      lowRef.current.visible = newLevel === 2;
-      if (newLevel === 2) {
-        updateMesh(lowRef.current, positions, processes, elapsed, "low");
+    if (low) {
+      low.visible = newLevel === 2;
+      if (newLevel === 2 || updateAll) {
+        updateMesh(low, positions, processes, elapsed, "low");
       }
     }
 
@@ -384,15 +392,14 @@ export default function BuildingCluster({
         />
       </instancedMesh>
 
-      {/* Mid detail: simplified box + emissive color (LOD_NEAR <= distance < LOD_MID)
-          — MeshBasicMaterial skips lighting, toneMapped:false keeps colors vibrant */}
+      {/* Mid detail: simplified box + emissive color (LOD_NEAR <= distance < LOD_MID) */}
       <instancedMesh
         ref={midRef}
         args={[undefined, undefined, instanceCount]}
         frustumCulled
       >
         <boxGeometry args={[0.5, 1, 0.5]} />
-        <meshBasicMaterial toneMapped={false} transparent opacity={0.92} />
+        <meshBasicMaterial vertexColors toneMapped={false} transparent opacity={0.92} />
       </instancedMesh>
 
       {/* Far detail: tiny glow dots (distance >= LOD_MID) */}
@@ -402,7 +409,7 @@ export default function BuildingCluster({
         frustumCulled
       >
         <boxGeometry args={[0.15, 0.15, 0.15]} />
-        <meshBasicMaterial toneMapped={false} transparent opacity={0.85} />
+        <meshBasicMaterial vertexColors toneMapped={false} transparent opacity={0.85} />
       </instancedMesh>
 
       {/* Labels — only at near LOD level */}
