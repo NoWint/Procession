@@ -121,7 +121,7 @@ Constitution changes (STRATEGY/SPEC/ARCHITECTURE under `.docs/`) require a `D-*`
 | ID    | Title                                              | Phase | Status  | Deps                              | Complexity |
 |-------|----------------------------------------------------|-------|---------|-----------------------------------|-----------|
 | B-701 | Linux PlatformAdapter (sysinfo + /proc)            | 7     | done    | B-002                             | L         |
-| F-701 | Building LOD system (3-level)                      | 7     | pending | F-008                             | L         |
+| F-701 | Building LOD system (3-level)                      | 7     | done    | F-008                             | L         |
 | F-702 | Settings panel (refresh rate, caps, quality)       | 7     | pending | F-012                             | L         |
 | F-703 | i18n (Chinese + English)                          | 7     | pending | F-702                             | M         |
 | I-701 | E2E test infrastructure                           | 7     | pending | I-001                             | M         |
@@ -139,9 +139,9 @@ Constitution changes (STRATEGY/SPEC/ARCHITECTURE under `.docs/`) require a `D-*`
 
 ## Status Counts
 
-- pending: 11
+- pending: 10
 - in_progress: 0
-- done: 68
+- done: 69
 - blocked: 0
 - failed: 0
 - stale: 0
@@ -4102,7 +4102,7 @@ Per SKILL.md §6 Granularity Rule: future phases are milestone-level only. Expan
       - "Camera zoom out → buildings simplify to cubes then to glow points"
       - "Camera zoom in → buildings show full detail (crown, windows, Fresnel glow)"
       - "FPS improves by ≥30% at far distance vs near distance with 500 buildings"
-  status: pending
+  status: done
   owner: null
   owner_started_at: null
   notes: "Three LOD levels per SPEC §6.1: near (<50 units) full detail, mid (50-150) simplified, far (>150) glow point. 夏天's task."

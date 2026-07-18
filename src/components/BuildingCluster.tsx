@@ -36,6 +36,10 @@ const _color = new THREE.Color();
 const BIRTH_DURATION = 0.8;
 const DEATH_DURATION = 1.0;
 
+// LOD thresholds (camera distance from origin)
+const LOD_NEAR = 25;
+const LOD_MID = 50;
+
 const buildingVertexShader = `
   uniform float uTime;
   attribute vec3 instanceColor;
@@ -103,8 +107,12 @@ export default function BuildingCluster({
   onDoubleClick,
   onHover,
 }: BuildingClusterProps) {
-  const meshRef = useRef<THREE.InstancedMesh>(null);
-  const materialRef = useRef<THREE.ShaderMaterial>(null);
+  // LOD: three InstancedMesh at different detail levels
+  const highRef = useRef<THREE.InstancedMesh>(null);
+  const midRef = useRef<THREE.InstancedMesh>(null);
+  const lowRef = useRef<THREE.InstancedMesh>(null);
+  const highMaterialRef = useRef<THREE.ShaderMaterial>(null);
+
   const positions = useMemo(
     () =>
       propPositions ??
@@ -115,9 +123,12 @@ export default function BuildingCluster({
   );
 
   const [hoveredId, setHoveredId] = useState<number | null>(null);
+  const [lodLevel, setLodLevel] = useState(0);
+  const lodLevelRef = useRef(0);
   const lifecycleRef = useRef<Map<number, LifecycleEntry>>(new Map());
   const prevProcessesRef = useRef<ProcessInfo[]>([]);
   const prevPositionsRef = useRef<BuildingPosition[]>([]);
+  const clockRef = useRef(0);
 
   // Detect births and deaths by diffing the current process list against the previous frame.
   useEffect(() => {
@@ -164,11 +175,86 @@ export default function BuildingCluster({
     prevPositionsRef.current = positions;
   }, [processes, positions, theme]);
 
-  // Per-frame: advance lifecycle animations and update instance matrices/colors.
-  useFrame(({ clock }, delta) => {
-    const mesh = meshRef.current;
-    if (!mesh) return;
+  /// Update instance matrices and colors for one InstancedMesh (LOD level helper).
+  function updateMesh(
+    mesh: THREE.InstancedMesh,
+    positions: BuildingPosition[],
+    processes: ProcessInfo[],
+    elapsed: number,
+    scale: "high" | "mid" | "low",
+  ) {
+    let instanceIndex = 0;
 
+    for (let i = 0; i < positions.length; i++) {
+      const pos = positions[i];
+      const process = processes.find((p) => p.pid === pos.pid);
+      const entry = lifecycleRef.current.get(pos.pid);
+      const lifeScale = entry?.progress ?? 1;
+      const heightScale = scale === "low" ? 1 : pos.height;
+
+      dummy.position.set(pos.x, (pos.height / 2) * lifeScale, pos.z);
+      dummy.scale.set(lifeScale, lifeScale * heightScale, lifeScale);
+      dummy.updateMatrix();
+      mesh.setMatrixAt(instanceIndex, dummy.matrix);
+
+      _color.copy(
+        process
+          ? new THREE.Color(colorForProcess(process, theme))
+          : entry?.color ?? new THREE.Color(theme.colors.idle),
+      );
+
+      if (entry?.state === "born") {
+        _color.lerp(new THREE.Color(theme.colors.pulseWhite), (1 - entry.progress) * 0.5);
+      }
+
+      if (process && process.cpu > 50) {
+        const pulse = (Math.sin(elapsed * 3) + 1) * 0.5;
+        _color.lerp(new THREE.Color(theme.colors.pulseWhite), pulse * 0.25);
+      }
+
+      // Brightness boost for far LOD (tiny boxes need to still be visible as glow dots)
+      if (scale === "low") {
+        _color.multiplyScalar(2.5);
+      } else if (scale === "mid") {
+        _color.multiplyScalar(1.4);
+      }
+
+      const isHovered = scale === "high" && hoveredId === instanceIndex;
+      const isSelected = scale === "high" && selectedPid === pos.pid;
+      if (isHovered || isSelected) {
+        _color.lerp(new THREE.Color(theme.colors.pulseWhite), isSelected ? 0.45 : 0.25);
+      }
+
+      mesh.setColorAt(instanceIndex, _color);
+      instanceIndex++;
+    }
+
+    for (const entry of lifecycleRef.current.values()) {
+      if (entry.state !== "dying") continue;
+
+      const lifeScale = entry.progress;
+      const heightScale = scale === "low" ? 1 : entry.position.height;
+
+      dummy.position.set(entry.position.x, (entry.position.height / 2) * lifeScale, entry.position.z);
+      dummy.scale.set(lifeScale, lifeScale * heightScale, lifeScale);
+      dummy.updateMatrix();
+      mesh.setMatrixAt(instanceIndex, dummy.matrix);
+
+      _color.copy(entry.color).lerp(new THREE.Color(0x000000), 1 - lifeScale);
+      mesh.setColorAt(instanceIndex, _color);
+      instanceIndex++;
+    }
+
+    mesh.count = instanceIndex;
+    mesh.instanceMatrix.needsUpdate = true;
+    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+  }
+
+  // Per-frame: LOD selection, lifecycle animation, instance matrix update.
+  useFrame(({ camera }, delta) => {
+    clockRef.current += delta;
+
+    // Advance lifecycle animations
     for (const entry of lifecycleRef.current.values()) {
       if (entry.state === "born") {
         entry.progress = Math.min(1, entry.progress + delta / BIRTH_DURATION);
@@ -184,66 +270,40 @@ export default function BuildingCluster({
       }
     }
 
-    let instanceIndex = 0;
-
-    for (let i = 0; i < positions.length; i++) {
-      const pos = positions[i];
-      const process = processes.find((p) => p.pid === pos.pid);
-      const entry = lifecycleRef.current.get(pos.pid);
-      const scale = entry?.progress ?? 1;
-
-      dummy.position.set(pos.x, (pos.height / 2) * scale, pos.z);
-      dummy.scale.set(scale, scale * pos.height, scale);
-      dummy.updateMatrix();
-      mesh.setMatrixAt(instanceIndex, dummy.matrix);
-
-      _color.copy(
-        process
-          ? new THREE.Color(colorForProcess(process, theme))
-          : entry?.color ?? new THREE.Color(theme.colors.idle),
-      );
-
-      if (entry?.state === "born") {
-        _color.lerp(new THREE.Color(theme.colors.pulseWhite), (1 - entry.progress) * 0.5);
-      }
-
-      if (process && process.cpu > 50) {
-        const pulse = (Math.sin(clock.elapsedTime * 3) + 1) * 0.5;
-        _color.lerp(new THREE.Color(theme.colors.pulseWhite), pulse * 0.25);
-      }
-
-      const isHovered = hoveredId === instanceIndex;
-      const isSelected = selectedPid === pos.pid;
-      if (isHovered || isSelected) {
-        _color.lerp(new THREE.Color(theme.colors.pulseWhite), isSelected ? 0.45 : 0.25);
-      }
-
-      mesh.setColorAt(instanceIndex, _color);
-      instanceIndex++;
+    // Determine LOD level from camera distance
+    const dist = camera.position.length();
+    const newLevel = dist < LOD_NEAR ? 0 : dist < LOD_MID ? 1 : 2;
+    if (newLevel !== lodLevelRef.current) {
+      lodLevelRef.current = newLevel;
+      setLodLevel(newLevel);
     }
 
-    for (const entry of lifecycleRef.current.values()) {
-      if (entry.state !== "dying") continue;
-
-      const scale = entry.progress;
-      dummy.position.set(entry.position.x, (entry.position.height / 2) * scale, entry.position.z);
-      dummy.scale.set(scale, scale * entry.position.height, scale);
-      dummy.updateMatrix();
-      mesh.setMatrixAt(instanceIndex, dummy.matrix);
-
-      _color.copy(entry.color).lerp(new THREE.Color(0x000000), 1 - scale);
-      mesh.setColorAt(instanceIndex, _color);
-      instanceIndex++;
+    // Update visibility
+    const elapsed = clockRef.current;
+    if (highRef.current) {
+      highRef.current.visible = newLevel === 0;
+      if (newLevel === 0) {
+        updateMesh(highRef.current, positions, processes, elapsed, "high");
+      }
+    }
+    if (midRef.current) {
+      midRef.current.visible = newLevel === 1;
+      if (newLevel === 1) {
+        updateMesh(midRef.current, positions, processes, elapsed, "mid");
+      }
+    }
+    if (lowRef.current) {
+      lowRef.current.visible = newLevel === 2;
+      if (newLevel === 2) {
+        updateMesh(lowRef.current, positions, processes, elapsed, "low");
+      }
     }
 
-    mesh.count = instanceIndex;
-    mesh.instanceMatrix.needsUpdate = true;
-    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
-
-    if (materialRef.current) {
-      materialRef.current.uniforms.uTime.value = clock.elapsedTime;
+    // Update high-detail uniforms
+    if (highMaterialRef.current) {
+      highMaterialRef.current.uniforms.uTime.value = elapsed;
       const emissive = new THREE.Color(theme.colors.electricCyan);
-      materialRef.current.uniforms.uEmissive.value = emissive;
+      highMaterialRef.current.uniforms.uEmissive.value = emissive;
     }
   });
 
@@ -295,11 +355,14 @@ export default function BuildingCluster({
     [positions, processes, onDoubleClick],
   );
 
+  const instanceCount = Math.max(1, maxBuildings * 2);
+
   return (
     <group>
+      {/* High detail: full custom shader (distance < LOD_NEAR) */}
       <instancedMesh
-        ref={meshRef}
-        args={[undefined, undefined, Math.max(1, maxBuildings * 2)]}
+        ref={highRef}
+        args={[undefined, undefined, instanceCount]}
         onClick={handleClick}
         onDoubleClick={handleDoubleClick}
         onPointerOver={handlePointerOver}
@@ -308,7 +371,7 @@ export default function BuildingCluster({
       >
         <boxGeometry args={[0.5, 1, 0.5]} />
         <shaderMaterial
-          ref={materialRef}
+          ref={highMaterialRef}
           vertexShader={buildingVertexShader}
           fragmentShader={buildingFragmentShader}
           transparent
@@ -320,21 +383,45 @@ export default function BuildingCluster({
           }}
         />
       </instancedMesh>
-      {positions.map((pos) => {
-        const process = processes.find((p) => p.pid === pos.pid);
-        if (!process) return null;
-        return (
-          <Html
-            key={`label-${pos.pid}`}
-            position={[pos.x, pos.height + 0.9, pos.z]}
-            center
-            distanceFactor={14}
-            style={{ pointerEvents: "none" }}
-          >
-            <div className="building-label">{process.name}</div>
-          </Html>
-        );
-      })}
+
+      {/* Mid detail: simplified box + emissive color (LOD_NEAR <= distance < LOD_MID)
+          — MeshBasicMaterial skips lighting, toneMapped:false keeps colors vibrant */}
+      <instancedMesh
+        ref={midRef}
+        args={[undefined, undefined, instanceCount]}
+        frustumCulled
+      >
+        <boxGeometry args={[0.5, 1, 0.5]} />
+        <meshBasicMaterial toneMapped={false} transparent opacity={0.92} />
+      </instancedMesh>
+
+      {/* Far detail: tiny glow dots (distance >= LOD_MID) */}
+      <instancedMesh
+        ref={lowRef}
+        args={[undefined, undefined, instanceCount]}
+        frustumCulled
+      >
+        <boxGeometry args={[0.15, 0.15, 0.15]} />
+        <meshBasicMaterial toneMapped={false} transparent opacity={0.85} />
+      </instancedMesh>
+
+      {/* Labels — only at near LOD level */}
+      {lodLevel === 0 &&
+        positions.map((pos) => {
+          const process = processes.find((p) => p.pid === pos.pid);
+          if (!process) return null;
+          return (
+            <Html
+              key={`label-${pos.pid}`}
+              position={[pos.x, pos.height + 0.9, pos.z]}
+              center
+              distanceFactor={14}
+              style={{ pointerEvents: "none" }}
+            >
+              <div className="building-label">{process.name}</div>
+            </Html>
+          );
+        })}
     </group>
   );
 }

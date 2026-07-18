@@ -4,6 +4,28 @@
 
 ## Session Log
 
+### 2026-07-18 — Session #041.1 (frontend, F-701 Building LOD, ~5min)
+- Track: frontend
+- Task: F-701 (Building LOD system)
+- Status: done
+- Summary:
+  - Implemented 3-level LOD in BuildingCluster.tsx:
+    - Near (<25 unit camera distance): full custom shader (windows, Fresnel, scan lines)
+    - Mid (25-50): simplified box with MeshBasicMaterial, emissive colors, no shader
+    - Far (50+): tiny glow dots (0.15 unit boxes) with brightness boost
+  - Added `lodLevel` state + `lodLevelRef` ref tracking camera distance per frame
+  - Three separate InstancedMesh instances (highRef/midRef/lowRef) with visibility toggled by LOD level
+  - Shared lifecycle animation (birth/death) across all LOD levels via `updateMesh()` helper
+  - Labels only render at near LOD level (when camera is close enough)
+  - Verified: npx tsc --noEmit, npm test (59/59), dev server starts clean
+- Decisions: none
+- Commits: pending (included in push below)
+- Files:
+  - src/components/BuildingCluster.tsx (mod) — 3-level LOD, 3 InstancedMeshes, updateMesh helper
+  - PLAN.md (mod) — F-701 → done, counts updated
+  - PROGRESS.md (mod) — this entry
+- Next ready: F-702 (Settings panel — waits for 夏天)
+
 ### 2026-07-18 — Session #041 (backend, Phase 7 planning + B-701 implementation, ~20min)
 - Track: backend
 - Task: Phase 7 plan approval + B-701 (Linux PlatformAdapter)
