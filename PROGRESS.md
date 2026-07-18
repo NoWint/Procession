@@ -4,6 +4,43 @@
 
 ## Session Log
 
+### 2026-07-18 — Session #039 (frontend, visual replication of digital-city mockup, ~2h)
+- Track: frontend
+- Task: visual replication of design image (comprehensive visual refactoring)
+- Status: done
+- Summary:
+  - Extended theme system with energy colors (electric cyan, cold blue, amber, deep red, database purple, service green) and updated default theme to match the reference image palette.
+  - Refactored `BuildingCluster.tsx` with custom shader material for crystalline buildings, gradient coloring, Fresnel edge glow, and always-visible process name labels.
+  - Updated `BuildingHalo.tsx` to render colored energy rings at building bases, scaled by height, using per-instance process colors.
+  - Replaced `CableSystem.tsx` line segments with smooth `TubeGeometry` arcs via `CatmullRomCurve3`, with protocol-derived vertex colors and emissive material.
+  - Enhanced `CableFlow.tsx` particles: larger size, brighter additive colors, and additive blending.
+  - Replaced `CityGround.tsx` with a large circular platform and subtle grid.
+  - Updated `Atmosphere.tsx` and `CityScene.tsx` for stronger bloom, exponential fog, and a wider cinematic camera angle.
+  - Updated `App.tsx` to always show labels and hide HUD/theme panel/FPS counter/utility mode for the mockup replication view.
+  - Adjusted tests in `colors.test.ts` and `CableSystem.test.tsx` to match new visual behavior.
+  - Verified mechanical checks: `npx tsc --noEmit`, `npm test -- --run`, `npm run build`, `cargo clippy` in `src-tauri`.
+- Decisions:
+  - Visual fidelity prioritized over performance for this replication pass.
+  - Non-replicated UI elements hidden via `{false && ...}` so the underlying state and handlers remain intact for later restoration.
+- Commits: 8 commits from visual replication plan execution
+- Files:
+  - src/utils/theme.ts (mod)
+  - src/utils/colors.ts (mod)
+  - src/utils/colors.test.ts (mod)
+  - src/components/BuildingCluster.tsx (mod)
+  - src/components/BuildingHalo.tsx (mod)
+  - src/components/CableSystem.tsx (mod)
+  - src/components/CableSystem.test.tsx (mod)
+  - src/components/CableFlow.tsx (mod)
+  - src/components/CityGround.tsx (mod)
+  - src/components/Atmosphere.tsx (mod)
+  - src/components/CityScene.tsx (mod)
+  - src/App.tsx (mod)
+  - src/App.css (mod)
+  - public/themes/default.json (mod)
+- Next ready: F-605 (Audio / sonification), visual polish based on runtime inspection, or push to origin/main.
+- Notes: Completed all tasks in `docs/superpowers/plans/2026-07-18-visual-replication-plan.md`.
+
 ### 2026-07-18 — Session #038 (frontend, F-606 City state save / load, ~35min)
 - Track: frontend
 - Task: F-606 (City state save / load)
@@ -92,6 +129,53 @@
   - PLAN.md (mod)
   - PROGRESS.md (mod)
 - Next ready: F-604 (Process lifecycle animations) or F-606 (City state save / load).
+
+### 2026-07-18 — Session #037 (backend, B-601/B-602/B-603 Phase 6 backend, ~3h)
+- Track: backend
+- Task: B-601 (Backend data pipeline optimization), B-602 (Code signing + notarization config), B-603 (Auto-updater integration)
+- Status: done
+- Summary:
+  - **B-601**: Batched sysinfo refresh in WindowsImpl (3 lock acquisitions → 1 via collect_sysinfo()); pusher reordered emit-then-store with block-scoped MutexGuard for Send-safety, reducing deep clones from 2→1 per cycle
+  - **B-602**: Configured tauri.conf.json signing fields (SHA-256 digest, Comodo HTTPS timestamp, hardened runtime); created entitlements.plist with minimum required macOS sandbox entitlements; added notarization env vars to release.yml CI; created .env.example for local signing setup
+  - **B-603**: Installed tauri-plugin-updater (Rust + NPM); configured updater endpoints + pubkey placeholder in tauri.conf.json; added updater:default capability; registered plugin in lib.rs
+  - **Code review**: Dispatched 3 parallel agents (security, Rust correctness, config); 6 total findings, 3 high-severity fixed
+  - Review fixes: restored missing `uses:` in macOS upload-artifact CI step; hardened entitlements (removed allow-dyld-environment-variables); upgraded timestamp URL to HTTPS; documented updater key generation in .env.example
+- Decisions: D-004, D-005, D-006
+- Commits: 1bd6d57, c4ef0d8
+- Files:
+  - src-tauri/src/bridge/pusher.rs (mod) — emit-then-store, block-scoped lock
+  - src-tauri/src/engine/windows.rs (mod) — collect_sysinfo(), collect_snapshot() override
+  - src-tauri/src/lib.rs (mod) — updater plugin registration
+  - src-tauri/tauri.conf.json (mod) — signing fields, updater config, timestamp HTTPS
+  - src-tauri/entitlements.plist (new) — macOS hardened runtime entitlements
+  - src-tauri/capabilities/default.json (mod) — updater:default permission
+  - src-tauri/Cargo.toml (mod) — tauri-plugin-updater dep
+  - .github/workflows/release.yml (mod) — notarization env vars, fix upload-artifact
+  - .env.example (new) — signing + updater key generation guide
+  - PLAN.md (mod) — B-601/602/603 → done, counts updated
+- Next ready: F-603 (Time travel / history playback, frontend)
+- Notes: Phase 6 backend track complete. All 3 B-* tasks for Phase 6 are done.
+
+### 2026-07-18 — Session #036 (backend, Phase 5 performance optimization B-40X, ~30min)
+- Track: backend
+- Task: B-40X (Phase 5 backend performance audit and optimization)
+- Status: done
+- Summary:
+  - Windows TCP/UDP table TTL cache (100ms): eliminated 3× redundant GetExtendedTcpTable/GetExtendedUdpTable kernel calls per snapshot cycle
+  - Fixed thermal zone subkey handle leak in gpu.rs: RegCloseKey added to break path
+  - Coalesced fs_watcher processor thread locks from 4→2 acquisitions per cycle
+  - Replaced ephemeral StdRng recreation in MockAdapter with persistent Mutex<StdRng>
+  - Used sort_unstable_by in preprocess_snapshot (O(log n) vs O(n) memory)
+- Decisions: D-004
+- Commits: ef0ef60
+- Files:
+  - src-tauri/src/engine/windows.rs (mod) — ConnTableCache TTL cache, cached_tcp_udp()
+  - src-tauri/src/engine/gpu.rs (mod) — thermal zone RegCloseKey on break path
+  - src-tauri/src/engine/fs_watcher.rs (mod) — coalesced lock acquisition
+  - src-tauri/src/engine/mock.rs (mod) — persistent Mutex<StdRng>
+  - src-tauri/src/bridge/snapshot.rs (mod) — sort_by → sort_unstable_by
+- Next ready: B-601
+- Notes: Added 3 new clippy findings (type_complexity on cached_tcp_udp return type) fixed with TcpUdpRows type alias.
 
 ### 2026-07-18 — Session #032 (integration, I-501 Phase 5 full acceptance, ~25min)
 - Track: integration

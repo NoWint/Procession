@@ -9,6 +9,7 @@
     "core:event:allow-listen",
     "core:event:allow-emit",
     "opener:default",
-    "dialog:default"
+    "dialog:default",
+    "updater:default"
   ]
 }

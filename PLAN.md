@@ -104,9 +104,9 @@ Constitution changes (STRATEGY/SPEC/ARCHITECTURE under `.docs/`) require a `D-*`
 
 | ID    | Title                                              | Phase | Status  | Deps                              | Complexity |
 |-------|----------------------------------------------------|-------|---------|-----------------------------------|-----------|
-| B-601 | Backend data pipeline optimization                 | 6     | pending | B-002                             | L         |
-| B-602 | Code signing + notarization config                 | 6     | pending | B-403                             | M         |
-| B-603 | Auto-updater integration                           | 6     | pending | B-602                             | L         |
+| B-601 | Backend data pipeline optimization                 | 6     | done    | B-002                             | L         |
+| B-602 | Code signing + notarization config                 | 6     | done    | B-403                             | M         |
+| B-603 | Auto-updater integration                           | 6     | done    | B-602                             | L         |
 | F-601 | Rendering performance guarantee (FPS ≥ 30)         | 6     | done    | F-404                             | XL        |
 | F-602 | UI/UX polish and bug sweep                         | 6     | done    | F-505, F-506                      | M         |
 | F-603 | Time travel / history playback                     | 6     | done    | F-501, F-502, F-503               | XL        |

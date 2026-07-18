@@ -27,30 +27,39 @@ impl SnapshotPusher {
         }
     }
 
-    /// Infinite 1Hz loop: collect → preprocess → store → emit.
+    /// Infinite 1Hz loop: collect → preprocess → emit → store.
     /// On failure (e.g. Mutex poison), logs and continues rather than crashing.
+    ///
+    /// Optimized to minimize deep clones: emit from the owned snapshot (zero-copy
+    /// serde ref), move into current, then clone once for the ring-buffer cache.
     pub async fn start(&self, app: AppHandle) {
         loop {
             let snapshot = self.engine.collect_snapshot().await;
             let processed = preprocess_snapshot(snapshot, 500);
 
-            // Store in current frame cache — log on poison, don't crash
-            if let Ok(mut current) = self.current.lock() {
-                *current = Some(processed.clone());
-            } else {
-                eprintln!("[Procession] current lock poisoned, skipping store");
-            }
-
-            // Push to ring-buffer history
-            if let Ok(mut cache) = self.cache.lock() {
-                cache.push(processed.clone());
-            } else {
-                eprintln!("[Procession] cache lock poisoned, skipping cache write");
-            }
-
-            // Emit to frontend over IPC
+            // Emit first — serializes from &SystemSnapshot, no clone
             if let Err(e) = app.emit("system-snapshot", &processed) {
                 eprintln!("[Procession] emit failed: {}", e);
+            }
+
+            // Move into current (zero copy), then clone once for cache.
+            // The block scope ensures MutexGuards are dropped before any .await
+            // below (satisfying Send bounds on the outer future).
+            {
+                let mut snapshot_for_cache = None;
+                if let Ok(mut current) = self.current.lock() {
+                    *current = Some(processed);
+                    snapshot_for_cache = current.clone();
+                } else {
+                    eprintln!("[Procession] current lock poisoned, skipping store");
+                }
+                if let Some(snapshot) = snapshot_for_cache {
+                    if let Ok(mut cache) = self.cache.lock() {
+                        cache.push(snapshot);
+                    } else {
+                        eprintln!("[Procession] cache lock poisoned, skipping cache write");
+                    }
+                }
             }
 
             tokio::time::sleep(Duration::from_secs(1)).await;

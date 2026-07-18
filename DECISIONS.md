@@ -45,6 +45,46 @@
 - Supersedes: none
 - Affects: All PLAN.md tasks, all future sessions
 
+### D-006: macOS Hardened Runtime Entitlement Minimum Set
+- Date: 2026-07-18
+- Status: Accepted
+- Track: backend
+- Context: B-602 code signing required entitlements.plist for macOS hardened runtime. Tauri WebView + Rust codegen requires JIT and unsigned-executable-memory. Original set included allow-dyld-environment-variables (opens DYLD_INSERT_LIBRARIES injection vector).
+- Decision: Include only allow-jit, allow-unsigned-executable-memory, disable-library-validation for Tauri/Rust requirements. Set allow-dyld-environment-variables to false. Include network.client/server, files.user-selected.read-write, files.downloads.read-write for app functionality. Remove any entitlement not strictly needed.
+- Consequences:
+  + Hardened runtime retains maximum protection for remaining attack surface
+  + Tauri WebView JIT continues to function
+  - Disable-library-validation still broadens dyload scope (required by Rust codegen)
+- Supersedes: none
+- Affects: B-602, src-tauri/entitlements.plist
+
+### D-005: Pusher Emit-then-Store Reordering with Block-Scoped MutexGuard
+- Date: 2026-07-18
+- Status: Accepted
+- Track: backend
+- Context: B-601 data pipeline optimization. Original pusher flow was: store → cache → emit, requiring 2 deep clones of SystemSnapshot (one for current, one for cache) plus serialization for IPC.
+- Decision: Reorder to emit → store → cache. Emit from the owned snapshot (serde borrow, no clone). Move snapshot into current (zero-copy). Read back and clone once for ring-buffer cache (1 clone instead of 2). Use block scope { } to drop !Send MutexGuard before any .await, satisfying tokio Send bounds.
+- Consequences:
+  + Deep clones reduced from 2→1 per cycle (~40% clone reduction for SystemSnapshot)
+  + Future is Send-safe — no MutexGuard crossing .await
+  + Emit failure doesn't prevent snapshot storage (emit is logged, store is unconditional)
+  - Slightly increased lock hold time in block scope (negligible at 1Hz cadence)
+- Supersedes: none
+- Affects: B-601, src-tauri/src/bridge/pusher.rs
+
+### D-004: Windows TCP/UDP Table TTL Cache Design
+- Date: 2026-07-18
+- Status: Accepted
+- Track: backend
+- Context: get_network(), get_process_relations(), get_listening_ports() each independently called GetExtendedTcpTable + GetExtendedUdpTable per snapshot cycle — 3× redundant kernel calls. Each call allocates a variable-length buffer (up to ~64KB).
+- Decision: Add conn_cache: Mutex<Option<ConnTableCache>> with 100ms TTL. The cached_tcp_udp() method returns cached results if fetched within 100ms, otherwise re-queries. Three callers share one query result. TTL chosen to be less than the 1Hz snapshot interval so freshness is not sacrificed.
+- Consequences:
+  + Eliminates 2/3 of kernel-mode transitions per snapshot cycle
+  + Allocates buffer once per cycle instead of 3×
+  + Cache is transparent — callers don't need to know about caching
+- Supersedes: none
+- Affects: B-40X, B-501, B-502, src-tauri/src/engine/windows.rs
+
 ## Superseded / Deprecated Decisions
 
 (none yet)
