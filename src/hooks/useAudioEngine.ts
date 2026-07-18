@@ -46,8 +46,18 @@ export function useAudioEngine({ snapshot }: AudioEngineOptions): AudioEngineSta
   const toggleMute = useCallback(() => {
     mutedRef.current = !mutedRef.current;
     setIsMuted(mutedRef.current);
-    if (masterGainRef.current) {
-      masterGainRef.current.gain.value = mutedRef.current ? 0 : 1;
+    if (masterGainRef.current && ctxRef.current) {
+      const now = ctxRef.current.currentTime;
+      // Use ramp to avoid audible click on direct gain.value assignment
+      masterGainRef.current.gain.cancelScheduledValues(now);
+      masterGainRef.current.gain.setValueAtTime(
+        masterGainRef.current.gain.value,
+        now,
+      );
+      masterGainRef.current.gain.linearRampToValueAtTime(
+        mutedRef.current ? 0 : 1,
+        now + 0.04,
+      );
     }
   }, []);
 

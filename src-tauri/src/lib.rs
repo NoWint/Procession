@@ -13,6 +13,12 @@ use engine::windows::WindowsImpl;
 use engine::macos::MacImpl;
 use engine::platform::PlatformAdapter;
 
+/// Reject paths containing traversal components as a defense-in-depth
+/// measure. The dialog plugin already vets user-selected paths.
+fn is_safe_path(path: &str) -> bool {
+    !path.contains("..")
+}
+
 #[tauri::command]
 async fn get_snapshot(
     pusher: tauri::State<'_, SnapshotPusher>,
@@ -29,11 +35,17 @@ async fn get_config() -> crate::types::Config {
 
 #[tauri::command]
 fn save_file(path: String, data: Vec<u8>) -> Result<(), String> {
+    if !is_safe_path(&path) {
+        return Err("Path contains traversal components".into());
+    }
     std::fs::write(&path, data).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 fn read_file(path: String) -> Result<Vec<u8>, String> {
+    if !is_safe_path(&path) {
+        return Err("Path contains traversal components".into());
+    }
     std::fs::read(&path).map_err(|e| e.to_string())
 }
 
