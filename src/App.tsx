@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import CityScene from "./components/CityScene";
 import BuildingCluster from "./components/BuildingCluster";
 import BuildingHalo from "./components/BuildingHalo";
@@ -15,6 +15,7 @@ import HudPanel from "./components/HudPanel";
 import UtilityMode from "./components/UtilityMode";
 import ThemeSelector from "./components/ThemeSelector";
 import ThemeEditor from "./components/ThemeEditor";
+import ScreensaverMode from "./components/ScreensaverMode";
 import { useSystemData } from "./hooks/useSystemData";
 import type { ProcessInfo } from "./utils/types";
 import { computeTreePositions, computeProcessSignature } from "./utils/layout";
@@ -47,6 +48,10 @@ export default function App() {
   const [currentThemeUrl, setCurrentThemeUrl] = useState(DEFAULT_THEME_URL);
   const [themeReady, setThemeReady] = useState(false);
   const [themeEditorOpen, setThemeEditorOpen] = useState(false);
+  const [kioskMode, setKioskMode] = useState(false);
+  const [autoRotate, setAutoRotate] = useState(false);
+  const [showUi, setShowUi] = useState(true);
+  const kioskIdleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Load theme on mount, restoring saved preference.
   useEffect(() => {
@@ -168,9 +173,56 @@ export default function App() {
     }
   }, [positions]);
 
-  // Toggle utility mode with Space; close with Escape.
+  const handleExitKiosk = useCallback(() => {
+    setKioskMode(false);
+  }, []);
+
+  const handleUiShow = useCallback(() => {
+    setShowUi(true);
+  }, []);
+
+  // Sync auto-rotate and UI visibility with kiosk mode.
+  useEffect(() => {
+    if (kioskMode) {
+      setAutoRotate(true);
+      setShowUi(false);
+    } else {
+      setAutoRotate(false);
+      setShowUi(true);
+    }
+  }, [kioskMode]);
+
+  // Hide UI again after a period of inactivity while in kiosk mode.
+  useEffect(() => {
+    if (!kioskMode || !showUi) return;
+    kioskIdleTimer.current = setTimeout(() => {
+      setShowUi(false);
+    }, 2500);
+    return () => {
+      if (kioskIdleTimer.current) {
+        clearTimeout(kioskIdleTimer.current);
+      }
+    };
+  }, [kioskMode, showUi]);
+
+  function isTypingTarget(target: EventTarget | null): boolean {
+    if (!(target instanceof HTMLElement)) return false;
+    return target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable;
+  }
+
+  // Toggle utility mode with Space; kiosk mode with K; close with Escape.
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (kioskMode && e.key === "Escape") {
+        e.preventDefault();
+        setKioskMode(false);
+        return;
+      }
+      if (e.key === "k" && !isTypingTarget(e.target)) {
+        e.preventDefault();
+        setKioskMode((prev) => !prev);
+        return;
+      }
       if (e.key === " " && !shouldIgnoreSpace(e.target)) {
         e.preventDefault();
         setUtilityMode((prev) => !prev);
@@ -184,7 +236,7 @@ export default function App() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
+  }, [kioskMode]);
 
   if (!themeReady) {
     return <ErrorState message="Loading visual system..." loading />;
@@ -216,7 +268,11 @@ export default function App() {
 
   return (
     <div className="app-container">
-      <CityScene theme={theme} cameraTarget={cameraTarget ?? (selectedPosition ? { x: selectedPosition.x, y: selectedPosition.height, z: selectedPosition.z } : null)}>
+      <CityScene
+        theme={theme}
+        cameraTarget={cameraTarget ?? (selectedPosition ? { x: selectedPosition.x, y: selectedPosition.height, z: selectedPosition.z } : null)}
+        autoRotate={autoRotate}
+      >
         <Atmosphere theme={theme} />
         <CityGround theme={theme} />
         <FsHeatmap hotspots={snapshot.fs_hotspots} theme={theme} />
@@ -251,7 +307,7 @@ export default function App() {
         <CableFlow paths={cablePaths} protocols={cableProtocols} theme={theme} />
       </CityScene>
 
-      <div className="app-ui-layer">
+      <div className={`app-ui-layer ${kioskMode && !showUi ? "kiosk-hidden" : ""}`}>
         <div className="app-header">
           <span className="app-title">Procession</span>
           <span className="app-subtitle">
@@ -272,6 +328,13 @@ export default function App() {
           <button className="app-theme-toggle" onClick={handleOpenThemeEditor}>
             Edit Signal
           </button>
+          <button
+            className="app-theme-toggle"
+            onClick={() => setAutoRotate((prev) => !prev)}
+            aria-pressed={autoRotate}
+          >
+            {autoRotate ? "Stop Orbit" : "Orbit"}
+          </button>
         </div>
         {themeEditorOpen && (
           <ThemeEditor
@@ -287,6 +350,7 @@ export default function App() {
           position={{ x: 24, y: 24 }}
         />
       </div>
+      <ScreensaverMode enabled={kioskMode} onExit={handleExitKiosk} onUiShow={handleUiShow} />
     </div>
   );
 }

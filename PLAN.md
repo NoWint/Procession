@@ -92,7 +92,7 @@ Constitution changes (STRATEGY/SPEC/ARCHITECTURE under `.docs/`) require a `D-*`
 | F-502 | Port visualization (listening ports as harbors)    | 5     | done    | B-502                             | M         |
 | F-503 | Filesystem hotspots (recent read/write heat zones) | 5     | done    | B-503                             | L         |
 | F-504 | Custom theme editor / JSON import                   | 5     | done    | F-403                             | M         |
-| F-505 | Screensaver / kiosk mode (fullscreen, auto-rotate) | 5     | pending | F-401                             | S         |
+| F-505 | Screensaver / kiosk mode (fullscreen, auto-rotate) | 5     | done    | F-401                             | S         |
 | F-506 | Screenshot / GIF sharing                          | 5     | pending | F-401                             | M         |
 | D-501 | Plugin development guide                          | 5     | pending | B-504                             | M         |
 | D-502 | UI Design System v1.0 document                    | 5     | done    | F-403                             | M         |
@@ -110,9 +110,9 @@ Constitution changes (STRATEGY/SPEC/ARCHITECTURE under `.docs/`) require a `D-*`
 
 ## Status Counts
 
-- pending: 4
+- pending: 3
 - in_progress: 0
-- done: 55
+- done: 56
 - blocked: 0
 - failed: 0
 - stale: 0
@@ -3643,7 +3643,7 @@ Per SKILL.md §6 Granularity Rule: future phases are milestone-level only. Expan
       - "Pressing a configurable key (e.g., `K`) toggles kiosk mode"
       - "Camera slowly orbits the city when auto-rotate is enabled"
       - "UI reappears on mouse movement or Escape"
-  status: pending
+  status: done
   owner: null
   owner_started_at: null
   retry_count: 0

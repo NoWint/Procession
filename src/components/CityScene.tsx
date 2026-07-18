@@ -9,12 +9,14 @@ interface CitySceneProps {
   children?: React.ReactNode;
   theme?: Theme;
   cameraTarget?: { x: number; y: number; z: number } | null;
+  autoRotate?: boolean;
 }
 
 export default function CityScene({
   children,
   theme = FALLBACK_THEME,
   cameraTarget,
+  autoRotate = false,
 }: CitySceneProps) {
   return (
     <Canvas
@@ -38,6 +40,8 @@ export default function CityScene({
         minDistance={4}
         maxDistance={60}
         maxPolarAngle={Math.PI / 2 - 0.05}
+        autoRotate={autoRotate}
+        autoRotateSpeed={0.6}
       />
       <CameraController target={cameraTarget} />
       {children}

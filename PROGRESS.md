@@ -4,6 +4,35 @@
 
 ## Session Log
 
+### 2026-07-18 — Session #029 (frontend, F-505 screensaver / kiosk mode, ~20min)
+- Track: frontend
+- Task: F-505 (Screensaver / kiosk mode)
+- Status: done
+- Summary:
+  - Created `src/components/ScreensaverMode.tsx` to handle fullscreen enter/exit, Escape exit, and mouse-move UI reveal.
+  - Extended `CityScene.tsx` with an `autoRotate` prop wired to `OrbitControls` for slow city orbit.
+  - Integrated kiosk mode into `App.tsx`:
+    - Press `K` to toggle kiosk mode (ignored when typing in inputs).
+    - Kiosk mode requests fullscreen, enables auto-rotate, and hides the UI overlay.
+    - Mouse movement temporarily reveals the UI; it fades after 2.5s of inactivity.
+    - Press `Escape` or exit fullscreen to leave kiosk mode and restore the UI.
+  - Added an "Orbit" button to `app-controls` so auto-rotate can be toggled independently.
+  - Added `.kiosk-hidden` styles in `App.css` for the fade-out overlay.
+  - Updated `PLAN.md`: F-505 status → done; Status Counts → pending 3, done 56.
+- Decisions:
+  - Centralized kiosk state in `App.tsx`; `ScreensaverMode` only manages DOM fullscreen events and forwards UI-reveal signals.
+  - Auto-rotate is forced on when entering kiosk mode and off when exiting, keeping the mode self-contained.
+- Commits: pending
+- Files:
+  - src/components/ScreensaverMode.tsx (new)
+  - src/components/CityScene.tsx (mod)
+  - src/App.tsx (mod)
+  - src/App.css (mod)
+  - PLAN.md (mod)
+  - PROGRESS.md (mod)
+- Next ready: F-506 (Screenshot / GIF sharing) is the remaining Phase 5 frontend task; D-501 (Plugin development guide) can also proceed.
+- Notes: Mechanical acceptance passed: `npx tsc --noEmit` and `npm run build` both exit 0.
+
 ### 2026-07-18 — Session #028 (frontend, F-504 custom theme editor, ~20min)
 - Track: frontend
 - Task: F-504 (Custom theme editor / JSON import)

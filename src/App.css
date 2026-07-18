@@ -21,6 +21,12 @@ canvas {
   pointer-events: auto;
 }
 
+.app-ui-layer.kiosk-hidden {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.4s ease;
+}
+
 .app-header {
   position: absolute;
   top: 20px;
