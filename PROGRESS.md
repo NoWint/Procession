@@ -4,6 +4,32 @@
 
 ## Session Log
 
+### 2026-07-18 — Session #028 (frontend, F-504 custom theme editor, ~20min)
+- Track: frontend
+- Task: F-504 (Custom theme editor / JSON import)
+- Status: done
+- Summary:
+  - Added `src/components/ThemeEditor.css` to style the editor as a centered modal panel using the existing design tokens.
+  - Wired `ThemeEditor.tsx` to import its stylesheet and close on `Escape`.
+  - Integrated the editor into `App.tsx` behind an "Edit Signal" button next to `ThemeSelector`.
+  - Implemented live preview: color, typography, and scene changes are applied immediately; closing without saving reverts to the previously selected theme.
+  - Implemented save flow: custom themes are persisted via `saveCustomTheme`, the active URL is updated, and the new theme appears in `ThemeSelector`.
+  - Fixed `hasAllKeys` type narrowing in `src/utils/theme.ts` so `npx tsc --noEmit` passes.
+  - Updated `PLAN.md`: F-504 status → done; Status Counts → pending 4, done 55.
+- Decisions:
+  - Kept the editor as an optional overlay so the main city view remains uncluttered.
+  - Reverted preview on close to avoid leaving an unsaved custom signal active.
+- Commits: pending
+- Files:
+  - src/components/ThemeEditor.tsx (mod)
+  - src/components/ThemeEditor.css (new)
+  - src/App.tsx (mod)
+  - src/utils/theme.ts (mod)
+  - PLAN.md (mod)
+  - PROGRESS.md (mod)
+- Next ready: F-505 (Screensaver / kiosk mode) or D-501 (Plugin development guide) can now proceed.
+- Notes: Mechanical acceptance passed: `npx tsc --noEmit` and `npm run build` both exit 0.
+
 ### 2026-07-18 — Session #027 (frontend, F-503 filesystem heat zones, ~20min)
 - Track: frontend
 - Task: F-503 (Filesystem hotspots)

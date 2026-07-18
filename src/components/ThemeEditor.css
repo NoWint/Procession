@@ -1,0 +1,229 @@
+.theme-editor-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(6px);
+  z-index: 100;
+  padding: 24px;
+}
+
+.theme-editor-panel {
+  width: 100%;
+  max-width: 560px;
+  max-height: calc(100vh - 48px);
+  display: flex;
+  flex-direction: column;
+  background: var(--proc-surface);
+  border: 1px solid var(--proc-border);
+  border-radius: var(--proc-radius-lg);
+  box-shadow: var(--proc-shadow-lg);
+  overflow: hidden;
+}
+
+.theme-editor-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--proc-border);
+}
+
+.theme-editor-header h2 {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--proc-text);
+}
+
+.theme-editor-close {
+  background: transparent;
+  color: var(--proc-text-muted);
+  border: none;
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--proc-radius-md);
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.theme-editor-close:hover {
+  color: var(--proc-text);
+  background: var(--proc-surface-elevated);
+}
+
+.theme-editor-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+}
+
+.theme-editor-section {
+  margin-bottom: 24px;
+}
+
+.theme-editor-section:last-child {
+  margin-bottom: 0;
+}
+
+.theme-editor-section h3 {
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--proc-text-muted);
+  margin-bottom: 12px;
+}
+
+.theme-editor-field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.theme-editor-field span {
+  font-size: 13px;
+  color: var(--proc-text);
+  flex-shrink: 0;
+}
+
+.theme-editor-field input[type="text"],
+.theme-editor-field input[type="number"],
+.theme-editor-field select,
+.theme-editor-import {
+  flex: 1;
+  min-width: 0;
+  background: var(--proc-bg);
+  color: var(--proc-text);
+  border: 1px solid var(--proc-border);
+  border-radius: var(--proc-radius-md);
+  padding: 8px 10px;
+  font-size: 13px;
+  font-family: var(--proc-font-mono);
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+.theme-editor-field input:focus,
+.theme-editor-field select:focus,
+.theme-editor-import:focus {
+  border-color: var(--proc-accent);
+}
+
+.theme-editor-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 10px;
+}
+
+.theme-editor-color-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--proc-bg);
+  border: 1px solid var(--proc-border);
+  border-radius: var(--proc-radius-md);
+  padding: 6px 8px;
+  cursor: pointer;
+  transition: border-color 0.2s ease;
+}
+
+.theme-editor-color-field:hover {
+  border-color: var(--proc-accent);
+}
+
+.theme-editor-color-field span {
+  font-size: 11px;
+  font-family: var(--proc-font-mono);
+  color: var(--proc-text-muted);
+  text-transform: capitalize;
+  flex: 1;
+}
+
+.theme-editor-color-field input[type="color"] {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: var(--proc-radius-sm);
+  background: transparent;
+  cursor: pointer;
+}
+
+.theme-editor-color-field input[type="color"]::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.theme-editor-color-field input[type="color"]::-webkit-color-swatch {
+  border: 1px solid var(--proc-border);
+  border-radius: var(--proc-radius-sm);
+}
+
+.theme-editor-actions {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.theme-editor-actions button,
+.theme-editor-section > button,
+.theme-editor-save {
+  background: var(--proc-surface-elevated);
+  color: var(--proc-text);
+  border: 1px solid var(--proc-border);
+  border-radius: var(--proc-radius-md);
+  padding: 8px 14px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.theme-editor-actions button:hover,
+.theme-editor-section > button:hover,
+.theme-editor-save:hover {
+  background: var(--proc-bg);
+  border-color: var(--proc-accent);
+}
+
+.theme-editor-import {
+  width: 100%;
+  resize: vertical;
+  margin-bottom: 8px;
+  font-size: 12px;
+}
+
+.theme-editor-error {
+  font-size: 12px;
+  color: #ff6b6b;
+  margin-bottom: 10px;
+  font-family: var(--proc-font-mono);
+}
+
+.theme-editor-footer {
+  display: flex;
+  justify-content: flex-end;
+  padding: 14px 20px;
+  border-top: 1px solid var(--proc-border);
+  background: var(--proc-surface);
+}
+
+.theme-editor-save {
+  background: var(--proc-text);
+  color: var(--proc-bg);
+  border-color: var(--proc-text);
+  font-weight: 500;
+}
+
+.theme-editor-save:hover {
+  background: var(--proc-accent);
+  border-color: var(--proc-accent);
+  color: var(--proc-bg);
+}

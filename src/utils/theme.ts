@@ -59,13 +59,167 @@ const THEME_REGISTRY: ThemeMeta[] = [
 ];
 
 const THEME_STORAGE_KEY = "procession-theme-url";
+const CUSTOM_THEMES_STORAGE_KEY = "procession-custom-themes";
+
+function isHexColor(value: unknown): value is string {
+  return typeof value === "string" && /^#([0-9a-fA-F]{3}){1,2}$/.test(value);
+}
+
+function isMode(value: unknown): value is "dark" | "light" {
+  return value === "dark" || value === "light";
+}
+
+function hasAllKeys(obj: unknown, keys: string[]): obj is Record<string, unknown> {
+  if (!obj || typeof obj !== "object") return false;
+  return keys.every((k) => k in obj);
+}
+
+export function validateTheme(data: unknown): Theme | null {
+  if (!data || typeof data !== "object") return null;
+  const d = data as Record<string, unknown>;
+
+  if (typeof d.name !== "string" || !isMode(d.mode)) return null;
+
+  if (!hasAllKeys(d.typography, ["heading", "body", "mono"])) return null;
+  const typography = d.typography as unknown as ThemeTypography;
+
+  const colorKeys: (keyof ThemeColors)[] = [
+    "background",
+    "surface",
+    "surfaceElevated",
+    "text",
+    "textMuted",
+    "accent",
+    "border",
+    "grid",
+    "gridSecondary",
+    "ground",
+    "system",
+    "user",
+    "active",
+    "idle",
+    "sleeping",
+    "stopped",
+    "zombie",
+    "particle",
+  ];
+  if (!hasAllKeys(d.colors, colorKeys)) return null;
+  const colors = d.colors as unknown as ThemeColors;
+  if (!colorKeys.every((k) => isHexColor(colors[k]))) return null;
+
+  const sceneKeys: (keyof ThemeScene)[] = [
+    "ambientIntensity",
+    "directionalIntensity",
+    "fogColor",
+    "fogNear",
+    "fogFar",
+  ];
+  if (!hasAllKeys(d.scene, sceneKeys)) return null;
+  const scene = d.scene as unknown as ThemeScene;
+  if (
+    typeof scene.ambientIntensity !== "number" ||
+    typeof scene.directionalIntensity !== "number" ||
+    typeof scene.fogNear !== "number" ||
+    typeof scene.fogFar !== "number" ||
+    !isHexColor(scene.fogColor)
+  ) {
+    return null;
+  }
+
+  return { name: d.name, mode: d.mode, typography, colors, scene };
+}
+
+function customThemeUrl(id: string): string {
+  return `theme://local/${id}`;
+}
+
+function parseCustomThemeUrl(url: string): string | null {
+  if (!url.startsWith("theme://local/")) return null;
+  return url.slice("theme://local/".length);
+}
+
+export function getCustomThemes(): ThemeMeta[] {
+  try {
+    const raw = localStorage.getItem(CUSTOM_THEMES_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter(
+        (item): item is ThemeMeta =>
+          item &&
+          typeof item === "object" &&
+          typeof (item as ThemeMeta).id === "string" &&
+          typeof (item as ThemeMeta).name === "string" &&
+          isMode((item as ThemeMeta).mode) &&
+          typeof (item as ThemeMeta).url === "string",
+      )
+      .map((item) => ({ ...item, url: customThemeUrl(item.id) }));
+  } catch {
+    return [];
+  }
+}
+
+function loadCustomThemeById(id: string): Theme | null {
+  try {
+    const raw = localStorage.getItem(CUSTOM_THEMES_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Array<{ meta: ThemeMeta; theme: Theme }>;
+    const entry = parsed.find((p) => p.meta.id === id);
+    return entry ? validateTheme(entry.theme) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function saveCustomTheme(theme: Theme): ThemeMeta {
+  const id = `custom-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+  const meta: ThemeMeta = { id, name: theme.name, mode: theme.mode, url: customThemeUrl(id) };
+  const payload = { meta, theme };
+
+  try {
+    const raw = localStorage.getItem(CUSTOM_THEMES_STORAGE_KEY);
+    const existing = raw ? (JSON.parse(raw) as Array<{ meta: ThemeMeta; theme: Theme }>) : [];
+    existing.push(payload);
+    localStorage.setItem(CUSTOM_THEMES_STORAGE_KEY, JSON.stringify(existing));
+  } catch {
+    // Ignore storage errors.
+  }
+
+  return meta;
+}
+
+export function deleteCustomTheme(id: string): void {
+  try {
+    const raw = localStorage.getItem(CUSTOM_THEMES_STORAGE_KEY);
+    if (!raw) return;
+    const existing = JSON.parse(raw) as Array<{ meta: ThemeMeta; theme: Theme }>;
+    const next = existing.filter((p) => p.meta.id !== id);
+    localStorage.setItem(CUSTOM_THEMES_STORAGE_KEY, JSON.stringify(next));
+  } catch {
+    // Ignore storage errors.
+  }
+}
+
+export function exportThemeJson(theme: Theme): string {
+  return JSON.stringify(theme, null, 2);
+}
+
+export function importThemeJson(json: string): Theme | null {
+  try {
+    const data = JSON.parse(json) as unknown;
+    return validateTheme(data);
+  } catch {
+    return null;
+  }
+}
 
 export function getThemeRegistry(): ThemeMeta[] {
-  return [...THEME_REGISTRY];
+  return [...THEME_REGISTRY, ...getCustomThemes()];
 }
 
 export function findThemeMetaByUrl(url: string): ThemeMeta | undefined {
-  return THEME_REGISTRY.find((t) => t.url === url);
+  return getThemeRegistry().find((t) => t.url === url);
 }
 
 export function getSavedThemeUrl(): string | null {
@@ -122,6 +276,7 @@ export const FALLBACK_THEME: Theme = {
 };
 
 function isValidThemeUrl(url: string): boolean {
+  if (url.startsWith("theme://local/")) return true;
   try {
     const parsed = new URL(url, window.location.href);
     return parsed.pathname.startsWith("/themes/") && parsed.pathname.endsWith(".json");
@@ -144,6 +299,12 @@ export async function loadTheme(url: string): Promise<Theme> {
   if (!isValidThemeUrl(url)) {
     console.warn(`Rejected unsafe theme URL: ${url}`);
     return FALLBACK_THEME;
+  }
+
+  const customId = parseCustomThemeUrl(url);
+  if (customId) {
+    const custom = loadCustomThemeById(customId);
+    return custom ?? FALLBACK_THEME;
   }
 
   try {

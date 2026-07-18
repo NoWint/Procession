@@ -14,6 +14,7 @@ import ErrorState from "./components/ErrorState";
 import HudPanel from "./components/HudPanel";
 import UtilityMode from "./components/UtilityMode";
 import ThemeSelector from "./components/ThemeSelector";
+import ThemeEditor from "./components/ThemeEditor";
 import { useSystemData } from "./hooks/useSystemData";
 import type { ProcessInfo } from "./utils/types";
 import { computeTreePositions, computeProcessSignature } from "./utils/layout";
@@ -25,6 +26,7 @@ import {
   FALLBACK_THEME,
   getSavedThemeUrl,
   saveThemeUrl,
+  saveCustomTheme,
   type Theme,
 } from "./utils/theme";
 import "./App.css";
@@ -44,6 +46,7 @@ export default function App() {
   const [theme, setTheme] = useState<Theme>(FALLBACK_THEME);
   const [currentThemeUrl, setCurrentThemeUrl] = useState(DEFAULT_THEME_URL);
   const [themeReady, setThemeReady] = useState(false);
+  const [themeEditorOpen, setThemeEditorOpen] = useState(false);
 
   // Load theme on mount, restoring saved preference.
   useEffect(() => {
@@ -129,6 +132,32 @@ export default function App() {
       setCurrentThemeUrl(url);
       saveThemeUrl(url);
     });
+  }, []);
+
+  const handleOpenThemeEditor = useCallback(() => {
+    setThemeEditorOpen(true);
+  }, []);
+
+  const handleCloseThemeEditor = useCallback(() => {
+    setThemeEditorOpen(false);
+    loadTheme(currentThemeUrl).then((t) => {
+      applyTheme(t);
+      setTheme(t);
+    });
+  }, [currentThemeUrl]);
+
+  const handleThemeEditorChange = useCallback((t: Theme) => {
+    applyTheme(t);
+    setTheme(t);
+  }, []);
+
+  const handleThemeEditorSave = useCallback((t: Theme) => {
+    const meta = saveCustomTheme(t);
+    applyTheme(t);
+    setTheme(t);
+    setCurrentThemeUrl(meta.url);
+    saveThemeUrl(meta.url);
+    setThemeEditorOpen(false);
   }, []);
 
   const handleSelectProcessFromUtility = useCallback((process: ProcessInfo) => {
@@ -240,7 +269,18 @@ export default function App() {
         )}
         <div className="app-controls">
           <ThemeSelector currentUrl={currentThemeUrl} onChange={handleThemeChange} />
+          <button className="app-theme-toggle" onClick={handleOpenThemeEditor}>
+            Edit Signal
+          </button>
         </div>
+        {themeEditorOpen && (
+          <ThemeEditor
+            theme={theme}
+            onChange={handleThemeEditorChange}
+            onSave={handleThemeEditorSave}
+            onClose={handleCloseThemeEditor}
+          />
+        )}
         <ProcessPopup
           process={selectedProcess}
           onClose={handleClosePopup}

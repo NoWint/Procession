@@ -91,7 +91,7 @@ Constitution changes (STRATEGY/SPEC/ARCHITECTURE under `.docs/`) require a `D-*`
 | F-501 | Process relationship graph (fork / IPC edges)      | 5     | done    | B-501                             | L         |
 | F-502 | Port visualization (listening ports as harbors)    | 5     | done    | B-502                             | M         |
 | F-503 | Filesystem hotspots (recent read/write heat zones) | 5     | done    | B-503                             | L         |
-| F-504 | Custom theme editor / JSON import                   | 5     | pending | F-403                             | M         |
+| F-504 | Custom theme editor / JSON import                   | 5     | done    | F-403                             | M         |
 | F-505 | Screensaver / kiosk mode (fullscreen, auto-rotate) | 5     | pending | F-401                             | S         |
 | F-506 | Screenshot / GIF sharing                          | 5     | pending | F-401                             | M         |
 | D-501 | Plugin development guide                          | 5     | pending | B-504                             | M         |
@@ -110,9 +110,9 @@ Constitution changes (STRATEGY/SPEC/ARCHITECTURE under `.docs/`) require a `D-*`
 
 ## Status Counts
 
-- pending: 5
+- pending: 4
 - in_progress: 0
-- done: 54
+- done: 55
 - blocked: 0
 - failed: 0
 - stale: 0
@@ -3591,7 +3591,7 @@ Per SKILL.md §6 Granularity Rule: future phases are milestone-level only. Expan
       - "Live preview updates as colors change"
       - "Exported JSON validates against Theme schema"
       - "Imported themes are saved to localStorage and appear in ThemeSelector"
-  status: pending
+  status: done
   owner: null
   owner_started_at: null
   retry_count: 0
