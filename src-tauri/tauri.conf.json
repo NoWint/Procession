@@ -29,7 +29,7 @@
       "active": true,
       "dialog": true,
       "endpoints": [
-        "https://releases.procession.app/{{target}}-{{arch}}/{{current_version}}"
+        "https://github.com/NoWint/Procession/releases/latest/download/update.json"
       ],
       "pubkey": ""
     }
@@ -51,7 +51,7 @@
       },
       "nsis": null,
       "digestAlgorithm": "sha256",
-      "timestampUrl": "http://timestamp.comodoca.com/authenticode",
+      "timestampUrl": "https://timestamp.comodoca.com/authenticode",
       "certificateThumbprint": null
     },
     "macOS": {

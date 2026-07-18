@@ -26,10 +26,26 @@ jobs:
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+      - name: Sign and save signature
+        shell: bash
+        run: |
+          MSI=$(ls src-tauri/target/release/bundle/msi/*.msi | head -1)
+          echo "msi=$MSI" >> "$GITHUB_ENV"
+          if [ -n "${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}" ]; then
+            echo "${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}" > /tmp/updater.key
+            npx @tauri-apps/cli sign sign --file "$MSI" \
+              --key /tmp/updater.key \
+              --password "${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}" > sig-windows.txt
+            rm -f /tmp/updater.key
+          else
+            echo "" > sig-windows.txt
+          fi
       - uses: actions/upload-artifact@v4
         with:
           name: procession-windows
-          path: src-tauri/target/release/bundle/msi/*.msi
+          path: |
+            src-tauri/target/release/bundle/msi/*.msi
+            sig-windows.txt
 
   build-macos:
     runs-on: macos-latest
@@ -56,9 +72,26 @@ jobs:
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+      - name: Sign and save signature
+        shell: bash
+        run: |
+          DMG=$(ls src-tauri/target/release/bundle/dmg/*.dmg | head -1)
+          echo "dmg=$DMG" >> "$GITHUB_ENV"
+          if [ -n "${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}" ]; then
+            echo "${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}" > /tmp/updater.key
+            npx @tauri-apps/cli sign sign --file "$DMG" \
+              --key /tmp/updater.key \
+              --password "${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}" > sig-${{ matrix.target }}.txt
+            rm -f /tmp/updater.key
+          else
+            echo "" > sig-${{ matrix.target }}.txt
+          fi
+      - uses: actions/upload-artifact@v4
         with:
           name: procession-macos-${{ matrix.target }}
-          path: src-tauri/target/release/bundle/dmg/*.dmg
+          path: |
+            src-tauri/target/release/bundle/dmg/*.dmg
+            sig-${{ matrix.target }}.txt
 
   create-release:
     needs: [build-windows, build-macos]
@@ -70,9 +103,46 @@ jobs:
         with:
           pattern: procession-*
           merge-multiple: true
+      - name: Build update.json
+        shell: bash
+        run: |
+          TAG="${{ github.ref_name }}"
+          VERSION="${TAG#v}"
+
+          # Read per-platform signatures
+          WIN_SIG=$(cat sig-windows.txt 2>/dev/null || echo "")
+          ARM_SIG=$(cat sig-aarch64-apple-darwin.txt 2>/dev/null || echo "")
+          INTEL_SIG=$(cat sig-x86_64-apple-darwin.txt 2>/dev/null || echo "")
+
+          MSI=$(ls *.msi 2>/dev/null | head -1 || echo "")
+          DMG_ARM=$(ls *aarch64*.dmg 2>/dev/null | head -1 || echo "")
+          DMG_INTEL=$(ls *x86_64*.dmg 2>/dev/null | head -1 || echo "")
+
+          jq -n \
+            --arg ver "$VERSION" \
+            --arg date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --arg msi_url "https://github.com/NoWint/Procession/releases/download/$TAG/$MSI" \
+            --arg msi_sig "$WIN_SIG" \
+            --arg arm_url "https://github.com/NoWint/Procession/releases/download/$TAG/$DMG_ARM" \
+            --arg arm_sig "$ARM_SIG" \
+            --arg intel_url "https://github.com/NoWint/Procession/releases/download/$TAG/$DMG_INTEL" \
+            --arg intel_sig "$INTEL_SIG" \
+            '{
+              version: $ver,
+              pub_date: $date,
+              platforms: {}
+            }
+            | if $msi_url != "" then .platforms["windows-x86_64"] = { signature: $msi_sig, url: $msi_url } else . end
+            | if $arm_url != "" then .platforms["darwin-aarch64"] = { signature: $arm_sig, url: $arm_url } else . end
+            | if $intel_url != "" then .platforms["darwin-x86_64"] = { signature: $intel_sig, url: $intel_url } else . end
+            ' > update.json
+
+          echo "=== update.json ==="
+          cat update.json
       - uses: softprops/action-gh-release@v2
         with:
           files: |
             *.msi
             *.dmg
+            update.json
           generate_release_notes: true
