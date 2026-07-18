@@ -4,6 +4,29 @@
 
 ## Session Log
 
+### 2026-07-18 — Session #027 (frontend, F-503 filesystem heat zones, ~20min)
+- Track: frontend
+- Task: F-503 (Filesystem hotspots)
+- Status: done
+- Summary:
+  - Created `src/components/FsHeatmap.tsx` to overlay filesystem activity hotspots on `CityGround`.
+  - `computeHeatZones` maps each hotspot directory path to a deterministic ground position via hash and normalizes intensity by the max event count.
+  - Caps active zones to 20; keeps recently-active zones in a fading state until their opacity drops to zero.
+  - Renders heat zones as instanced ring geometries with AdditiveBlending, pulsing gently for active zones and dimming/fading for inactive ones.
+  - Hovering a zone shows an HTML label with event count and directory path (reusing `.harbor-label*` styles).
+  - Integrated `FsHeatmap` into `App.tsx` consuming `snapshot.fs_hotspots`.
+  - Updated `PLAN.md`: F-503 status → done; Status Counts → pending 5, done 54.
+- Decisions:
+  - Used a custom `requestAnimationFrame` loop instead of `useFrame` because the fade-out animation needs to drive React state updates; keeping animation in a ref would complicate disposal, so the loop is local and cleaned up on unmount.
+- Commits: pending
+- Files:
+  - src/components/FsHeatmap.tsx (new)
+  - src/App.tsx (mod)
+  - PLAN.md (mod)
+  - PROGRESS.md (mod)
+- Next ready: F-504 (Custom theme editor) is the next frontend task; F-403 done.
+- Notes: "Zones fade out when activity stops" is implemented by retaining removed hotspots with `fading: true` and decreasing their intensity each effect tick until they are pruned.
+
 ### 2026-07-18 — Session #026 (frontend, F-502 listening port harbors, ~20min)
 - Track: frontend
 - Task: F-502 (Port visualization)

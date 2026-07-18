@@ -8,6 +8,7 @@ import CityGround from "./components/CityGround";
 import Atmosphere from "./components/Atmosphere";
 import RelationGraph from "./components/RelationGraph";
 import PortHarbors from "./components/PortHarbors";
+import FsHeatmap from "./components/FsHeatmap";
 import ProcessPopup from "./components/ProcessPopup";
 import ErrorState from "./components/ErrorState";
 import HudPanel from "./components/HudPanel";
@@ -189,6 +190,7 @@ export default function App() {
       <CityScene theme={theme} cameraTarget={cameraTarget ?? (selectedPosition ? { x: selectedPosition.x, y: selectedPosition.height, z: selectedPosition.z } : null)}>
         <Atmosphere theme={theme} />
         <CityGround theme={theme} />
+        <FsHeatmap hotspots={snapshot.fs_hotspots} theme={theme} />
         <BuildingCluster
           processes={snapshot.processes}
           positions={positions}
