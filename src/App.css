@@ -238,3 +238,35 @@ canvas {
   opacity: 0.92;
   transform: translateY(-50%);
 }
+
+.harbor-label {
+  padding: 5px 8px;
+  background: var(--proc-surface);
+  color: var(--proc-text);
+  border: 1px solid var(--proc-border);
+  border-radius: var(--proc-radius-sm);
+  font-family: var(--proc-font-mono);
+  font-size: 10px;
+  text-align: center;
+  box-shadow: var(--proc-shadow-sm);
+  opacity: 0.95;
+  transform: translateY(-50%);
+}
+
+.harbor-label-port {
+  font-weight: 600;
+  font-size: 11px;
+  margin-bottom: 2px;
+}
+
+.harbor-label-address {
+  color: var(--proc-text-muted);
+  font-size: 9px;
+  margin-bottom: 2px;
+}
+
+.harbor-label-scope {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}

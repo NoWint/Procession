@@ -7,6 +7,7 @@ import CableFlow from "./components/CableFlow";
 import CityGround from "./components/CityGround";
 import Atmosphere from "./components/Atmosphere";
 import RelationGraph from "./components/RelationGraph";
+import PortHarbors from "./components/PortHarbors";
 import ProcessPopup from "./components/ProcessPopup";
 import ErrorState from "./components/ErrorState";
 import HudPanel from "./components/HudPanel";
@@ -204,6 +205,11 @@ export default function App() {
           theme={theme}
           selectedPid={selectedProcess?.pid ?? null}
           hoveredPid={hoveredProcess?.pid ?? null}
+        />
+        <PortHarbors
+          ports={snapshot.listening_ports}
+          positions={positions}
+          theme={theme}
         />
         <BuildingHalo
           processes={snapshot.processes}

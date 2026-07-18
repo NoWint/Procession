@@ -4,6 +4,32 @@
 
 ## Session Log
 
+### 2026-07-18 — Session #026 (frontend, F-502 listening port harbors, ~20min)
+- Track: frontend
+- Task: F-502 (Port visualization)
+- Status: done
+- Summary:
+  - Created `src/components/PortHarbors.tsx` to render listening ports as glowing dock-like harbors around the city perimeter.
+  - `computeHarborData` maps each port to a deterministic position on an outer ring (radius 14–18.5) using a hash of `port-protocol`.
+  - Filters ports to those whose owning process is visible in the current building layout and caps at 40 harbors.
+  - Public ports (`0.0.0.0`, `::`, empty) render in amber `#ffb84d`; private ports use `theme.colors.system`.
+  - Renders dock geometry via `InstancedMesh` and cables from each dock to its owning process building via batched `LineSegments`.
+  - Hovering a dock shows an HTML label with port/protocol, address, and public/private scope.
+  - Added `.harbor-label*` styles to `App.css`.
+  - Integrated `PortHarbors` into `App.tsx` consuming `snapshot.listening_ports`.
+  - Updated `PLAN.md`: F-502 status → done; Status Counts → pending 6, done 53.
+- Decisions:
+  - Used fixed amber for public ports because `ThemeColors` does not yet expose a warning/amber token; this keeps the visual contract without expanding the theme system in F-502 scope.
+- Commits: pending
+- Files:
+  - src/components/PortHarbors.tsx (new)
+  - src/App.tsx (mod)
+  - src/App.css (mod)
+  - PLAN.md (mod)
+  - PROGRESS.md (mod)
+- Next ready: F-503 (Filesystem hotspots) is the next frontend task; all hard deps done.
+- Notes: Cable geometry is recomputed when harbors change; no vertex colors needed because all harbor cables share the theme accent color at uniform opacity.
+
 ### 2026-07-18 — Session #025 (frontend, F-501 process relationship graph, ~25min)
 - Track: frontend
 - Task: F-501 (Process relationship graph)
