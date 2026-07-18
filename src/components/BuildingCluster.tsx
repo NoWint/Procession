@@ -374,7 +374,7 @@ export default function BuildingCluster({
         <boxGeometry args={[0.5, 1, 0.5]} />
         <shaderMaterial ref={highMatRef}
           vertexShader={hv} fragmentShader={hf}
-          vertexColors transparent depthWrite={false}
+          transparent depthWrite={false}
           uniforms={{ uTime: { value: 0 }, uEmissive: { value: new THREE.Color(theme.colors.electricCyan) }, uEnergy: { value: 0.7 } }} />
       </instancedMesh>
 
@@ -383,7 +383,7 @@ export default function BuildingCluster({
         <boxGeometry args={[0.5, 1, 0.5]} />
         <shaderMaterial ref={midMatRef}
           vertexShader={mv} fragmentShader={mf}
-          vertexColors transparent depthWrite={false}
+          transparent depthWrite={false}
           uniforms={{ uEmissive: { value: new THREE.Color(theme.colors.electricCyan) } }} />
       </instancedMesh>
 
@@ -392,7 +392,7 @@ export default function BuildingCluster({
         <boxGeometry args={[0.15, 0.15, 0.15]} />
         <shaderMaterial ref={lowMatRef}
           vertexShader={lv} fragmentShader={lf}
-          vertexColors transparent depthWrite={false}
+          transparent depthWrite={false}
           uniforms={{ uEmissive: { value: new THREE.Color(theme.colors.electricCyan) } }} />
       </instancedMesh>
 
