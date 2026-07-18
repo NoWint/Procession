@@ -1,7 +1,7 @@
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
 import type React from "react";
-import { Fog, Color } from "three";
+import { FogExp2, Color } from "three";
 import CameraController from "./CameraController";
 import { FALLBACK_THEME, type Theme } from "../utils/theme";
 
@@ -20,9 +20,9 @@ export default function CityScene({
 }: CitySceneProps) {
   return (
     <Canvas
-      camera={{ position: [18, 14, 18], fov: 50 }}
+      camera={{ position: [28, 22, 28], fov: 45 }}
       scene={{
-        fog: new Fog(new Color(theme.scene.fogColor), theme.scene.fogNear, theme.scene.fogFar),
+        fog: new FogExp2(new Color(theme.scene.fogColor), 0.018),
         background: new Color(theme.colors.background),
       }}
       gl={{ antialias: true, alpha: false }}

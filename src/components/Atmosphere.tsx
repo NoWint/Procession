@@ -11,15 +11,15 @@ interface AtmosphereProps {
 
 export default function Atmosphere({
   theme = FALLBACK_THEME,
-  particleCount = 200,
+  particleCount = 600,
 }: AtmosphereProps) {
   const particles = useMemo(() => {
     const count = particleCount;
     const positions = new Float32Array(count * 3);
     for (let i = 0; i < count; i++) {
-      positions[i * 3] = (Math.random() - 0.5) * 80;
-      positions[i * 3 + 1] = Math.random() * 30;
-      positions[i * 3 + 2] = (Math.random() - 0.5) * 80;
+      positions[i * 3] = (Math.random() - 0.5) * 120;
+      positions[i * 3 + 1] = Math.random() * 60;
+      positions[i * 3 + 2] = (Math.random() - 0.5) * 120;
     }
     return positions;
   }, [particleCount]);
@@ -40,17 +40,18 @@ export default function Atmosphere({
         </bufferGeometry>
         <pointsMaterial
           color={theme.colors.particle}
-          size={0.2}
+          size={0.12}
           transparent
-          opacity={0.6}
+          opacity={0.5}
           sizeAttenuation
         />
       </points>
       <EffectComposer>
         <Bloom
-          intensity={theme.mode === "dark" ? 0.5 : 0.35}
-          luminanceThreshold={theme.mode === "dark" ? 0.4 : 0.55}
-          luminanceSmoothing={0.4}
+          intensity={theme.mode === "dark" ? 0.85 : 0.55}
+          luminanceThreshold={theme.mode === "dark" ? 0.45 : 0.6}
+          luminanceSmoothing={0.35}
+          mipmapBlur
         />
       </EffectComposer>
     </>
