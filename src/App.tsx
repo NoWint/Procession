@@ -7,6 +7,7 @@ import CableFlow from "./components/CableFlow";
 import CityGround from "./components/CityGround";
 import CityBackground from "./components/CityBackground";
 import Atmosphere from "./components/Atmosphere";
+import BloomEffect from "./components/BloomEffect";
 import RelationGraph from "./components/RelationGraph";
 import PortHarbors from "./components/PortHarbors";
 import FsHeatmap from "./components/FsHeatmap";
@@ -335,6 +336,7 @@ export default function App() {
         autoRotate={autoRotate}
       >
         <Atmosphere theme={theme} />
+        <BloomEffect strength={0.25} radius={0.4} threshold={0.15} />
         <CityBackground theme={theme} />
         <CityGround theme={theme} />
         <FsHeatmap hotspots={displaySnapshot.fs_hotspots} theme={theme} />
