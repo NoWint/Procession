@@ -11,6 +11,8 @@ use engine::mock::MockAdapter;
 use engine::windows::WindowsImpl;
 #[cfg(target_os = "macos")]
 use engine::macos::MacImpl;
+#[cfg(target_os = "linux")]
+use engine::linux::LinuxImpl;
 use engine::platform::PlatformAdapter;
 
 /// Reject paths containing traversal components as a defense-in-depth
@@ -85,7 +87,14 @@ pub fn run() {
         Box::new(MacImpl::new())
     };
 
-    #[cfg(not(any(target_os = "windows", target_os = "macos")))]
+    #[cfg(target_os = "linux")]
+    let adapter: Box<dyn PlatformAdapter> = if cfg!(feature = "mock") {
+        Box::new(MockAdapter::new())
+    } else {
+        Box::new(LinuxImpl::new())
+    };
+
+    #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
     let adapter: Box<dyn PlatformAdapter> = Box::new(MockAdapter::new());
 
     let engine = SystemEngine::new(adapter);

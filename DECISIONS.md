@@ -45,7 +45,19 @@
 - Supersedes: none
 - Affects: All PLAN.md tasks, all future sessions
 
-### D-006: macOS Hardened Runtime Entitlement Minimum Set
+### D-007: Phase 7 — Backlog Fulfillment Kickoff
+- Date: 2026-07-18
+- Status: Accepted
+- Track: backend
+- Context: Phase 1-6 all complete (67 tasks done). SPEC.md and ROADMAP.md define features not yet implemented: Linux support, building LOD, settings panel, i18n, E2E testing, CI PR pipeline, Linux build guide. User selected "backlog fulfillment" as Phase 7 direction.
+- Decision: Define Phase 7 as completing SPEC/ROADMAP commitments omitted from earlier phases. 8 tasks across B/F/I/D tracks. B-701 (Linux adapter) starts immediately; F-701/F-702/F-703 wait for 夏天.
+- Consequences:
+  + Closes gaps between design docs and implementation
+  + Linux adapter makes the app truly cross-platform (Win/Mac/Linux)
+  + E2E + CI pipeline improves code quality and contributor onboarding
+  - Phase 7 depends on 夏天's availability for 3 frontend tasks
+- Supersedes: none
+- Affects: PLAN.md Phase 7 section, B-701, F-701, F-702, F-703, I-701, I-702, D-701, I-703
 - Date: 2026-07-18
 - Status: Accepted
 - Track: backend

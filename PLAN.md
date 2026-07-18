@@ -11,7 +11,7 @@
   - backend: `src-tauri/src/types.rs` (canonical — Rust owns the schema)
   - frontend: `src/utils/types.ts` (mirror — must stay in sync with backend)
 - Contract freeze: null    # null, or "I-XXX in progress, target vX.Y"
-- Current phase: 6
+- Current phase: 7
 - License: AGPL-3.0
 
 ## Track → Team Mapping (per D-002)
@@ -116,6 +116,19 @@ Constitution changes (STRATEGY/SPEC/ARCHITECTURE under `.docs/`) require a `D-*`
 | D-601 | Release notes + distribution guide                 | 6     | done    | B-603                             | M         |
 | I-601 | Phase 6 full acceptance                            | 6     | done    | B-601, B-602, B-603, F-601, F-602, F-603, F-604, F-605, F-606, D-601 | XL |
 
+### Phase 7 (B-*/F-*/I-*/D-*) — backlog fulfillment: SPEC commitments not yet delivered
+
+| ID    | Title                                              | Phase | Status  | Deps                              | Complexity |
+|-------|----------------------------------------------------|-------|---------|-----------------------------------|-----------|
+| B-701 | Linux PlatformAdapter (sysinfo + /proc)            | 7     | done    | B-002                             | L         |
+| F-701 | Building LOD system (3-level)                      | 7     | pending | F-008                             | L         |
+| F-702 | Settings panel (refresh rate, caps, quality)       | 7     | pending | F-012                             | L         |
+| F-703 | i18n (Chinese + English)                          | 7     | pending | F-702                             | M         |
+| I-701 | E2E test infrastructure                           | 7     | pending | I-001                             | M         |
+| I-702 | CI PR test pipeline (tsc + cargo + clippy + test) | 7     | pending | I-701                             | M         |
+| D-701 | Linux build guide                                  | 7     | pending | B-701                             | S         |
+| I-703 | Phase 7 full acceptance                            | 7     | pending | B-701, F-701, F-702, F-703, I-702, D-701 | L |
+
 ## Runtime Resources
 
 - vite_dev_ports: {}
@@ -126,9 +139,9 @@ Constitution changes (STRATEGY/SPEC/ARCHITECTURE under `.docs/`) require a `D-*`
 
 ## Status Counts
 
-- pending: 4
+- pending: 11
 - in_progress: 0
-- done: 67
+- done: 68
 - blocked: 0
 - failed: 0
 - stale: 0
@@ -3980,6 +3993,360 @@ Per SKILL.md §6 Granularity Rule: future phases are milestone-level only. Expan
     - "Step 7: Commit: 'milestone: Phase 5 acceptance passed'"
   handoff_notes: ""
   notes: "Phase 5 milestone gate."
+```
+
+---
+
+### Phase 7 Task Definitions
+
+#### B-701: Linux PlatformAdapter (sysinfo + /proc)
+
+```yaml
+- id: B-701
+  track: backend
+  title: "Linux PlatformAdapter (sysinfo + /proc)"
+  phase: 7
+  depends_on:
+    hard: [B-002]
+    soft: []
+  blocks: [D-701, I-703]
+  contract_refs: []
+  files_allowed_to_touch:
+    - src-tauri/src/engine/mod.rs
+    - src-tauri/src/engine/linux.rs
+    - src-tauri/src/lib.rs
+  forbidden:
+    - src/**
+    - src-tauri/src/types.rs
+    - src-tauri/src/engine/platform.rs
+    - src-tauri/src/bridge/**
+  estimated_complexity: L
+  requires_user_approval: false
+  acceptance:
+    mechanical:
+      - "cd src-tauri && cargo build exits 0"
+      - "cd src-tauri && cargo clippy --all-targets -- -D warnings exits 0"
+    existence:
+      - "src-tauri/src/engine/linux.rs exists"
+      - "grep 'pub struct LinuxImpl' src-tauri/src/engine/linux.rs ≥ 1"
+      - "grep 'impl PlatformAdapter for LinuxImpl' src-tauri/src/engine/linux.rs ≥ 1"
+      - "grep 'pub mod linux' src-tauri/src/engine/mod.rs ≥ 1"
+      - "grep 'target_os.*linux' src-tauri/src/engine/mod.rs ≥ 1"
+      - "grep 'target_os.*linux' src-tauri/src/lib.rs ≥ 1"
+    behavioral:
+      - "On Linux: `cargo run` starts, collect_snapshot returns real process/CPU/memory/network/disk data"
+      - "On non-Linux: cargo build compiles without LinuxImpl (conditionally compiled)"
+      - "GPU/temperature return None gracefully (no crash on missing sensors)"
+      - "Network and disk return realistic values via sysinfo (not stubbed)"
+  status: done
+  owner: null
+  owner_started_at: null
+  retry_count: 0
+  linked_blocker: null
+  resume_hint: |
+    1. Read PLAN.md#B-701 (this task)
+    2. Read PROGRESS.md last entry
+    3. Read handoff_notes (if any)
+    4. Read engine/macos.rs as reference pattern (same sysinfo usage)
+    5. Verify B-002 done (PlatformAdapter trait exists)
+    6. Run `cd src-tauri && cargo build`
+    7. Execute steps below
+  steps:
+    - "Step 1: Edit src-tauri/src/engine/mod.rs: add `#[cfg(target_os = \"linux\")] pub mod linux;`"
+    - "Step 2: Create src-tauri/src/engine/linux.rs: struct LinuxImpl { sys: Mutex<System>, net: Mutex<NetworkTracker>, disk: Mutex<DiskTracker> }"
+    - "Step 3: Implement get_processes(): call sys.lock(), refresh_processes(), map to ProcessInfo (pid→u32, ppid via parent(), name, cpu_usage()→f32, memory()/1024→u64, ProcessStatus→ProcessState, user via user_id())"
+    - "Step 4: Implement get_cpu(): CpuRefreshKind::new().with_cpu_usage(), refresh_cpu_specific(), global_cpu_info().cpu_usage() + per_core from cpus()"
+    - "Step 5: Implement get_memory(): sys.refresh_memory(), used_memory/total_memory/swap_used/swap_total (convert bytes→MB)"
+    - "Step 6: Implement get_network(): NetworkTracker similar to mac.rs — refresh, compute delta with time normalization, return bytes/sec + empty connections vec"
+    - "Step 7: Implement get_disk(): DiskTracker — refresh_disks_list(), sum read/write bytes, compute delta, compute avg usage_percent"
+    - "Step 8: Implement get_gpu(): return None (Linux GPU detection is NVRM/non-standard, defer)"
+    - "Step 9: Implement get_temperature(): read /sys/class/thermal/thermal_zone*/temp, parse millidegrees→°C, return first CPU zone as Option<CpuGpuTemp>"
+    - "Step 10: Edit src-tauri/src/lib.rs: add `#[cfg(target_os = \"linux\")] use engine::linux::LinuxImpl;` and adapter selection block similar to macOS block"
+    - "Step 11: Run `cd src-tauri && cargo build` and `cargo clippy --all-targets -- -D warnings`"
+    - "Step 12: Commit: `git add -A && git commit -m 'feat(backend): add Linux PlatformAdapter'`"
+  handoff_notes: ""
+  notes: |
+    sysinfo 0.33 works on Linux natively. The main non-trivial parts:
+    - Temperature: Linux exposes via /sys/class/thermal; no crate needed
+    - GPU: Linux GPU detection is complex (NVRM, AMD ROCm, /sys); return None for now
+    - Network: sysinfo Networks works on Linux; identical pattern to MacNetworkTracker
+    - Disk: sysinfo Disks works on Linux; identical pattern to MacImpl disk tracking
+```
+
+#### F-701: Building LOD system
+
+```yaml
+- id: F-701
+  track: frontend
+  title: "Building LOD system (3-level — near/mid/far)"
+  phase: 7
+  depends_on:
+    hard: [F-008]
+    soft: []
+  blocks: [I-703]
+  contract_refs: []
+  files_allowed_to_touch:
+    - src/components/BuildingCluster.tsx
+  forbidden:
+    - src-tauri/**
+    - src/utils/types.ts
+  estimated_complexity: L
+  requires_user_approval: false
+  acceptance:
+    mechanical:
+      - "npx tsc --noEmit exits 0"
+    existence:
+      - "grep 'LOD' src/components/BuildingCluster.tsx ≥ 1 OR grep 'lod' src/components/BuildingCluster.tsx ≥ 1"
+      - "grep 'detail' src/components/BuildingCluster.tsx ≥ 1 OR grep 'Level' src/components/BuildingCluster.tsx ≥ 1"
+    behavioral:
+      - "Camera zoom out → buildings simplify to cubes then to glow points"
+      - "Camera zoom in → buildings show full detail (crown, windows, Fresnel glow)"
+      - "FPS improves by ≥30% at far distance vs near distance with 500 buildings"
+  status: pending
+  owner: null
+  owner_started_at: null
+  notes: "Three LOD levels per SPEC §6.1: near (<50 units) full detail, mid (50-150) simplified, far (>150) glow point. 夏天's task."
+```
+
+#### F-702: Settings panel
+
+```yaml
+- id: F-702
+  track: frontend
+  title: "Settings panel (refresh rate, caps, quality)"
+  phase: 7
+  depends_on:
+    hard: [F-012]
+    soft: []
+  blocks: [F-703, I-703]
+  contract_refs: []
+  files_allowed_to_touch:
+    - src/components/SettingsPanel.tsx
+    - src/components/SettingsPanel.css
+    - src/App.tsx
+    - src/App.css
+  forbidden:
+    - src-tauri/**
+    - src/utils/types.ts
+  estimated_complexity: L
+  requires_user_approval: false
+  acceptance:
+    mechanical:
+      - "npx tsc --noEmit exits 0"
+    existence:
+      - "src/components/SettingsPanel.tsx exists"
+    behavioral:
+      - "Color theme selector changes building/ground/atmosphere colors in real time"
+      - "Process cap slider (100-2000) limits visible building count"
+      - "Quality toggle (performance/quality) enables/disables bloom"
+  status: pending
+  owner: null
+  owner_started_at: null
+  notes: "Implements SPEC §7.4. 夏天's task."
+```
+
+#### F-703: i18n (Chinese + English)
+
+```yaml
+- id: F-703
+  track: frontend
+  title: "i18n (Chinese + English)"
+  phase: 7
+  depends_on:
+    hard: [F-702]
+    soft: []
+  blocks: [I-703]
+  contract_refs: []
+  files_allowed_to_touch:
+    - src/i18n/zh.json
+    - src/i18n/en.json
+    - src/i18n/index.ts
+    - src/hooks/useI18n.ts
+    - src/App.tsx
+    - src/App.css
+  forbidden:
+    - src-tauri/**
+    - src/utils/types.ts
+  estimated_complexity: M
+  requires_user_approval: false
+  acceptance:
+    mechanical:
+      - "npx tsc --noEmit exits 0"
+    existence:
+      - "src/i18n/zh.json exists"
+      - "src/i18n/en.json exists"
+      - "src/hooks/useI18n.ts exists"
+    behavioral:
+      - "Chinese system locale → HUD/process popup/settings display Chinese text"
+      - "English system locale → all text displays in English"
+      - "No hardcoded user-facing strings remain in components (all via t() function)"
+  status: pending
+  owner: null
+  owner_started_at: null
+  notes: "Covers HUD, ProcessPopup, SettingsPanel, and any other user-facing UI. 夏天's task."
+```
+
+#### I-701: E2E test infrastructure
+
+```yaml
+- id: I-701
+  track: integration
+  title: "E2E test infrastructure"
+  phase: 7
+  depends_on:
+    hard: [I-001]
+    soft: []
+  blocks: [I-702]
+  contract_refs: []
+  files_allowed_to_touch:
+    - tests/
+    - playwright.config.ts
+    - package.json
+  forbidden:
+    - src-tauri/**
+    - src/**
+  estimated_complexity: M
+  requires_user_approval: false
+  acceptance:
+    mechanical:
+      - "npx playwright test --dry-run exits 0"
+    existence:
+      - "tests/ directory exists"
+      - "tests/smoke.spec.ts exists"
+      - "playwright.config.ts exists"
+    behavioral:
+      - "`npx playwright test` launches the app and verifies title 'Procession'"
+      - "Smoke test confirms app window opens and R3F canvas renders"
+  status: pending
+  owner: null
+  owner_started_at: null
+  notes: "Use Tauri's WebDriver or a simple Playwright setup that connects to the dev server."
+```
+
+#### I-702: CI PR test pipeline
+
+```yaml
+- id: I-702
+  track: integration
+  title: "CI PR test pipeline (tsc + cargo + clippy + test)"
+  phase: 7
+  depends_on:
+    hard: [I-701]
+    soft: []
+  blocks: [I-703]
+  contract_refs: []
+  files_allowed_to_touch:
+    - .github/workflows/pr.yml
+  forbidden:
+    - src/**
+    - src-tauri/**
+  estimated_complexity: M
+  requires_user_approval: true
+  acceptance:
+    mechanical:
+      - "gh workflow run pr.yml —dry-run (or simulate lint)"
+    existence:
+      - ".github/workflows/pr.yml exists"
+      - "grep 'pull_request' .github/workflows/pr.yml ≥ 1"
+      - "grep 'cargo build' .github/workflows/pr.yml ≥ 1"
+      - "grep 'npx tsc' .github/workflows/pr.yml ≥ 1"
+      - "grep 'npm test' .github/workflows/pr.yml ≥ 1"
+    behavioral:
+      - "Opening a PR triggers the workflow"
+      - "All checks pass on current main"
+  status: pending
+  owner: null
+  owner_started_at: null
+  notes: "Separate from the release.yml. Focus on fast feedback: tsc, cargo build, clippy, unit tests."
+```
+
+#### D-701: Linux build guide
+
+```yaml
+- id: D-701
+  track: docs
+  title: "Linux build guide"
+  phase: 7
+  depends_on:
+    hard: [B-701]
+    soft: []
+  blocks: [I-703]
+  contract_refs: []
+  files_allowed_to_touch:
+    - docs/linux.md
+  forbidden:
+    - src/**
+    - src-tauri/**
+  estimated_complexity: S
+  requires_user_approval: false
+  acceptance:
+    mechanical: []
+    existence:
+      - "docs/linux.md exists"
+      - "grep 'apt' docs/linux.md OR grep 'dnf' docs/linux.md OR grep 'pacman' docs/linux.md ≥ 1"
+    behavioral:
+      - "Linux user follows docs/linux.md and builds the app successfully"
+  status: pending
+  owner: null
+  owner_started_at: null
+  notes: "List system deps (libwebkit2gtk, libgtk-3, etc.), Rust toolchain, build steps, known issues."
+```
+
+#### I-703: Phase 7 full acceptance
+
+```yaml
+- id: I-703
+  track: integration
+  title: "Phase 7 full acceptance"
+  phase: 7
+  depends_on:
+    hard: [B-701, F-701, F-702, F-703, I-702, D-701]
+    soft: []
+  blocks: []
+  contract_refs: []
+  files_allowed_to_touch: []
+  forbidden:
+    - src/**
+    - src-tauri/**
+  estimated_complexity: M
+  requires_user_approval: false
+  acceptance:
+    mechanical:
+      - "All Phase 7 deps status=done in PLAN.md"
+      - "npx tsc --noEmit exits 0"
+      - "cd src-tauri && cargo build exits 0"
+      - "cd src-tauri && cargo clippy --all-targets -- -D warnings exits 0"
+      - "cd src-tauri && cargo test exits 0"
+      - "npm test -- --run exits 0"
+    existence:
+      - "src-tauri/src/engine/linux.rs exists (if B-701 done)"
+      - "src/components/SettingsPanel.tsx exists (if F-702 done)"
+      - "src/i18n/zh.json exists (if F-703 done)"
+      - ".github/workflows/pr.yml exists (if I-702 done)"
+      - "docs/linux.md exists (if D-701 done)"
+    behavioral:
+      - "App runs on Linux with real system data (if B-701 done)"
+      - "Settings panel accessible and functional (if F-702 done)"
+      - "Language toggle works: Chinese ↔ English (if F-703 done)"
+  status: pending
+  owner: null
+  owner_started_at: null
+  resume_hint: |
+    1. Read PLAN.md#I-703
+    2. Verify all hard deps done
+    3. Run full mechanical + existence + behavioral checks
+    4. Update PLAN.md status counts and current phase
+    5. Append PROGRESS.md entry
+  steps:
+    - "Step 1: Confirm all Phase 7 tasks done"
+    - "Step 2: Run mechanical checks"
+    - "Step 3: Verify existence checks"
+    - "Step 4: Perform behavioral checks"
+    - "Step 5: Update PLAN.md (I-703 done, counts, current phase)"
+    - "Step 6: Append PROGRESS.md entry"
+    - "Step 7: Commit: 'milestone: Phase 7 acceptance passed'"
+  handoff_notes: ""
+  notes: "Phase 7 milestone gate."
 ```
 
 ---

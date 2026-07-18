@@ -4,6 +4,32 @@
 
 ## Session Log
 
+### 2026-07-18 — Session #041 (backend, Phase 7 planning + B-701 implementation, ~20min)
+- Track: backend
+- Task: Phase 7 plan approval + B-701 (Linux PlatformAdapter)
+- Status: done
+- Summary:
+  - Discussed Phase 7 direction with user → agreed on "backlog fulfillment"
+  - Defined 8 Phase 7 tasks: B-701 (Linux), F-701 (LOD), F-702 (Settings), F-703 (i18n), I-701 (E2E), I-702 (CI), D-701 (Linux guide), I-703 (acceptance)
+  - Updated PLAN.md: Phase 7 index table + full B-701 spec + milestones for remaining tasks
+  - Updated PLAN.md: current_phase → 7, B-701 → done, pending count → 11, done count → 68
+  - Updated DECISIONS.md: D-007 Phase 7 kickoff ADR
+  - Created src-tauri/src/engine/linux.rs: LinuxImpl (sysinfo CPU/memory/process, sysinfo Networks delta, Disks usage, /sys/class/thermal temperature, GPU → None)
+  - Updated engine/mod.rs: added #[cfg(target_os = "linux")] pub mod linux
+  - Updated lib.rs: added LinuxImpl import + adapter selection block
+  - Verified: cargo build, cargo clippy -- -D warnings, cargo test (21/21), npx tsc --noEmit, npm test (59/59) all pass
+- Decisions: D-007 (Phase 7 kickoff ADR)
+- Commits: pending
+- Files:
+  - src-tauri/src/engine/linux.rs (new) — Linux PlatformAdapter implementation
+  - src-tauri/src/engine/mod.rs (mod) — linux module registration
+  - src-tauri/src/lib.rs (mod) — LinuxImpl import + cfg selection
+  - PLAN.md (mod) — Phase 7 index table, task specs, B-701 → done, status counts
+  - PROGRESS.md (mod) — this entry
+  - DECISIONS.md (mod) — D-007 ADR
+- Next ready: F-701 (Building LOD — waits for 夏天) or I-701 (E2E test infrastructure)
+- Notes: Phase 7 = backlog fulfillment. B-701 done. F-701/F-702/F-703 need 夏天. I-701/I-702 are open for any owner.
+
 ### 2026-07-18 — Session #040 (integration, I-601 Phase 6 full acceptance, ~10min)
 - Track: integration
 - Task: I-601 (Phase 6 full acceptance)
