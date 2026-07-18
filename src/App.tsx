@@ -332,7 +332,7 @@ export default function App() {
           positions={positions}
           theme={theme}
           selectedPid={selectedProcess?.pid ?? null}
-          showLabels={utilityMode}
+          showLabels={true}
           maxBuildings={maxBuildings}
           onClick={handleBuildingClick}
           onDoubleClick={handleBuildingDoubleClick}
@@ -369,20 +369,22 @@ export default function App() {
             )}
           </span>
         </div>
-        <HudPanel snapshot={displaySnapshot} theme={theme} />
-        {utilityMode && (
+        {false && displaySnapshot ? <HudPanel snapshot={displaySnapshot!} theme={theme} /> : null}
+        {false && displaySnapshot && utilityMode ? (
           <UtilityMode
-            snapshot={displaySnapshot}
+            snapshot={displaySnapshot!}
             positions={positions}
             theme={theme}
             onSelectProcess={handleSelectProcessFromUtility}
           />
-        )}
+        ) : null}
         <div className="app-controls">
-          <ThemeSelector currentUrl={currentThemeUrl} onChange={handleThemeChange} />
-          <button className="app-theme-toggle" onClick={handleOpenThemeEditor}>
-            Edit Signal
-          </button>
+          {false && <ThemeSelector currentUrl={currentThemeUrl} onChange={handleThemeChange} />}
+          {false && (
+            <button className="app-theme-toggle" onClick={handleOpenThemeEditor}>
+              Edit Signal
+            </button>
+          )}
           <button
             className="app-theme-toggle"
             onClick={() => setAutoRotate((prev) => !prev)}
@@ -400,7 +402,7 @@ export default function App() {
           </button>
           <ScreenshotButton />
         </div>
-        <FpsCounter />
+        {false && <FpsCounter />}
         {timelineOpen && (
           <TimelineConsole
             history={history.history}
@@ -420,7 +422,7 @@ export default function App() {
             canSave={history.history.length >= 2}
           />
         )}
-        {themeEditorOpen && (
+        {false && themeEditorOpen && (
           <ThemeEditor
             theme={theme}
             onChange={handleThemeEditorChange}
