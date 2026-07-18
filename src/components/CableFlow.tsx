@@ -20,16 +20,7 @@ export interface Particle {
 }
 
 const DEFAULT_PARTICLES_PER_CABLE = 3;
-const PARTICLE_SIZE = 0.13;
-
-function hexToRgbNormalized(hex: string): [number, number, number] {
-  const clean = hex.replace("#", "");
-  const bigint = parseInt(clean, 16);
-  const r = ((bigint >> 16) & 255) / 255;
-  const g = ((bigint >> 8) & 255) / 255;
-  const b = (bigint & 255) / 255;
-  return Number.isNaN(bigint) ? [1, 1, 1] : [r, g, b];
-}
+const PARTICLE_SIZE = 0.22;
 
 export function updateParticles(
   particles: Particle[],
@@ -98,10 +89,11 @@ export default function CableFlow({
 
     for (let i = 0; i < p.length; i++) {
       const protocol = protocols[p[i].pathIndex] ?? "";
-      const [r, g, b] = hexToRgbNormalized(cableColorForProtocol(protocol, theme));
-      colors[i * 3] = r;
-      colors[i * 3 + 1] = g;
-      colors[i * 3 + 2] = b;
+      const base = new THREE.Color(cableColorForProtocol(protocol, theme));
+      const bright = base.clone().offsetHSL(0, 0, 0.25);
+      colors[i * 3] = bright.r;
+      colors[i * 3 + 1] = bright.g;
+      colors[i * 3 + 2] = bright.b;
     }
 
     geo.setAttribute("position", new THREE.BufferAttribute(positions, 3));
@@ -132,10 +124,11 @@ export default function CableFlow({
       <pointsMaterial
         size={PARTICLE_SIZE}
         transparent
-        opacity={0.85}
+        opacity={0.95}
         depthWrite={false}
         sizeAttenuation
         vertexColors
+        blending={THREE.AdditiveBlending}
       />
     </points>
   );
