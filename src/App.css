@@ -51,6 +51,16 @@ canvas {
   color: var(--proc-text-muted);
 }
 
+.app-history-indicator {
+  color: var(--proc-accent);
+  margin-left: 4px;
+}
+
+.app-toggle-active {
+  border-color: var(--proc-accent);
+  color: var(--proc-accent);
+}
+
 .app-controls {
   position: absolute;
   top: 20px;

@@ -18,7 +18,9 @@ import ThemeEditor from "./components/ThemeEditor";
 import ScreensaverMode from "./components/ScreensaverMode";
 import ScreenshotButton from "./components/ScreenshotButton";
 import FpsCounter from "./components/FpsCounter";
+import TimelineConsole from "./components/TimelineConsole";
 import { useSystemData } from "./hooks/useSystemData";
+import { useSystemHistory } from "./hooks/useSystemHistory";
 import { useFpsMonitor } from "./hooks/useFpsMonitor";
 import type { ProcessInfo } from "./utils/types";
 import { computeTreePositions, computeProcessSignature } from "./utils/layout";
@@ -37,6 +39,7 @@ import "./App.css";
 import "./components/HudPanel.css";
 import "./components/UtilityMode.css";
 import "./components/ThemeSelector.css";
+import "./components/TimelineConsole.css";
 
 const DATA_TIMEOUT_MS = 4000;
 
@@ -47,7 +50,9 @@ const MAX_BUILDINGS_MAX = 400;
 const BUILDINGS_STEP = 40;
 
 export default function App() {
-  const snapshot = useSystemData();
+  const liveSnapshot = useSystemData();
+  const history = useSystemHistory(liveSnapshot);
+  const { displaySnapshot } = history;
   const { isLow, isHigh } = useFpsMonitor({
     sampleSize: 30,
     lowThreshold: 28,
@@ -66,6 +71,7 @@ export default function App() {
   const [kioskMode, setKioskMode] = useState(false);
   const [autoRotate, setAutoRotate] = useState(false);
   const [showUi, setShowUi] = useState(true);
+  const [timelineOpen, setTimelineOpen] = useState(true);
   const kioskIdleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Load theme on mount, restoring saved preference.
@@ -85,18 +91,18 @@ export default function App() {
     };
   }, []);
 
-  // Data timeout detection.
+  // Data timeout detection is based on the live stream, not the selected history frame.
   useEffect(() => {
     const timer = setTimeout(() => {
-      if (!snapshot) setTimedOut(true);
+      if (!liveSnapshot) setTimedOut(true);
     }, DATA_TIMEOUT_MS);
 
-    if (snapshot) {
+    if (liveSnapshot) {
       setTimedOut(false);
     }
 
     return () => clearTimeout(timer);
-  }, [snapshot]);
+  }, [liveSnapshot]);
 
   // Adaptive quality: reduce building count when FPS is low, increase when high.
   useEffect(() => {
@@ -108,18 +114,18 @@ export default function App() {
   }, [isLow, isHigh]);
 
   const processSignature = useMemo(
-    () => (snapshot ? computeProcessSignature(snapshot.processes) : ""),
-    [snapshot],
+    () => (displaySnapshot ? computeProcessSignature(displaySnapshot.processes) : ""),
+    [displaySnapshot],
   );
 
   const positions = useMemo(
-    () => (snapshot ? computeTreePositions(snapshot.processes, maxBuildings) : []),
+    () => (displaySnapshot ? computeTreePositions(displaySnapshot.processes, maxBuildings) : []),
     [processSignature, maxBuildings],
   );
 
   const cableData = useMemo(
-    () => (snapshot ? computeCableData(snapshot.network.connections, positions, 80) : []),
-    [snapshot?.network.connections, positions],
+    () => (displaySnapshot ? computeCableData(displaySnapshot.network.connections, positions, 80) : []),
+    [displaySnapshot?.network.connections, positions],
   );
 
   const cablePaths = useMemo(() => cableData.map((d) => d.path), [cableData]);
@@ -247,6 +253,11 @@ export default function App() {
         setKioskMode((prev) => !prev);
         return;
       }
+      if (e.key === "h" && !isTypingTarget(e.target)) {
+        e.preventDefault();
+        setTimelineOpen((prev) => !prev);
+        return;
+      }
       if (e.key === " " && !shouldIgnoreSpace(e.target)) {
         e.preventDefault();
         setUtilityMode((prev) => !prev);
@@ -260,13 +271,13 @@ export default function App() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [kioskMode]);
+  }, [kioskMode, timelineOpen]);
 
   if (!themeReady) {
     return <ErrorState message="Loading visual system..." loading />;
   }
 
-  if (!snapshot && timedOut) {
+  if (!liveSnapshot && timedOut) {
     return (
       <ErrorState
         message="Failed to receive system data"
@@ -276,11 +287,11 @@ export default function App() {
     );
   }
 
-  if (!snapshot) {
+  if (!liveSnapshot) {
     return <ErrorState message="Waiting for system data..." loading />;
   }
 
-  if (snapshot.processes.length === 0) {
+  if (!displaySnapshot || displaySnapshot.processes.length === 0) {
     return (
       <ErrorState
         message="No processes found"
@@ -299,9 +310,9 @@ export default function App() {
       >
         <Atmosphere theme={theme} />
         <CityGround theme={theme} />
-        <FsHeatmap hotspots={snapshot.fs_hotspots} theme={theme} />
+        <FsHeatmap hotspots={displaySnapshot.fs_hotspots} theme={theme} />
         <BuildingCluster
-          processes={snapshot.processes}
+          processes={displaySnapshot.processes}
           positions={positions}
           theme={theme}
           selectedPid={selectedProcess?.pid ?? null}
@@ -313,18 +324,18 @@ export default function App() {
         />
         <RelationGraph
           positions={positions}
-          relations={snapshot.process_relations}
+          relations={displaySnapshot.process_relations}
           theme={theme}
           selectedPid={selectedProcess?.pid ?? null}
           hoveredPid={hoveredProcess?.pid ?? null}
         />
         <PortHarbors
-          ports={snapshot.listening_ports}
+          ports={displaySnapshot.listening_ports}
           positions={positions}
           theme={theme}
         />
         <BuildingHalo
-          processes={snapshot.processes}
+          processes={displaySnapshot.processes}
           positions={positions}
           theme={theme}
         />
@@ -336,13 +347,16 @@ export default function App() {
         <div className="app-header">
           <span className="app-title">Procession</span>
           <span className="app-subtitle">
-            {snapshot.processes.length} processes · {snapshot.cpu.total.toFixed(1)}% CPU
+            {displaySnapshot.processes.length} processes · {displaySnapshot.cpu.total.toFixed(1)}% CPU
+            {!history.isLive && (
+              <span className="app-history-indicator"> · Time Lens</span>
+            )}
           </span>
         </div>
-        <HudPanel snapshot={snapshot} theme={theme} />
+        <HudPanel snapshot={displaySnapshot} theme={theme} />
         {utilityMode && (
           <UtilityMode
-            snapshot={snapshot}
+            snapshot={displaySnapshot}
             positions={positions}
             theme={theme}
             onSelectProcess={handleSelectProcessFromUtility}
@@ -360,9 +374,33 @@ export default function App() {
           >
             {autoRotate ? "Stop Orbit" : "Orbit"}
           </button>
+          <button
+            className={`app-theme-toggle ${timelineOpen ? "app-toggle-active" : ""}`}
+            onClick={() => setTimelineOpen((prev) => !prev)}
+            aria-pressed={timelineOpen}
+            title="Toggle time lens (H)"
+          >
+            Time Lens
+          </button>
           <ScreenshotButton />
         </div>
         <FpsCounter />
+        {timelineOpen && (
+          <TimelineConsole
+            history={history.history}
+            mode={history.mode}
+            index={history.index}
+            isLive={history.isLive}
+            canStepBack={history.canStepBack}
+            canStepForward={history.canStepForward}
+            playbackSpeed={history.playbackSpeed}
+            setPlaybackSpeed={history.setPlaybackSpeed}
+            onTogglePlay={history.togglePlay}
+            onStep={history.step}
+            onLive={history.exitHistory}
+            onScrub={history.setIndex}
+          />
+        )}
         {themeEditorOpen && (
           <ThemeEditor
             theme={theme}

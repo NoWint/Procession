@@ -4,6 +4,38 @@
 
 ## Session Log
 
+### 2026-07-18 — Session #036 (frontend, F-603 Time travel / history playback, ~45min)
+- Track: frontend
+- Task: F-603 (Time travel / history playback)
+- Status: done
+- Summary:
+  - Added `src/hooks/useSystemHistory.ts` to maintain a rolling in-memory buffer of the last 600 system snapshots (~10 min at 1 Hz).
+  - Supports live follow, pause, step forward/backward, scrub, and 1×/2×/4× playback at the original snapshot cadence.
+  - Added `src/components/TimelineConsole.tsx` + `TimelineConsole.css` as the "Time Lens" instrument control.
+  - Integrated time lens into `App.tsx`:
+    - City and HUD now render from `displaySnapshot` (live or historical).
+    - Data timeout detection remains tied to the live stream.
+    - Added toggle button and `H` keyboard shortcut to show/hide the Time Lens console.
+    - Header shows "Time Lens" indicator when not in live mode.
+  - Added unit tests for the hook and component (14 new tests); full suite passes 48/48.
+  - Verified mechanical checks: `npx tsc --noEmit`, `npm run build`, `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings`.
+  - Updated `PLAN.md`: F-603 status → done; Status Counts → pending 8, done 62.
+- Decisions:
+  - Keep history buffer client-side for now; persistence and export will be handled by F-606 (City state save / load).
+  - Playback starts from the oldest buffered frame when launched from live mode, allowing quick review of recent history.
+- Commits: pending
+- Files:
+  - src/hooks/useSystemHistory.ts (new)
+  - src/hooks/useSystemHistory.test.ts (new)
+  - src/components/TimelineConsole.tsx (new)
+  - src/components/TimelineConsole.css (new)
+  - src/components/TimelineConsole.test.tsx (new)
+  - src/App.tsx (mod)
+  - src/App.css (mod)
+  - PLAN.md (mod)
+  - PROGRESS.md (mod)
+- Next ready: F-604 (Process lifecycle animations) or F-606 (City state save / load).
+
 ### 2026-07-18 — Session #032 (integration, I-501 Phase 5 full acceptance, ~25min)
 - Track: integration
 - Task: I-501 (Phase 5 full acceptance)
