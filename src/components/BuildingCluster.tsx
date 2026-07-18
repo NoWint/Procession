@@ -40,7 +40,8 @@ const DEATH_DURATION = 1.0;
 const LOD_NEAR = 25;
 const LOD_MID = 50;
 
-const buildingVertexShader = `
+// ── Near-detail vertex shader (full) ──
+const highVertexShader = `
   uniform float uTime;
   attribute vec3 instanceColor;
   varying vec2 vUv;
@@ -58,7 +59,8 @@ const buildingVertexShader = `
   }
 `;
 
-const buildingFragmentShader = `
+// ── Near-detail fragment shader (full: windows, Fresnel, scan lines) ──
+const highFragmentShader = `
   uniform vec3 uEmissive;
   uniform float uTime;
   uniform float uEnergy;
@@ -72,27 +74,70 @@ const buildingFragmentShader = `
     vec3 top = vInstanceColor * 1.6 + uEmissive * 0.45;
     vec3 baseColor = mix(bottom, top, pow(vUv.y, 0.85));
 
-    // Window grid pattern
     float windowU = fract(vUv.x * 6.0);
     float windowV = fract(vUv.y * 18.0);
     float window = step(0.08, windowU) * step(0.08, windowV);
     float windowGlow = (1.0 - window) * (0.5 + 0.5 * sin(uTime * 2.0 + vUv.y * 10.0));
     baseColor += vInstanceColor * windowGlow * 0.35;
 
-    // Fresnel edge glow
     vec3 viewDir = normalize(cameraPosition - vWorldPosition);
     float fresnel = pow(1.0 - abs(dot(viewDir, vNormal)), 2.5);
     baseColor += uEmissive * fresnel * 0.8;
 
-    // Top cap glow
     float topCap = step(0.96, vUv.y);
     baseColor += uEmissive * topCap * 0.9;
 
-    // Energy scan lines
     float scan = sin(vUv.y * 24.0 - uTime * 2.5) * 0.5 + 0.5;
     baseColor += uEmissive * scan * 0.1 * uEnergy;
 
     gl_FragColor = vec4(baseColor, 0.94);
+  }
+`;
+
+// ── Mid-detail shaders (simplified: instance color + emissive gradient, no windows) ──
+const midVertexShader = `
+  attribute vec3 instanceColor;
+  varying vec3 vInstanceColor;
+  varying vec3 vPosition;
+
+  void main() {
+    vInstanceColor = instanceColor;
+    vec4 worldPos = instanceMatrix * vec4(position, 1.0);
+    vPosition = worldPos.xyz;
+    gl_Position = projectionMatrix * modelViewMatrix * worldPos;
+  }
+`;
+
+const midFragmentShader = `
+  uniform vec3 uEmissive;
+  varying vec3 vInstanceColor;
+  varying vec3 vPosition;
+
+  void main() {
+    vec3 baseColor = vInstanceColor * 1.4 + uEmissive * 0.2;
+    gl_FragColor = vec4(baseColor, 0.94);
+  }
+`;
+
+// ── Far-detail shaders (glow dot) ──
+const lowVertexShader = `
+  attribute vec3 instanceColor;
+  varying vec3 vInstanceColor;
+
+  void main() {
+    vInstanceColor = instanceColor;
+    vec4 worldPos = instanceMatrix * vec4(position, 1.0);
+    gl_Position = projectionMatrix * modelViewMatrix * worldPos;
+  }
+`;
+
+const lowFragmentShader = `
+  uniform vec3 uEmissive;
+  varying vec3 vInstanceColor;
+
+  void main() {
+    vec3 color = vInstanceColor * 2.5 + uEmissive * 0.3;
+    gl_FragColor = vec4(color, 0.85);
   }
 `;
 
@@ -107,11 +152,12 @@ export default function BuildingCluster({
   onDoubleClick,
   onHover,
 }: BuildingClusterProps) {
-  // LOD: three InstancedMesh at different detail levels
   const highRef = useRef<THREE.InstancedMesh>(null);
   const midRef = useRef<THREE.InstancedMesh>(null);
   const lowRef = useRef<THREE.InstancedMesh>(null);
-  const highMaterialRef = useRef<THREE.ShaderMaterial>(null);
+  const highMatRef = useRef<THREE.ShaderMaterial>(null);
+  const midMatRef = useRef<THREE.ShaderMaterial>(null);
+  const lowMatRef = useRef<THREE.ShaderMaterial>(null);
 
   const positions = useMemo(
     () =>
@@ -123,7 +169,6 @@ export default function BuildingCluster({
   );
 
   const [hoveredId, setHoveredId] = useState<number | null>(null);
-  const [lodLevel, setLodLevel] = useState(0);
   const lodLevelRef = useRef(0);
   const lifecycleRef = useRef<Map<number, LifecycleEntry>>(new Map());
   const prevProcessesRef = useRef<ProcessInfo[]>([]);
@@ -175,19 +220,18 @@ export default function BuildingCluster({
     prevPositionsRef.current = positions;
   }, [processes, positions, theme]);
 
-  /// Update instance matrices and colors for one InstancedMesh (LOD level helper).
   function updateMesh(
     mesh: THREE.InstancedMesh,
-    positions: BuildingPosition[],
-    processes: ProcessInfo[],
+    ppos: BuildingPosition[],
+    pprocs: ProcessInfo[],
     elapsed: number,
     scale: "high" | "mid" | "low",
   ) {
-    let instanceIndex = 0;
+    let index = 0;
 
-    for (let i = 0; i < positions.length; i++) {
-      const pos = positions[i];
-      const process = processes.find((p) => p.pid === pos.pid);
+    for (let i = 0; i < ppos.length; i++) {
+      const pos = ppos[i];
+      const process = pprocs.find((p) => p.pid === pos.pid);
       const entry = lifecycleRef.current.get(pos.pid);
       const lifeScale = entry?.progress ?? 1;
       const heightScale = scale === "low" ? 1 : pos.height;
@@ -195,7 +239,7 @@ export default function BuildingCluster({
       dummy.position.set(pos.x, (pos.height / 2) * lifeScale, pos.z);
       dummy.scale.set(lifeScale, lifeScale * heightScale, lifeScale);
       dummy.updateMatrix();
-      mesh.setMatrixAt(instanceIndex, dummy.matrix);
+      mesh.setMatrixAt(index, dummy.matrix);
 
       _color.copy(
         process
@@ -212,23 +256,25 @@ export default function BuildingCluster({
         _color.lerp(new THREE.Color(theme.colors.pulseWhite), pulse * 0.25);
       }
 
-      // Brightness boost for far LOD (tiny boxes need to still be visible as glow dots)
       if (scale === "low") {
         _color.multiplyScalar(2.5);
       } else if (scale === "mid") {
         _color.multiplyScalar(1.4);
       }
 
-      const isHovered = scale === "high" && hoveredId === instanceIndex;
-      const isSelected = scale === "high" && selectedPid === pos.pid;
-      if (isHovered || isSelected) {
-        _color.lerp(new THREE.Color(theme.colors.pulseWhite), isSelected ? 0.45 : 0.25);
+      if (scale === "high") {
+        const isHovered = hoveredId === i;
+        const isSelected = selectedPid === pos.pid;
+        if (isHovered || isSelected) {
+          _color.lerp(new THREE.Color(theme.colors.pulseWhite), isSelected ? 0.45 : 0.25);
+        }
       }
 
-      mesh.setColorAt(instanceIndex, _color);
-      instanceIndex++;
+      mesh.setColorAt(index, _color);
+      index++;
     }
 
+    // Dying entries still rendering
     for (const entry of lifecycleRef.current.values()) {
       if (entry.state !== "dying") continue;
 
@@ -238,19 +284,18 @@ export default function BuildingCluster({
       dummy.position.set(entry.position.x, (entry.position.height / 2) * lifeScale, entry.position.z);
       dummy.scale.set(lifeScale, lifeScale * heightScale, lifeScale);
       dummy.updateMatrix();
-      mesh.setMatrixAt(instanceIndex, dummy.matrix);
+      mesh.setMatrixAt(index, dummy.matrix);
 
       _color.copy(entry.color).lerp(new THREE.Color(0x000000), 1 - lifeScale);
-      mesh.setColorAt(instanceIndex, _color);
-      instanceIndex++;
+      mesh.setColorAt(index, _color);
+      index++;
     }
 
-    mesh.count = instanceIndex;
+    mesh.count = index;
     mesh.instanceMatrix.needsUpdate = true;
     if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
   }
 
-  // Per-frame: LOD selection, lifecycle animation, instance matrix update.
   useFrame(({ camera }, delta) => {
     clockRef.current += delta;
 
@@ -270,48 +315,49 @@ export default function BuildingCluster({
       }
     }
 
-    // Determine LOD level from camera distance
+    // LOD selection
     const dist = camera.position.length();
     const newLevel = dist < LOD_NEAR ? 0 : dist < LOD_MID ? 1 : 2;
     const changed = newLevel !== lodLevelRef.current;
-    if (changed) {
-      lodLevelRef.current = newLevel;
-      setLodLevel(newLevel);
-    }
+    if (changed) lodLevelRef.current = newLevel;
 
-    // First-frame init: populate ALL meshes so something renders immediately
     const elapsed = clockRef.current;
-    const firstFrame = elapsed < delta;
+    const updateAll = changed;
 
-    const high = highRef.current;
-    const mid = midRef.current;
-    const low = lowRef.current;
-    const updateAll = firstFrame || changed;
-
-    if (high) {
-      high.visible = newLevel === 0;
+    // High detail
+    if (highRef.current) {
+      highRef.current.visible = newLevel === 0;
       if (newLevel === 0 || updateAll) {
-        updateMesh(high, positions, processes, elapsed, "high");
-      }
-    }
-    if (mid) {
-      mid.visible = newLevel === 1;
-      if (newLevel === 1 || updateAll) {
-        updateMesh(mid, positions, processes, elapsed, "mid");
-      }
-    }
-    if (low) {
-      low.visible = newLevel === 2;
-      if (newLevel === 2 || updateAll) {
-        updateMesh(low, positions, processes, elapsed, "low");
+        updateMesh(highRef.current, positions, processes, elapsed, "high");
       }
     }
 
-    // Update high-detail uniforms
-    if (highMaterialRef.current) {
-      highMaterialRef.current.uniforms.uTime.value = elapsed;
-      const emissive = new THREE.Color(theme.colors.electricCyan);
-      highMaterialRef.current.uniforms.uEmissive.value = emissive;
+    // Mid detail
+    if (midRef.current) {
+      midRef.current.visible = newLevel === 1;
+      if (newLevel === 1 || updateAll) {
+        updateMesh(midRef.current, positions, processes, elapsed, "mid");
+      }
+    }
+
+    // Far detail
+    if (lowRef.current) {
+      lowRef.current.visible = newLevel === 2;
+      if (newLevel === 2 || updateAll) {
+        updateMesh(lowRef.current, positions, processes, elapsed, "low");
+      }
+    }
+
+    // Update uniforms
+    if (highMatRef.current) {
+      highMatRef.current.uniforms.uTime.value = elapsed;
+      highMatRef.current.uniforms.uEmissive.value.set(theme.colors.electricCyan);
+    }
+    if (midMatRef.current) {
+      midMatRef.current.uniforms.uEmissive.value.set(theme.colors.electricCyan);
+    }
+    if (lowMatRef.current) {
+      lowMatRef.current.uniforms.uEmissive.value.set(theme.colors.electricCyan);
     }
   });
 
@@ -367,7 +413,7 @@ export default function BuildingCluster({
 
   return (
     <group>
-      {/* High detail: full custom shader (distance < LOD_NEAR) */}
+      {/* Near: full custom shader */}
       <instancedMesh
         ref={highRef}
         args={[undefined, undefined, instanceCount]}
@@ -379,9 +425,9 @@ export default function BuildingCluster({
       >
         <boxGeometry args={[0.5, 1, 0.5]} />
         <shaderMaterial
-          ref={highMaterialRef}
-          vertexShader={buildingVertexShader}
-          fragmentShader={buildingFragmentShader}
+          ref={highMatRef}
+          vertexShader={highVertexShader}
+          fragmentShader={highFragmentShader}
           transparent
           depthWrite={false}
           uniforms={{
@@ -392,28 +438,46 @@ export default function BuildingCluster({
         />
       </instancedMesh>
 
-      {/* Mid detail: simplified box + emissive color (LOD_NEAR <= distance < LOD_MID) */}
+      {/* Mid: simplified shader (no windows/Fresnel/scan lines) */}
       <instancedMesh
         ref={midRef}
         args={[undefined, undefined, instanceCount]}
         frustumCulled
       >
         <boxGeometry args={[0.5, 1, 0.5]} />
-        <meshBasicMaterial vertexColors toneMapped={false} transparent opacity={0.92} />
+        <shaderMaterial
+          ref={midMatRef}
+          vertexShader={midVertexShader}
+          fragmentShader={midFragmentShader}
+          transparent
+          depthWrite={false}
+          uniforms={{
+            uEmissive: { value: new THREE.Color(theme.colors.electricCyan) },
+          }}
+        />
       </instancedMesh>
 
-      {/* Far detail: tiny glow dots (distance >= LOD_MID) */}
+      {/* Far: tiny glow dots */}
       <instancedMesh
         ref={lowRef}
         args={[undefined, undefined, instanceCount]}
         frustumCulled
       >
         <boxGeometry args={[0.15, 0.15, 0.15]} />
-        <meshBasicMaterial vertexColors toneMapped={false} transparent opacity={0.85} />
+        <shaderMaterial
+          ref={lowMatRef}
+          vertexShader={lowVertexShader}
+          fragmentShader={lowFragmentShader}
+          transparent
+          depthWrite={false}
+          uniforms={{
+            uEmissive: { value: new THREE.Color(theme.colors.electricCyan) },
+          }}
+        />
       </instancedMesh>
 
       {/* Labels — only at near LOD level */}
-      {lodLevel === 0 &&
+      {lodLevelRef.current === 0 &&
         positions.map((pos) => {
           const process = processes.find((p) => p.pid === pos.pid);
           if (!process) return null;
