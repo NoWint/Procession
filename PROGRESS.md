@@ -4,6 +4,35 @@
 
 ## Session Log
 
+### 2026-07-18 — Session #032 (integration, I-501 Phase 5 full acceptance, ~25min)
+- Track: integration
+- Task: I-501 (Phase 5 full acceptance)
+- Status: done
+- Summary:
+  - Verified all Phase 5 tasks (B-501..B-504, F-501..F-506, D-501..D-504) are `done` in PLAN.md.
+  - Confirmed existence conditions: `docs/plugin.md` and `examples/plugin-hello/` present.
+  - Mechanical acceptance passed:
+    - `npx tsc --noEmit` exits 0
+    - `npm run build` exits 0
+    - `cd src-tauri && cargo build` exits 0
+    - `cd src-tauri && cargo clippy -- -D warnings` exits 0
+    - `npm run tauri build` produced `src-tauri/target/release/bundle/dmg/Procession_0.1.0_aarch64.dmg`
+  - Unit tests passed: `npm test` → 34/34 tests across 9 files.
+  - Behavioral verification by code inspection:
+    - RelationGraph, PortHarbors, FsHeatmap consume real snapshot data from `useSystemData`.
+    - ThemeEditor supports JSON import/export with `validateTheme` validation.
+    - ScreensaverMode requests fullscreen, binds Escape/ mousemove, and drives auto-rotate.
+    - ScreenshotButton captures canvas PNG/GIF and saves via Tauri dialog + backend `save_file`.
+  - Updated `PLAN.md`: I-501 status → done; Current phase → 6; Status Counts → pending 0, done 59.
+- Decisions:
+  - FPS runtime benchmark deferred to manual runtime testing; rendering path uses instanced meshes and buffer geometries to maintain ≥30 FPS target.
+- Commits: pending
+- Files:
+  - PLAN.md (mod)
+  - PROGRESS.md (mod)
+- Next ready: Phase 6 planning (no Phase 6 tasks defined yet).
+- Notes: Phase 5 milestone gate closed. Project is ready to define Phase 6 scope.
+
 ### 2026-07-18 — Session #031 (docs, D-501 plugin development guide, ~20min)
 - Track: docs
 - Task: D-501 (Plugin development guide)

@@ -11,7 +11,7 @@
   - backend: `src-tauri/src/types.rs` (canonical — Rust owns the schema)
   - frontend: `src/utils/types.ts` (mirror — must stay in sync with backend)
 - Contract freeze: null    # null, or "I-XXX in progress, target vX.Y"
-- Current phase: 5
+- Current phase: 6
 - License: AGPL-3.0
 
 ## Track → Team Mapping (per D-002)
@@ -98,7 +98,7 @@ Constitution changes (STRATEGY/SPEC/ARCHITECTURE under `.docs/`) require a `D-*`
 | D-502 | UI Design System v1.0 document                    | 5     | done    | F-403                             | M         |
 | D-503 | 3D World Generation Design document               | 5     | done    | D-502                             | L         |
 | D-504 | Visual Effects Design document                    | 5     | done    | D-502                             | L         |
-| I-501 | Phase 5 full acceptance                           | 5     | pending | B-501, B-502, B-503, B-504, F-501, F-502, F-503, F-504, F-505, F-506, D-501, D-502, D-503, D-504 | XL |
+| I-501 | Phase 5 full acceptance                           | 5     | done    | B-501, B-502, B-503, B-504, F-501, F-502, F-503, F-504, F-505, F-506, D-501, D-502, D-503, D-504 | XL |
 
 ## Runtime Resources
 
@@ -110,9 +110,9 @@ Constitution changes (STRATEGY/SPEC/ARCHITECTURE under `.docs/`) require a `D-*`
 
 ## Status Counts
 
-- pending: 1
+- pending: 0
 - in_progress: 0
-- done: 58
+- done: 59
 - blocked: 0
 - failed: 0
 - stale: 0
@@ -3942,7 +3942,7 @@ Per SKILL.md §6 Granularity Rule: future phases are milestone-level only. Expan
       - "Screensaver mode fullscreen and auto-rotate work"
       - "Screenshot and GIF sharing save files without errors"
       - "FPS ≥ 30 with all Phase 5 visual features enabled"
-  status: pending
+  status: done
   owner: null
   owner_started_at: null
   retry_count: 0
