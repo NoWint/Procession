@@ -25,6 +25,13 @@ export interface ThemeColors {
   stopped: string;
   zombie: string;
   particle: string;
+  electricCyan: string;
+  coldBlue: string;
+  pulseWhite: string;
+  amber: string;
+  deepRed: string;
+  databasePurple: string;
+  serviceGreen: string;
 }
 
 export interface ThemeScene {
@@ -102,6 +109,13 @@ export function validateTheme(data: unknown): Theme | null {
     "stopped",
     "zombie",
     "particle",
+    "electricCyan",
+    "coldBlue",
+    "pulseWhite",
+    "amber",
+    "deepRed",
+    "databasePurple",
+    "serviceGreen",
   ];
   if (!hasAllKeys(d.colors, colorKeys)) return null;
   const colors = d.colors as unknown as ThemeColors;
@@ -239,7 +253,7 @@ export function saveThemeUrl(url: string): void {
 }
 
 export const FALLBACK_THEME: Theme = {
-  name: "Monument Valley Noir",
+  name: "Digital City",
   mode: "dark",
   typography: {
     heading: '"Songti SC", "Source Han Serif SC", "Noto Serif CJK SC", serif',
@@ -247,31 +261,38 @@ export const FALLBACK_THEME: Theme = {
     mono: '"SF Mono", "Cascadia Code", "Fira Code", monospace',
   },
   colors: {
-    background: "#0a0a0f",
-    surface: "#141419",
-    surfaceElevated: "#1e1e26",
-    text: "#f0f0f5",
-    textMuted: "#8a8a95",
-    accent: "#e8e8f0",
+    background: "#03040a",
+    surface: "#0c0c10",
+    surfaceElevated: "#131318",
+    text: "#f2f4f8",
+    textMuted: "#9da2ad",
+    accent: "#00e5ff",
     border: "#2a2a35",
-    grid: "#1f1f2a",
-    gridSecondary: "#111118",
-    ground: "#0c0c12",
+    grid: "#0f0f18",
+    gridSecondary: "#0a0a12",
+    ground: "#0c0c14",
     system: "#c0c0d0",
     user: "#9090a0",
-    active: "#ffffff",
-    idle: "#4a4a55",
+    active: "#00e5ff",
+    idle: "#4aa8ff",
     sleeping: "#6a6a75",
     stopped: "#3a3a45",
     zombie: "#2a2a35",
-    particle: "#a0a0b0",
+    particle: "#a0d0ff",
+    electricCyan: "#00e5ff",
+    coldBlue: "#4aa8ff",
+    pulseWhite: "#ffffff",
+    amber: "#ffb84d",
+    deepRed: "#ff3b5c",
+    databasePurple: "#9d7bff",
+    serviceGreen: "#5ce1a8",
   },
   scene: {
-    ambientIntensity: 0.4,
-    directionalIntensity: 0.9,
-    fogColor: "#0a0a0f",
-    fogNear: 20,
-    fogFar: 90,
+    ambientIntensity: 0.15,
+    directionalIntensity: 0.6,
+    fogColor: "#03040a",
+    fogNear: 15,
+    fogFar: 80,
   },
 };
 
@@ -343,6 +364,13 @@ export function applyTheme(theme: Theme): void {
   root.style.setProperty("--proc-stopped", c.stopped);
   root.style.setProperty("--proc-zombie", c.zombie);
   root.style.setProperty("--proc-particle", c.particle);
+  root.style.setProperty("--proc-electric-cyan", c.electricCyan);
+  root.style.setProperty("--proc-cold-blue", c.coldBlue);
+  root.style.setProperty("--proc-pulse-white", c.pulseWhite);
+  root.style.setProperty("--proc-amber", c.amber);
+  root.style.setProperty("--proc-deep-red", c.deepRed);
+  root.style.setProperty("--proc-database-purple", c.databasePurple);
+  root.style.setProperty("--proc-service-green", c.serviceGreen);
 
   root.style.setProperty("--proc-font-heading", theme.typography.heading);
   root.style.setProperty("--proc-font-body", theme.typography.body);

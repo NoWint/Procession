@@ -1,5 +1,5 @@
 {
-  "name": "Monument Valley Noir",
+  "name": "Digital City",
   "mode": "dark",
   "typography": {
     "heading": "\"Helvetica Neue\", \"Songti SC\", \"Source Han Serif SC\", serif",
@@ -7,30 +7,37 @@
     "mono": "\"SF Mono\", \"Cascadia Code\", \"Fira Code\", monospace"
   },
   "colors": {
-    "background": "#080808",
-    "surface": "#111111",
-    "surfaceElevated": "#151515",
-    "text": "#e0e0e0",
-    "textMuted": "#777777",
-    "accent": "#ffffff",
-    "border": "#333333",
-    "grid": "#1a1a1a",
-    "gridSecondary": "#111111",
-    "ground": "#0a0a0a",
-    "system": "#808080",
-    "user": "#a0a0a0",
-    "active": "#ffffff",
-    "idle": "#404040",
-    "sleeping": "#505050",
-    "stopped": "#303030",
-    "zombie": "#202020",
-    "particle": "#444444"
+    "background": "#03040a",
+    "surface": "#0c0c10",
+    "surfaceElevated": "#131318",
+    "text": "#f2f4f8",
+    "textMuted": "#9da2ad",
+    "accent": "#00e5ff",
+    "border": "#2a2a35",
+    "grid": "#0f0f18",
+    "gridSecondary": "#0a0a12",
+    "ground": "#0c0c14",
+    "system": "#c0c0d0",
+    "user": "#9090a0",
+    "active": "#00e5ff",
+    "idle": "#4aa8ff",
+    "sleeping": "#6a6a75",
+    "stopped": "#3a3a45",
+    "zombie": "#2a2a35",
+    "particle": "#a0d0ff",
+    "electricCyan": "#00e5ff",
+    "coldBlue": "#4aa8ff",
+    "pulseWhite": "#ffffff",
+    "amber": "#ffb84d",
+    "deepRed": "#ff3b5c",
+    "databasePurple": "#9d7bff",
+    "serviceGreen": "#5ce1a8"
   },
   "scene": {
-    "ambientIntensity": 0.5,
-    "directionalIntensity": 1.0,
-    "fogColor": "#080808",
-    "fogNear": 25,
-    "fogFar": 95
+    "ambientIntensity": 0.15,
+    "directionalIntensity": 0.6,
+    "fogColor": "#03040a",
+    "fogNear": 15,
+    "fogFar": 80
   }
 }
