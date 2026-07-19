@@ -476,7 +476,16 @@ export default function App() {
             onClose={handleCloseThemeEditor}
           />
         )}
-        <ProcessPopup process={selectedProcess} onClose={handleClosePopup} />
+        <ProcessPopup
+          process={selectedProcess}
+          relations={renderSnapshot.process_relations}
+          ports={renderSnapshot.listening_ports}
+          connections={renderSnapshot.network.connections}
+          allProcesses={renderSnapshot.processes}
+          positions={positions}
+          blocks={blockCenters}
+          onClose={handleClosePopup}
+        />
         <div className="app-slogan">Procession · 进程列队，系统成诗</div>
       </div>
       <ScreensaverMode enabled={kioskMode} onExit={handleExitKiosk} onUiShow={handleUiShow} />

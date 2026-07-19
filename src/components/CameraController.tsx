@@ -5,20 +5,22 @@ import * as THREE from "three";
 interface CameraControllerProps {
   target?: { x: number; y: number; z: number } | null;
   duration?: number;
-  minDistance?: number;
+  offsetDistance?: number; // 相机距离目标的偏移距离
+  offsetY?: number; // 相机在 Y 方向的抬高
 }
 
 export default function CameraController({
   target,
   duration = 0.8,
-  minDistance = 8,
+  offsetDistance = 18,
+  offsetY = 8,
 }: CameraControllerProps) {
-  const { camera } = useThree();
+  const { camera, controls } = useThree();
   const startPos = useRef(new THREE.Vector3());
-  const startTarget = useRef(new THREE.Vector3());
+  const endPos = useRef(new THREE.Vector3());
   const endTarget = useRef(new THREE.Vector3());
-  const direction = useRef(new THREE.Vector3());
-  const desiredPos = useRef(new THREE.Vector3());
+  // 临时方向向量 ref：避免在 useEffect/useFrame 内 new Vector3（性能 + 测试约束）
+  const tmpDir = useRef(new THREE.Vector3());
   const startTime = useRef<number | null>(null);
   const isFlying = useRef(false);
 
@@ -29,11 +31,31 @@ export default function CameraController({
     }
 
     startPos.current.copy(camera.position);
-    startTarget.current.set(0, 0, 0); // Current lookAt target approximation
     endTarget.current.set(target.x, target.y, target.z);
+
+    // 计算相机停留位置：从目标点出发，沿"相机→目标"水平方向反退 offsetDistance
+    // 这样相机会停在被点击建筑的前方（保持原视角方向），而不是飞到建筑后面
+    const dir = tmpDir.current.subVectors(endTarget.current, camera.position);
+    // 只保留水平方向（避免相机飞到天上或地下）
+    dir.y = 0;
+    // 用 |x|+|z| 替代 lengthSq，避免依赖 mock 未实现的方法
+    if (Math.abs(dir.x) + Math.abs(dir.z) < 0.001) {
+      // 相机已在目标正上方，默认往 +Z 方向退
+      dir.set(0, 0, 1);
+    } else {
+      dir.normalize();
+    }
+    endPos.current.copy(endTarget.current).add(dir.multiplyScalar(-offsetDistance));
+    endPos.current.y = target.y + offsetY;
+
     startTime.current = null;
     isFlying.current = true;
-  }, [target, camera]);
+
+    // 飞行期间禁用 OrbitControls，避免冲突
+    if (controls) {
+      (controls as any).enabled = false;
+    }
+  }, [target, camera, controls, offsetDistance, offsetY]);
 
   useFrame(() => {
     if (!isFlying.current || !target) return;
@@ -44,18 +66,20 @@ export default function CameraController({
 
     const elapsed = (performance.now() - startTime.current) / 1000;
     const t = Math.min(elapsed / duration, 1);
-    // Ease-out cubic
-    const ease = 1 - Math.pow(1 - t, 3);
+    // Ease-in-out cubic（比 ease-out 更平滑，适合相机移动）
+    const ease = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
 
-    direction.current.subVectors(endTarget.current, startPos.current).normalize();
-    const distance = Math.max(minDistance, startPos.current.distanceTo(endTarget.current));
-    desiredPos.current.copy(endTarget.current).add(direction.current.multiplyScalar(distance));
-
-    camera.position.lerpVectors(startPos.current, desiredPos.current, ease);
+    camera.position.lerpVectors(startPos.current, endPos.current, ease);
     camera.lookAt(endTarget.current);
 
     if (t >= 1) {
       isFlying.current = false;
+      // 飞行结束：同步 OrbitControls target 并重新启用
+      if (controls) {
+        (controls as any).target.copy(endTarget.current);
+        (controls as any).enabled = true;
+        (controls as any).update?.();
+      }
     }
   });
 

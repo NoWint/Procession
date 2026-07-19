@@ -67,6 +67,7 @@ export default function CityScene({
         shadow-bias={-0.0005}
       />
       <OrbitControls
+        makeDefault
         enableDamping
         dampingFactor={0.05}
         minDistance={6}
