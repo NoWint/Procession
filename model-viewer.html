@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Procession · GLB 模型预览器</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #0a0a0f; color: #ddd; font-family: ui-monospace, 'SF Mono', Consolas, monospace; }
+    #app { display: flex; width: 100%; height: 100%; }
+
+    /* ========== 侧边栏 ========== */
+    #sidebar {
+      width: 300px;
+      background: #14141c;
+      border-right: 1px solid #2a2a3a;
+      padding: 16px;
+      overflow-y: auto;
+      flex-shrink: 0;
+    }
+    h1 { font-size: 14px; color: #5ce1a8; margin-bottom: 4px; letter-spacing: 0.5px; }
+    .subtitle { font-size: 10px; color: #666; margin-bottom: 16px; }
+    h2 { font-size: 11px; color: #888; margin: 16px 0 8px; text-transform: uppercase; letter-spacing: 1px; }
+
+    /* 文件选择区 */
+    .file-drop {
+      border: 2px dashed #2a2a3a;
+      border-radius: 6px;
+      padding: 20px 12px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.15s;
+      background: #1c1c28;
+    }
+    .file-drop:hover, .file-drop.dragover {
+      border-color: #5ce1a8;
+      background: #1f2937;
+    }
+    .file-drop-icon { font-size: 24px; color: #5ce1a8; margin-bottom: 8px; }
+    .file-drop-text { font-size: 12px; color: #aaa; }
+    .file-drop-hint { font-size: 10px; color: #555; margin-top: 4px; }
+    #fileInput { display: none; }
+
+    /* 当前加载文件名 */
+    .current-file {
+      font-size: 11px;
+      color: #5ce1a8;
+      padding: 8px 10px;
+      background: #1c1c28;
+      border: 1px solid #2a2a3a;
+      border-radius: 4px;
+      margin-top: 8px;
+      word-break: break-all;
+    }
+
+    /* 切换按钮（已加载多个文件时显示） */
+    .model-btn {
+      display: block;
+      width: 100%;
+      padding: 10px 12px;
+      margin-bottom: 6px;
+      background: #1c1c28;
+      color: #ccc;
+      border: 1px solid #2a2a3a;
+      border-radius: 4px;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 12px;
+      text-align: left;
+      transition: all 0.15s;
+    }
+    .model-btn:hover { background: #252535; border-color: #3a3a5a; }
+    .model-btn.active { background: #1f2937; border-color: #5ce1a8; color: #5ce1a8; }
+
+    /* 切换项 */
+    .toggle-row { display: flex; align-items: center; margin-bottom: 8px; font-size: 12px; cursor: pointer; }
+    .toggle-row input { margin-right: 8px; cursor: pointer; }
+
+    /* 滑块 */
+    .slider-row { margin-bottom: 12px; }
+    .slider-row label { display: block; font-size: 11px; color: #aaa; margin-bottom: 4px; }
+    .slider-row input[type=range] { width: 100%; cursor: pointer; }
+    .slider-row .value { font-size: 10px; color: #5ce1a8; float: right; }
+
+    /* 统计 */
+    .stats { font-size: 11px; color: #888; line-height: 1.7; }
+    .stats strong { color: #ddd; }
+    .stats .label { display: inline-block; width: 80px; color: #666; }
+
+    /* ========== 视口 ========== */
+    #viewport { flex: 1; position: relative; }
+    #viewport canvas { display: block; width: 100%; height: 100%; }
+
+    #loading {
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      color: #5ce1a8; font-size: 14px; pointer-events: none;
+    }
+
+    .hint {
+      position: absolute; bottom: 12px; left: 12px;
+      font-size: 10px; color: #555;
+    }
+    .empty-state {
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      text-align: center; color: #444;
+    }
+    .empty-state-icon { font-size: 48px; margin-bottom: 12px; }
+    .empty-state-text { font-size: 14px; }
+    .empty-state-hint { font-size: 10px; margin-top: 8px; color: #333; }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <aside id="sidebar">
+      <h1>GLB 模型预览器</h1>
+      <div class="subtitle">独立工具 · 不依赖 Vite/Tauri</div>
+
+      <h2>加载 GLB 文件</h2>
+      <div class="file-drop" id="fileDrop">
+        <div class="file-drop-icon">📁</div>
+        <div class="file-drop-text">点击选择或拖入 GLB</div>
+        <div class="file-drop-hint">支持多选 · 一次性加载多个模型</div>
+      </div>
+      <input type="file" id="fileInput" accept=".glb,.gltf" multiple />
+
+      <div id="currentFile" class="current-file" style="display:none;"></div>
+
+      <div id="modelList" style="display:none;">
+        <h2>已加载模型</h2>
+        <div id="modelButtons"></div>
+      </div>
+
+      <h2>显示选项</h2>
+      <label class="toggle-row">
+        <input type="checkbox" id="autoRotate" checked> 自动旋转
+      </label>
+      <label class="toggle-row">
+        <input type="checkbox" id="wireframe"> 线框模式
+      </label>
+      <label class="toggle-row">
+        <input type="checkbox" id="showGrid" checked> 显示网格
+      </label>
+      <label class="toggle-row">
+        <input type="checkbox" id="showAxes" checked> 显示坐标轴
+      </label>
+      <label class="toggle-row">
+        <input type="checkbox" id="showBox" checked> 显示包围盒
+      </label>
+
+      <div class="slider-row">
+        <label>环境光强度 <span class="value" id="ambientValue">0.6</span></label>
+        <input type="range" id="ambient" min="0" max="2" step="0.05" value="0.6">
+      </div>
+      <div class="slider-row">
+        <label>主光强度 <span class="value" id="keyLightValue">1.2</span></label>
+        <input type="range" id="keyLight" min="0" max="3" step="0.05" value="1.2">
+      </div>
+      <div class="slider-row">
+        <label>曝光 <span class="value" id="exposureValue">1.0</span></label>
+        <input type="range" id="exposure" min="0.2" max="2" step="0.05" value="1.0">
+      </div>
+      <div class="slider-row">
+        <label>背景色 <input type="color" id="bgColor" value="#0a0a0f" style="float:right;width:40px;height:18px;border:none;background:transparent;cursor:pointer;"></label>
+      </div>
+
+      <h2>统计</h2>
+      <div id="stats" class="stats">尚未加载模型</div>
+
+      <h2>操作</h2>
+      <div class="stats" style="font-size:10px;line-height:1.8">
+        左键拖拽：旋转<br>
+        滚轮：缩放<br>
+        右键拖拽：平移<br>
+        R：重置相机
+      </div>
+    </aside>
+    <div id="viewport">
+      <div class="empty-state" id="emptyState">
+        <div class="empty-state-icon">📦</div>
+        <div class="empty-state-text">从左侧选择 GLB 文件开始</div>
+        <div class="empty-state-hint">或直接拖拽 .glb 文件到此窗口</div>
+      </div>
+      <div id="loading" style="display:none;">加载中...</div>
+      <div class="hint">Procession · 模型预览器 · v1.0</div>
+    </div>
+  </div>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.185.1/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.185.1/examples/jsm/"
+    }
+  }
+  </script>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+    // ========== 场景初始化 ==========
+    const viewport = document.getElementById('viewport');
+    const loadingEl = document.getElementById('loading');
+    const emptyStateEl = document.getElementById('emptyState');
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x0a0a0f);
+
+    const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 500);
+    camera.position.set(6, 5, 10);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.0;
+    viewport.appendChild(renderer.domElement);
+
+    // 光照
+    const ambient = new THREE.AmbientLight(0x404060, 0.6);
+    scene.add(ambient);
+
+    const keyLight = new THREE.DirectionalLight(0xffffff, 1.2);
+    keyLight.position.set(10, 15, 8);
+    scene.add(keyLight);
+
+    const fillLight = new THREE.DirectionalLight(0x88aaff, 0.4);
+    fillLight.position.set(-8, 5, -5);
+    scene.add(fillLight);
+
+    const rimLight = new THREE.DirectionalLight(0x5ce1a8, 0.3);
+    rimLight.position.set(0, 5, -10);
+    scene.add(rimLight);
+
+    // 辅助物体
+    const gridHelper = new THREE.GridHelper(40, 40, 0x303040, 0x1a1a25);
+    scene.add(gridHelper);
+
+    const axesHelper = new THREE.AxesHelper(2);
+    axesHelper.position.set(0, 0.01, 0);
+    scene.add(axesHelper);
+
+    let boxHelper = null;
+
+    // OrbitControls
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.08;
+    controls.minDistance = 1;
+    controls.maxDistance = 100;
+    controls.target.set(0, 2, 0);
+    controls.update();
+
+    // ========== 状态 ==========
+    let currentModel = null;
+    const loadedModels = new Map(); // name -> { scene, url, stats }
+    let currentModelName = null;
+    const loader = new GLTFLoader();
+
+    // UI 引用
+    const statsEl = document.getElementById('stats');
+    const autoRotateEl = document.getElementById('autoRotate');
+    const wireframeEl = document.getElementById('wireframe');
+    const showGridEl = document.getElementById('showGrid');
+    const showAxesEl = document.getElementById('showAxes');
+    const showBoxEl = document.getElementById('showBox');
+    const ambientEl = document.getElementById('ambient');
+    const ambientValueEl = document.getElementById('ambientValue');
+    const keyLightEl = document.getElementById('keyLight');
+    const keyLightValueEl = document.getElementById('keyLightValue');
+    const exposureEl = document.getElementById('exposure');
+    const exposureValueEl = document.getElementById('exposureValue');
+    const bgColorEl = document.getElementById('bgColor');
+    const currentFileEl = document.getElementById('currentFile');
+    const modelListEl = document.getElementById('modelList');
+    const modelButtonsEl = document.getElementById('modelButtons');
+    const fileDropEl = document.getElementById('fileDrop');
+    const fileInput = document.getElementById('fileInput');
+
+    // ========== 文件加载 ==========
+    function loadFiles(files) {
+      const fileArr = Array.from(files);
+      if (fileArr.length === 0) return;
+
+      emptyStateEl.style.display = 'none';
+      loadingEl.style.display = 'block';
+      loadingEl.textContent = `加载 ${fileArr.length} 个文件...`;
+
+      let pending = fileArr.length;
+      fileArr.forEach((file) => {
+        const url = URL.createObjectURL(file);
+        loader.load(
+          url,
+          (gltf) => {
+            loadedModels.set(file.name, { scene: gltf.scene, url, stats: null });
+            pending--;
+            if (pending === 0) {
+              // 默认加载第一个
+              switchModel(fileArr[0].name);
+              refreshModelList();
+            }
+          },
+          undefined,
+          (err) => {
+            console.error(`Failed to load ${file.name}:`, err);
+            loadingEl.textContent = `加载 ${file.name} 失败：${err.message || err}`;
+            loadingEl.style.color = '#ff5050';
+            pending--;
+            if (pending === 0) {
+              refreshModelList();
+              if (loadedModels.size > 0) {
+                switchModel(Array.from(loadedModels.keys())[0]);
+              }
+            }
+          },
+        );
+      });
+    }
+
+    function switchModel(name) {
+      const model = loadedModels.get(name);
+      if (!model) return;
+
+      // 清除当前模型
+      if (currentModel) {
+        scene.remove(currentModel);
+        currentModel.traverse((obj) => {
+          if (obj.isMesh) {
+            obj.geometry?.dispose();
+            if (Array.isArray(obj.material)) obj.material.forEach((m) => m.dispose());
+            else obj.material?.dispose();
+          }
+        });
+      }
+
+      // 移除旧包围盒
+      if (boxHelper) {
+        scene.remove(boxHelper);
+        boxHelper.geometry?.dispose();
+        boxHelper = null;
+      }
+
+      currentModel = model.scene;
+      currentModelName = name;
+
+      // 居中并贴地
+      const box = new THREE.Box3().setFromObject(currentModel);
+      const center = box.getCenter(new THREE.Vector3());
+      const size = box.getSize(new THREE.Vector3());
+      currentModel.position.x -= center.x;
+      currentModel.position.z -= center.z;
+      currentModel.position.y -= box.min.y;
+
+      // 应用当前显示状态
+      applyWireframe(wireframeEl.checked);
+
+      scene.add(currentModel);
+
+      // 包围盒
+      if (showBoxEl.checked) {
+        boxHelper = new THREE.Box3Helper(box, 0x5ce1a8);
+        scene.add(boxHelper);
+      }
+
+      // 相机自适应
+      const maxDim = Math.max(size.x, size.y, size.z);
+      const fov = camera.fov * (Math.PI / 180);
+      const distance = (maxDim / 2) / Math.tan(fov / 2) * 1.8;
+      camera.position.set(distance * 0.7, distance * 0.5, distance);
+      controls.target.set(0, size.y / 2, 0);
+      controls.update();
+
+      // 更新 UI
+      loadingEl.style.display = 'none';
+      currentFileEl.style.display = 'block';
+      currentFileEl.textContent = `当前: ${name}`;
+      refreshModelList();
+      updateStats(box, size);
+
+      // 保存 stats 供后续切换使用
+      model.stats = { box: { ...box }, size: { ...size } };
+    }
+
+    function refreshModelList() {
+      if (loadedModels.size === 0) {
+        modelListEl.style.display = 'none';
+        return;
+      }
+      modelListEl.style.display = 'block';
+      modelButtonsEl.innerHTML = '';
+      Array.from(loadedModels.keys()).forEach((name) => {
+        const btn = document.createElement('button');
+        btn.className = 'model-btn' + (name === currentModelName ? ' active' : '');
+        btn.textContent = name;
+        btn.addEventListener('click', () => switchModel(name));
+        modelButtonsEl.appendChild(btn);
+      });
+    }
+
+    function updateStats(box, size) {
+      if (!currentModel) {
+        statsEl.textContent = '尚未加载模型';
+        return;
+      }
+
+      let meshCount = 0;
+      let triCount = 0;
+      let matCount = 0;
+      const matTypes = new Set();
+
+      currentModel.traverse((obj) => {
+        if (obj.isMesh) {
+          meshCount++;
+          const g = obj.geometry;
+          if (g.index) triCount += g.index.count / 3;
+          else if (g.attributes.position) triCount += g.attributes.position.count / 3;
+          if (Array.isArray(obj.material)) {
+            matCount += obj.material.length;
+            obj.material.forEach((m) => matTypes.add(m.type));
+          } else if (obj.material) {
+            matCount++;
+            matTypes.add(obj.material.type);
+          }
+        }
+      });
+
+      statsEl.innerHTML = `
+        <span class="label">尺寸</span><strong>${size.x.toFixed(2)} × ${size.y.toFixed(2)} × ${size.z.toFixed(2)}</strong><br>
+        <span class="label">Mesh 数</span><strong>${meshCount}</strong><br>
+        <span class="label">三角形</span><strong>~${Math.floor(triCount)}</strong><br>
+        <span class="label">材质数</span><strong>${matCount}</strong><br>
+        <span class="label">材质类型</span><strong>${Array.from(matTypes).join(', ') || '—'}</strong><br>
+        <span class="label">Y 范围</span><strong>[${box.min.y.toFixed(2)}, ${box.max.y.toFixed(2)}]</strong>
+      `;
+    }
+
+    function applyWireframe(enabled) {
+      if (!currentModel) return;
+      currentModel.traverse((obj) => {
+        if (obj.isMesh && obj.material) {
+          if (Array.isArray(obj.material)) {
+            obj.material.forEach((m) => { m.wireframe = enabled; });
+          } else {
+            obj.material.wireframe = enabled;
+          }
+        }
+      });
+    }
+
+    // ========== UI 事件 ==========
+
+    // 文件选择
+    fileDropEl.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', (e) => {
+      loadFiles(e.target.files);
+      fileInput.value = ''; // 允许重复选择同一文件
+    });
+
+    // 拖拽到侧边栏
+    fileDropEl.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      fileDropEl.classList.add('dragover');
+    });
+    fileDropEl.addEventListener('dragleave', () => {
+      fileDropEl.classList.remove('dragover');
+    });
+    fileDropEl.addEventListener('drop', (e) => {
+      e.preventDefault();
+      fileDropEl.classList.remove('dragover');
+      loadFiles(e.dataTransfer.files);
+    });
+
+    // 拖拽到视口（全屏接收）
+    viewport.addEventListener('dragover', (e) => {
+      e.preventDefault();
+    });
+    viewport.addEventListener('drop', (e) => {
+      e.preventDefault();
+      loadFiles(e.dataTransfer.files);
+    });
+
+    // 显示选项
+    autoRotateEl.addEventListener('change', () => {
+      controls.autoRotate = autoRotateEl.checked;
+    });
+    controls.autoRotate = autoRotateEl.checked;
+    controls.autoRotateSpeed = 1.5;
+
+    wireframeEl.addEventListener('change', () => {
+      applyWireframe(wireframeEl.checked);
+    });
+
+    showGridEl.addEventListener('change', () => {
+      gridHelper.visible = showGridEl.checked;
+    });
+
+    showAxesEl.addEventListener('change', () => {
+      axesHelper.visible = showAxesEl.checked;
+    });
+
+    showBoxEl.addEventListener('change', () => {
+      if (showBoxEl.checked && currentModel) {
+        const box = new THREE.Box3().setFromObject(currentModel);
+        boxHelper = new THREE.Box3Helper(box, 0x5ce1a8);
+        scene.add(boxHelper);
+      } else if (boxHelper) {
+        scene.remove(boxHelper);
+        boxHelper.geometry?.dispose();
+        boxHelper = null;
+      }
+    });
+
+    ambientEl.addEventListener('input', () => {
+      const v = parseFloat(ambientEl.value);
+      ambient.intensity = v;
+      ambientValueEl.textContent = v.toFixed(2);
+    });
+
+    keyLightEl.addEventListener('input', () => {
+      const v = parseFloat(keyLightEl.value);
+      keyLight.intensity = v;
+      keyLightValueEl.textContent = v.toFixed(2);
+    });
+
+    exposureEl.addEventListener('input', () => {
+      const v = parseFloat(exposureEl.value);
+      renderer.toneMappingExposure = v;
+      exposureValueEl.textContent = v.toFixed(2);
+    });
+
+    bgColorEl.addEventListener('input', () => {
+      scene.background = new THREE.Color(bgColorEl.value);
+    });
+
+    // 键盘
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'r' || e.key === 'R') {
+        if (currentModel) {
+          const box = new THREE.Box3().setFromObject(currentModel);
+          const size = box.getSize(new THREE.Vector3());
+          const maxDim = Math.max(size.x, size.y, size.z);
+          const fov = camera.fov * (Math.PI / 180);
+          const distance = (maxDim / 2) / Math.tan(fov / 2) * 1.8;
+          camera.position.set(distance * 0.7, distance * 0.5, distance);
+          controls.target.set(0, size.y / 2, 0);
+          controls.update();
+        }
+      }
+    });
+
+    // ========== 渲染循环 ==========
+    function resize() {
+      const w = viewport.clientWidth;
+      const h = viewport.clientHeight;
+      renderer.setSize(w, h);
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    function animate() {
+      requestAnimationFrame(animate);
+      controls.update();
+      renderer.render(scene, camera);
+    }
+    animate();
+  </script>
+</body>
+</html>

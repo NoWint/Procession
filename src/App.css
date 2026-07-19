@@ -212,14 +212,12 @@ canvas {
 
 .process-popup-overlay {
   position: fixed;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(0, 0, 0, 0.35);
-  backdrop-filter: blur(2px);
+  right: 16px;
+  bottom: 16px;
   z-index: 20;
   animation: proc-fade-in 0.15s ease;
+  /* 不再全屏覆盖：让 OrbitControls 等交互在 popup 打开时仍可正常工作 */
+  pointer-events: none; /* overlay 本身不拦截 pointer */
 }
 
 .process-popup {

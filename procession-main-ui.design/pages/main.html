@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="zh" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Procession</title>
+    <style id="theme-vars">
+/* Procession Main UI — Restrained Scientific Futurism */
+/* Brand prefix: proc */
+
+:root {
+  /* Base — deep space */
+  --proc-background: #030305;
+  --proc-surface: #0c0c10;
+  --proc-surface-elevated: #131318;
+  --proc-graphite: #25252c;
+  --proc-void: #000000;
+
+  /* Text */
+  --proc-foreground: #f2f4f8;
+  --proc-text-muted: #9da2ad;
+  --proc-text-subtle: #5c6070;
+
+  /* Data energy */
+  --proc-primary: #00e5ff;            /* electric cyan */
+  --proc-primary-foreground: #030305;
+  --proc-cold-blue: #4aa8ff;
+  --proc-pulse-white: #ffffff;
+  --proc-amber: #ffb84d;
+  --proc-deep-red: #ff3b5c;
+
+  /* Semantic aliases for fill-html-head.mjs */
+  --proc-card: #0c0c10;
+  --proc-card-foreground: #f2f4f8;
+  --proc-popover: #131318;
+  --proc-popover-foreground: #f2f4f8;
+  --proc-muted: #25252c;
+  --proc-muted-foreground: #9da2ad;
+  --proc-border: rgba(255, 255, 255, 0.09);
+  --proc-input: #25252c;
+  --proc-ring: #00e5ff;
+
+  /* Radius scale */
+  --proc-radius-sm: 6px;
+  --proc-radius-md: 10px;
+  --proc-radius-lg: 16px;
+
+  /* Typography */
+  --proc-font-heading: "Songti SC", "Source Han Serif SC", "Noto Serif CJK SC", serif;
+  --proc-font-body: "SF Pro Display", "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  --proc-font-mono: "SF Mono", "Cascadia Code", "Fira Code", monospace;
+}
+
+html, body {
+  background: var(--proc-background);
+  color: var(--proc-foreground);
+  font-family: var(--proc-font-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Glass panel with thickness */
+.glass-panel {
+  background: rgba(19, 19, 24, 0.46);
+  backdrop-filter: blur(28px) saturate(150%);
+  -webkit-backdrop-filter: blur(28px) saturate(150%);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  box-shadow:
+    0 10px 40px rgba(0, 0, 0, 0.40),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+/* Ceramic button */
+.ceramic-button {
+  background: radial-gradient(140% 140% at 50% 0%, #24242c 0%, #131316 100%);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow:
+    0 2px 0 rgba(255, 255, 255, 0.04) inset,
+    0 4px 14px rgba(0, 0, 0, 0.45);
+}
+
+/* Energy glow for primary actions */
+.energy-glow {
+  box-shadow: 0 0 0 1px rgba(0, 229, 255, 0.35), 0 0 24px rgba(0, 229, 255, 0.18);
+}
+
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.3.1/dist/index.global.js"></script>
+    <script src="https://unpkg.com/lucide@1.8.0/dist/umd/lucide.min.js"></script>
+    <style type="text/tailwindcss">
+  @theme inline {
+    --color-background: var(--proc-background);
+    --color-foreground: var(--proc-foreground);
+    --color-card: var(--proc-card);
+    --color-card-foreground: var(--proc-card-foreground);
+    --color-popover: var(--proc-popover);
+    --color-popover-foreground: var(--proc-popover-foreground);
+    --color-primary: var(--proc-primary);
+    --color-primary-foreground: var(--proc-primary-foreground);
+    --color-muted: var(--proc-muted);
+    --color-muted-foreground: var(--proc-muted-foreground);
+    --color-border: var(--proc-border);
+    --color-input: var(--proc-input);
+    --color-ring: var(--proc-ring);
+    --radius-sm: var(--proc-radius-sm);
+    --radius-md: var(--proc-radius-md);
+    --radius-lg: var(--proc-radius-lg);
+  }
+  @layer base {
+    body { background: var(--proc-background); color: var(--proc-foreground); }
+    td, th { @apply break-words; word-break: break-all; word-break: auto-phrase; }
+    th { @apply whitespace-nowrap; }
+  }
+    </style>
+    <style id="semantic-token-fallback">
+      .bg-background { background-color: var(--proc-background); }
+      .text-background { color: var(--proc-background); }
+      .border-background { border-color: var(--proc-background); }
+      .ring-background { --tw-ring-color: var(--proc-background); }
+      .bg-foreground { background-color: var(--proc-foreground); }
+      .text-foreground { color: var(--proc-foreground); }
+      .border-foreground { border-color: var(--proc-foreground); }
+      .ring-foreground { --tw-ring-color: var(--proc-foreground); }
+      .bg-card { background-color: var(--proc-card); }
+      .text-card { color: var(--proc-card); }
+      .border-card { border-color: var(--proc-card); }
+      .ring-card { --tw-ring-color: var(--proc-card); }
+      .bg-card-foreground { background-color: var(--proc-card-foreground); }
+      .text-card-foreground { color: var(--proc-card-foreground); }
+      .border-card-foreground { border-color: var(--proc-card-foreground); }
+      .ring-card-foreground { --tw-ring-color: var(--proc-card-foreground); }
+      .bg-popover { background-color: var(--proc-popover); }
+      .text-popover { color: var(--proc-popover); }
+      .border-popover { border-color: var(--proc-popover); }
+      .ring-popover { --tw-ring-color: var(--proc-popover); }
+      .bg-popover-foreground { background-color: var(--proc-popover-foreground); }
+      .text-popover-foreground { color: var(--proc-popover-foreground); }
+      .border-popover-foreground { border-color: var(--proc-popover-foreground); }
+      .ring-popover-foreground { --tw-ring-color: var(--proc-popover-foreground); }
+      .bg-primary { background-color: var(--proc-primary); }
+      .text-primary { color: var(--proc-primary); }
+      .border-primary { border-color: var(--proc-primary); }
+      .ring-primary { --tw-ring-color: var(--proc-primary); }
+      .bg-primary-foreground { background-color: var(--proc-primary-foreground); }
+      .text-primary-foreground { color: var(--proc-primary-foreground); }
+      .border-primary-foreground { border-color: var(--proc-primary-foreground); }
+      .ring-primary-foreground { --tw-ring-color: var(--proc-primary-foreground); }
+      .bg-muted { background-color: var(--proc-muted); }
+      .text-muted { color: var(--proc-muted); }
+      .border-muted { border-color: var(--proc-muted); }
+      .ring-muted { --tw-ring-color: var(--proc-muted); }
+      .bg-muted-foreground { background-color: var(--proc-muted-foreground); }
+      .text-muted-foreground { color: var(--proc-muted-foreground); }
+      .border-muted-foreground { border-color: var(--proc-muted-foreground); }
+      .ring-muted-foreground { --tw-ring-color: var(--proc-muted-foreground); }
+      .bg-border { background-color: var(--proc-border); }
+      .text-border { color: var(--proc-border); }
+      .border-border { border-color: var(--proc-border); }
+      .ring-border { --tw-ring-color: var(--proc-border); }
+      .bg-input { background-color: var(--proc-input); }
+      .text-input { color: var(--proc-input); }
+      .border-input { border-color: var(--proc-input); }
+      .ring-input { --tw-ring-color: var(--proc-input); }
+      .bg-ring { background-color: var(--proc-ring); }
+      .text-ring { color: var(--proc-ring); }
+      .border-ring { border-color: var(--proc-ring); }
+      .ring-ring { --tw-ring-color: var(--proc-ring); }
+    </style>
+    <style>
+      .no-scrollbar::-webkit-scrollbar { display: none; }
+      .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+      [data-icon] {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        -webkit-mask-size: contain;
+        mask-size: contain;
+        -webkit-mask-repeat: no-repeat;
+        mask-repeat: no-repeat;
+        -webkit-mask-position: center;
+        mask-position: center;
+        background-color: currentColor;
+      }
+    </style>
+</head>
+<body class="min-h-screen font-sans antialiased">
+    <main>
+    </main>
+    <script>lucide.createIcons();</script>
+</body>
+</html>

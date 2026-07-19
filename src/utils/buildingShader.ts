@@ -73,7 +73,7 @@ const FRAG_WINDOW_LOGIC = `
       dot(vWorldPos, vec3(1.0, 0.0, 0.0)),
       dot(vWorldPos, vec3(0.0, 0.0, 1.0))
     );
-    float horiz = abs(normalDir.x) > abs(normalDir.z) ? sidePos.x : sidePos.z;
+    float horiz = abs(normalDir.x) > abs(normalDir.z) ? sidePos.x : sidePos.y;
     float colIdx = floor(horiz * 4.0);
     vec2 cellUv = vec2(
       fract(horiz * 4.0),

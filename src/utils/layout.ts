@@ -1,4 +1,12 @@
 import type { ProcessInfo } from "./types";
+import {
+  isSystemProcess,
+  isDatabaseProcess,
+  isBrowserProcess,
+  isEditorProcess,
+  isRuntimeProcess,
+  isCloudProcess,
+} from "./colors";
 
 export interface BuildingPosition {
   x: number;
@@ -6,9 +14,9 @@ export interface BuildingPosition {
   z: number;
   pid: number;
   height: number;
-  width?: number;        // 2.0 for parent (main tower), 1.0 for child (annex)
+  width?: number;
   parentPid?: number;
-  childCount?: number;   // how many children cluster around this parent
+  childCount?: number;
 }
 
 export interface SubBlockInfo {
@@ -21,15 +29,49 @@ export interface SubBlockInfo {
 }
 
 export interface BlockInfo {
-  letter: string;
-  x: number;        // 街区中心 x
-  z: number;        // 街区中心 z
-  minX: number;     // 街区边界
+  letter: string;        // 保留字段名兼容，现在存的是 typeKey
+  typeKey: string;      // system/browser/editor/database/cloud/runtime/user
+  typeName: string;     // 中文显示名（系统服务/浏览器/编辑器...）
+  x: number;
+  z: number;
+  minX: number;
   maxX: number;
   minZ: number;
   maxZ: number;
   subblocks: SubBlockInfo[];
-  processCount: number;  // 街区内建筑总数（含子进程），用于 BlockLabel 副标题
+  processCount: number;
+}
+
+/**
+ * 进程类型分组：替代之前的首字母分组。
+ * 类型分组有空间逻辑：相同类型的进程聚集在同一街区，
+ * 用户能预测"系统进程在西北、浏览器在东南"等空间关系。
+ *
+ * 类型→街区位置的映射是固定的（不随运行进程变化），
+ * 这样用户能在脑中建立"城市地图"。
+ */
+const TYPE_GROUP_ORDER = [
+  { key: "system",   name: "系统服务" },
+  { key: "database", name: "数据库" },
+  { key: "browser",  name: "浏览器" },
+  { key: "editor",   name: "编辑器" },
+  { key: "runtime",  name: "运行时" },
+  { key: "cloud",    name: "云服务" },
+  { key: "user",     name: "用户进程" },
+] as const;
+
+export function classifyProcess(p: ProcessInfo): string {
+  if (isDatabaseProcess(p)) return "database";
+  if (isBrowserProcess(p)) return "browser";
+  if (isEditorProcess(p)) return "editor";
+  if (isRuntimeProcess(p)) return "runtime";
+  if (isCloudProcess(p)) return "cloud";
+  if (isSystemProcess(p)) return "system";
+  return "user";
+}
+
+export function getTypeGroupInfo(typeKey: string): { key: string; name: string } {
+  return TYPE_GROUP_ORDER.find((g) => g.key === typeKey) ?? TYPE_GROUP_ORDER[TYPE_GROUP_ORDER.length - 1];
 }
 
 export function cpuToHeight(cpu: number): number {
@@ -38,16 +80,21 @@ export function cpuToHeight(cpu: number): number {
 
 /**
  * Returns a cheap signature of the process list that changes only when the
- * layout-relevant properties (pid, ppid, cpu) change. Use it as a useMemo
- * dependency so layout is recomputed only when the process topology actually
- * changes, not on every snapshot update.
+ * process topology (pid/ppid/name) changes — NOT on cpu fluctuations.
+ *
+ * 关键：不包含 cpu，因为 cpu 在 1Hz 推送中持续波动，如果签名包含 cpu，
+ * 每帧 positions 都会重算，导致建筑位置漂移。
+ * cpu 变化只影响 height，由 useFrame 差分更新，不需要重算 layout。
  */
 export function computeProcessSignature(processes: ProcessInfo[]): string {
   let h = 0;
   for (const p of processes) {
     h = (h * 31 + p.pid) | 0;
     h = (h * 31 + p.ppid) | 0;
-    h = (h * 31 + Math.floor(p.cpu * 10)) | 0;
+    // 用 name 而不是 cpu：name 变化时拓扑变（罕见），cpu 变化时拓扑不变（频繁）
+    for (let i = 0; i < p.name.length; i++) {
+      h = (h * 31 + p.name.charCodeAt(i)) | 0;
+    }
   }
   return `${processes.length}:${h}`;
 }
@@ -87,7 +134,10 @@ function spiralGridIndices(side: number): [number, number][] {
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const CELL_SIZE = 3.0;
-const MIN_RADIUS = 2.0;
+// MIN_RADIUS 用于 resolveOverlap：两个建筑中心最小间距
+// 最大变体 building-system baseWidth=1.8，半径 0.9；加上 0.6 边距 = 1.5
+// 但 childRadius 已给 root-children 留空间，这里主要防 root 间穿模
+const MIN_RADIUS = 2.2;
 
 function hashSeed(seed: number): number {
   let h = seed | 0;
@@ -99,6 +149,10 @@ function hashSeed(seed: number): number {
   return (h >>> 0) / 4294967296;
 }
 
+/**
+ * 解决冲突：把 (x,z) 推离所有 placed 中距离过近的建筑。
+ * 最多迭代 30 次，每次推离 MIN_RADIUS - dist 的距离。
+ */
 function resolveOverlap(
   x: number,
   z: number,
@@ -144,36 +198,52 @@ export function computeGridPositions(
     list.push(p);
     childrenMap.set(p.ppid, list);
   }
-  for (const list of childrenMap.values()) list.sort((a, b) => b.cpu - a.cpu);
+  // 关键：用 pid 稳定排序，而不是 cpu（cpu 在 1Hz 内波动会导致 children 顺序变化 →
+  // ci 角度变化 → 位置漂移 → 建筑"游走"）。pid 在进程生命周期内不变。
+  for (const list of childrenMap.values()) list.sort((a, b) => a.pid - b.pid);
 
   const roots = filtered.filter((p) => p.ppid <= 1 || !pidMap.has(p.ppid));
 
-  const letterGroups = new Map<string, ProcessInfo[]>();
+  // 按进程类型分组（替代首字母分组）：相同类型聚集在同一街区，可建立空间地图
+  const typeGroups = new Map<string, ProcessInfo[]>();
   for (const r of roots) {
-    const key = r.name.charAt(0).toUpperCase();
-    if (!letterGroups.has(key)) letterGroups.set(key, []);
-    letterGroups.get(key)!.push(r);
+    const typeKey = classifyProcess(r);
+    if (!typeGroups.has(typeKey)) typeGroups.set(typeKey, []);
+    typeGroups.get(typeKey)!.push(r);
   }
-  const sortedKeys = Array.from(letterGroups.keys()).sort();
+  // 固定顺序：system → database → browser → editor → runtime → cloud → user
+  // 即使某类型没有进程也保留位置（让用户能预测"编辑器街区在哪个方向"）
+  const sortedKeys = TYPE_GROUP_ORDER
+    .map((g) => g.key)
+    .filter((k) => typeGroups.has(k));
 
   const blockCols = 8;
   const blockCell = 16.0;        // 街区间距（给主干道留空间）
   const subGap = 1.5;            // 小区间距（支干道宽度）
-  const inSubCell = 3.0;         // 小区内 root 间距
+  const inSubCell = 3.8;         // 小区内 root 间距（加大：system 变体 1.8 宽 + 边距）
   const childPad = 2.0;          // 街区边界向外留白（容纳子进程环绕）
 
   const result: BuildingPosition[] = [];
   const blockInfo: BlockInfo[] = [];
   const placed = new Set<number>();
 
-  const centerOffset = Math.floor(sortedKeys.length / blockCols) * blockCell / 2;
+  // 街区网格在两个方向都居中：之前 bx 从 0 开始向 +x 延伸（最大 112），
+  // 但地板是 ±80 居中，导致建筑全部偏到 +x 侧，-x 侧空荡。
+  // 现在根据实际街区数计算 cols/rows，让街区中心在原点。
+  const totalBlocks = sortedKeys.length;
+  const gridCols = Math.max(1, Math.min(totalBlocks, blockCols));
+  const gridRows = Math.max(1, Math.ceil(totalBlocks / gridCols));
+  const totalWidth = (gridCols - 1) * blockCell;
+  const totalDepth = (gridRows - 1) * blockCell;
+  const startX = -totalWidth / 2;
+  const startZ = -totalDepth / 2;
 
-  sortedKeys.forEach((letter, bi) => {
-    const rootList = letterGroups.get(letter)!;
+  sortedKeys.forEach((typeKey, bi) => {
+    const rootList = typeGroups.get(typeKey)!;
     rootList.sort((a, b) => a.name.localeCompare(b.name));
 
-    const bx = (bi % blockCols) * blockCell;
-    const bz = Math.floor(bi / blockCols) * blockCell - centerOffset;
+    const bx = startX + (bi % gridCols) * blockCell;
+    const bz = startZ + Math.floor(bi / gridCols) * blockCell;
 
     // 根据街区 root 数量决定小区网格：1/2/4/8 个小区
     const { cols, rows } = getSubblockGrid(rootList.length);
@@ -232,7 +302,9 @@ export function computeGridPositions(
 
           result.push({ x: rx, y: 0, z: rz, pid: root.pid, height: cpuToHeight(root.cpu), width: 2.0, childCount: kids.length });
 
-          const childRadius = 1.5 + (kids.length > 4 ? 1.2 : 0.7);
+          // childRadius 加大：root width=2.0 占用 1.0 半径，子进程 width=1.0 占用 0.5，
+          // 加上间距 0.5，最小需要 2.0；kids 多时再加 1.2
+          const childRadius = 2.4 + (kids.length > 4 ? 1.2 : 0.7);
           kids.forEach((child, ci) => {
             if (placed.has(child.pid)) return;
             placed.add(child.pid);
@@ -252,8 +324,11 @@ export function computeGridPositions(
     const blockMinZ = Math.min(...subblocks.map((s) => s.minZ)) - childPad;
     const blockMaxZ = Math.max(...subblocks.map((s) => s.maxZ)) + childPad;
 
+    const typeInfo = getTypeGroupInfo(typeKey);
     blockInfo.push({
-      letter,
+      letter: typeKey,        // 兼容字段，存 typeKey
+      typeKey,
+      typeName: typeInfo.name,
       x: bx,
       z: bz,
       minX: blockMinX,
@@ -283,6 +358,26 @@ export function computeGridPositions(
     const radius = 8 + hashSeed(p.pid + 3) * 3;
     result.push({ x: Math.cos(angle) * radius, y: 0, z: Math.sin(angle) * radius, pid: p.pid, height: cpuToHeight(p.cpu), width: 1.0 });
     placed.add(p.pid);
+  }
+
+  // === 全局冲突检测：解决跨街区/孤儿/边界穿模 ===
+  // 之前 resolveOverlap 只在 computeTreePositions 用，computeGridPositions 没调用，导致穿模。
+  // 这里在所有位置确定后做一轮全局分离，迭代直到无冲突或达上限。
+  const placedMap = new Map<number, BuildingPosition>();
+  for (const pos of result) placedMap.set(pos.pid, pos);
+  for (let pass = 0; pass < 3; pass++) {
+    let moved = false;
+    for (const pos of result) {
+      const before = { x: pos.x, z: pos.z };
+      const after = resolveOverlap(pos.x, pos.z, placedMap);
+      if (after.x !== before.x || after.z !== before.z) {
+        pos.x = after.x;
+        pos.z = after.z;
+        placedMap.set(pos.pid, pos);
+        moved = true;
+      }
+    }
+    if (!moved) break;
   }
 
   return { positions: result, blocks: blockInfo };

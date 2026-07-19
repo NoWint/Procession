@@ -22,9 +22,23 @@ describe("computeProcessSignature", () => {
     expect(computeProcessSignature(a)).toBe(computeProcessSignature(b));
   });
 
-  it("changes signature when cpu changes by more than 0.1", () => {
+  it("keeps signature STABLE when only cpu changes (cpu 波动不应触发 positions 重算)", () => {
+    // 关键：cpu 在 1Hz 推送中持续波动，若签名随 cpu 变，positions 每帧重算 → 建筑漂移
+    // cpu 变化由 useFrame 差分更新 height，不需要重算 layout
     const a = [makeProcess({ pid: 1, ppid: 0, cpu: 12.3 })];
     const b = [makeProcess({ pid: 1, ppid: 0, cpu: 12.4 })];
+    expect(computeProcessSignature(a)).toBe(computeProcessSignature(b));
+  });
+
+  it("changes signature when name changes (拓扑变化才应触发重算)", () => {
+    const a = [makeProcess({ pid: 1, ppid: 0, name: "test" })];
+    const b = [makeProcess({ pid: 1, ppid: 0, name: "other" })];
+    expect(computeProcessSignature(a)).not.toBe(computeProcessSignature(b));
+  });
+
+  it("changes signature when pid/ppid changes", () => {
+    const a = [makeProcess({ pid: 1, ppid: 0 })];
+    const b = [makeProcess({ pid: 2, ppid: 0 })];
     expect(computeProcessSignature(a)).not.toBe(computeProcessSignature(b));
   });
 });

@@ -86,8 +86,14 @@ export default function Atmosphere({
   const pointsRef = useRef<THREE.Points>(null);
   const pointsMatRef = useRef<THREE.PointsMaterial>(null);
   const meteorMatRefs = useRef<Array<THREE.LineBasicMaterial | null>>([]);
+  // 帧计数器：每 2 帧更新一次 uniform（30Hz），星空旋转/闪烁本就缓慢，节省上传开销
+  const frameCountRef = useRef(0);
 
   useFrame((state) => {
+    frameCountRef.current++;
+    // 跳过偶数帧：视觉变化频率极低（< 0.01/秒），30Hz 采样完全够用
+    if (frameCountRef.current % 2 !== 0) return;
+
     const t = state.clock.elapsedTime;
     // 星空整体缓慢闪烁
     if (pointsMatRef.current) {

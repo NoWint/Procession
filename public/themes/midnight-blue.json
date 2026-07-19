@@ -14,8 +14,8 @@
     "textMuted": "#6a7a94",
     "accent": "#7eb8ff",
     "border": "#1b2d4a",
-    "grid": "#0f1c30",
-    "gridSecondary": "#081020",
+    "grid": "#1f3458",
+    "gridSecondary": "#0f1c30",
     "ground": "#060e1a",
     "system": "#5c8fbd",
     "user": "#7e9bbd",
@@ -31,6 +31,6 @@
     "directionalIntensity": 0.95,
     "fogColor": "#050a14",
     "fogNear": 25,
-    "fogFar": 95
+    "fogFar": 85
   }
 }

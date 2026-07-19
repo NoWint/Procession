@@ -24,7 +24,8 @@ interface AudioEngineState {
 /// Creates AudioContext on first user interaction (autoplay policy).
 /// Maps CPU/temp/network/memory to oscillator parameters at 1Hz cadence.
 export function useAudioEngine({ snapshot }: AudioEngineOptions): AudioEngineState {
-  const [isMuted, setIsMuted] = useState(false);
+  // 默认静音：避免低频嗡嗡声造成耳鸣不适。用户可按 M 或点击按钮解除静音。
+  const [isMuted, setIsMuted] = useState(true);
   const [isSupported, setIsSupported] = useState(true);
   const [initialized, setInitialized] = useState(false);
 
@@ -41,7 +42,8 @@ export function useAudioEngine({ snapshot }: AudioEngineOptions): AudioEngineSta
   const netLfoRef = useRef<OscillatorNode | null>(null);
   const lfoGainRef = useRef<GainNode | null>(null);
 
-  const mutedRef = useRef(false);
+  // mutedRef 初始为 true，与 isMuted 默认值同步
+  const mutedRef = useRef(true);
 
   const toggleMute = useCallback(() => {
     mutedRef.current = !mutedRef.current;
@@ -78,7 +80,8 @@ export function useAudioEngine({ snapshot }: AudioEngineOptions): AudioEngineSta
       ctxRef.current = ctx;
 
       const master = ctx.createGain();
-      master.gain.value = 1;
+      // 默认静音（isMuted 初始 true），仅在用户解除静音时才提升 master gain
+      master.gain.value = 0;
       master.connect(ctx.destination);
       masterGainRef.current = master;
 

@@ -27,8 +27,10 @@ export default function BloomEffect({
   strength = 0.05,
   radius = 0.4,
   threshold = 0.85,
-  enableSMAA = true,
-  enableVignette = true,
+  // 默认禁用 SMAA/Vignette/SSAO：Canvas 的 antialias:true 已提供 MSAA，SMAA 冗余；
+  // Vignette 默认强度很轻，移除视觉影响极小。默认仅渲染 Render + Bloom 两个 pass。
+  enableSMAA = false,
+  enableVignette = false,
   enableSSAO = false,
   vignetteOffset = 0.95,
   vignetteDarkness = 0.6,

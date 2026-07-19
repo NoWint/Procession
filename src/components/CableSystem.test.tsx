@@ -14,7 +14,14 @@ describe("CableSystem", () => {
 
   it("renders from provided cables", () => {
     const cables: CableData[] = [
-      { path: [new THREE.Vector3(0, 0, 0), new THREE.Vector3(1, 1, 1)], protocol: "tcp" },
+      {
+        path: [new THREE.Vector3(0, 0, 0), new THREE.Vector3(1, 1, 1)],
+        protocol: "tcp",
+        nodes: [
+          { pos: new THREE.Vector3(0, 0, 0), type: "start" },
+          { pos: new THREE.Vector3(1, 1, 1), type: "end" },
+        ],
+      },
     ];
 
     const { container } = render(<CableSystem cables={cables} positions={[]} connections={[]} />);
@@ -33,10 +40,12 @@ describe("buildBatchedCableGeometry", () => {
       {
         path: [new THREE.Vector3(0, 0, 0), new THREE.Vector3(1, 0, 0), new THREE.Vector3(2, 0, 0)],
         protocol: "tcp",
+        nodes: [],
       },
       {
         path: [new THREE.Vector3(0, 1, 0), new THREE.Vector3(1, 1, 0)],
         protocol: "udp",
+        nodes: [],
       },
     ];
 
@@ -49,7 +58,11 @@ describe("buildBatchedCableGeometry", () => {
 
   it("assigns protocol-derived vertex colors", () => {
     const cables: CableData[] = [
-      { path: [new THREE.Vector3(0, 0, 0), new THREE.Vector3(1, 0, 0)], protocol: "tcp" },
+      {
+        path: [new THREE.Vector3(0, 0, 0), new THREE.Vector3(1, 0, 0)],
+        protocol: "tcp",
+        nodes: [],
+      },
     ];
 
     const geo = buildBatchedCableGeometry(cables);

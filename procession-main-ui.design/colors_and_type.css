@@ -1,0 +1,77 @@
+/* Procession Main UI — Restrained Scientific Futurism */
+/* Brand prefix: proc */
+
+:root {
+  /* Base — deep space */
+  --proc-background: #030305;
+  --proc-surface: #0c0c10;
+  --proc-surface-elevated: #131318;
+  --proc-graphite: #25252c;
+  --proc-void: #000000;
+
+  /* Text */
+  --proc-foreground: #f2f4f8;
+  --proc-text-muted: #9da2ad;
+  --proc-text-subtle: #5c6070;
+
+  /* Data energy */
+  --proc-primary: #00e5ff;            /* electric cyan */
+  --proc-primary-foreground: #030305;
+  --proc-cold-blue: #4aa8ff;
+  --proc-pulse-white: #ffffff;
+  --proc-amber: #ffb84d;
+  --proc-deep-red: #ff3b5c;
+
+  /* Semantic aliases for fill-html-head.mjs */
+  --proc-card: #0c0c10;
+  --proc-card-foreground: #f2f4f8;
+  --proc-popover: #131318;
+  --proc-popover-foreground: #f2f4f8;
+  --proc-muted: #25252c;
+  --proc-muted-foreground: #9da2ad;
+  --proc-border: rgba(255, 255, 255, 0.09);
+  --proc-input: #25252c;
+  --proc-ring: #00e5ff;
+
+  /* Radius scale */
+  --proc-radius-sm: 6px;
+  --proc-radius-md: 10px;
+  --proc-radius-lg: 16px;
+
+  /* Typography */
+  --proc-font-heading: "Songti SC", "Source Han Serif SC", "Noto Serif CJK SC", serif;
+  --proc-font-body: "SF Pro Display", "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  --proc-font-mono: "SF Mono", "Cascadia Code", "Fira Code", monospace;
+}
+
+html, body {
+  background: var(--proc-background);
+  color: var(--proc-foreground);
+  font-family: var(--proc-font-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Glass panel with thickness */
+.glass-panel {
+  background: rgba(19, 19, 24, 0.46);
+  backdrop-filter: blur(28px) saturate(150%);
+  -webkit-backdrop-filter: blur(28px) saturate(150%);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  box-shadow:
+    0 10px 40px rgba(0, 0, 0, 0.40),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+/* Ceramic button */
+.ceramic-button {
+  background: radial-gradient(140% 140% at 50% 0%, #24242c 0%, #131316 100%);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow:
+    0 2px 0 rgba(255, 255, 255, 0.04) inset,
+    0 4px 14px rgba(0, 0, 0, 0.45);
+}
+
+/* Energy glow for primary actions */
+.energy-glow {
+  box-shadow: 0 0 0 1px rgba(0, 229, 255, 0.35), 0 0 24px rgba(0, 229, 255, 0.18);
+}

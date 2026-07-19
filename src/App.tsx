@@ -3,13 +3,8 @@ import CityScene from "./components/CityScene";
 import BuildingCluster from "./components/BuildingCluster";
 import BuildingHalo from "./components/BuildingHalo";
 import CableSystem, { computeCableData } from "./components/CableSystem";
-import CableFlow from "./components/CableFlow";
 import CityGround from "./components/CityGround";
-import CityBackground from "./components/CityBackground";
-import RoadGrid from "./components/RoadGrid";
-import RoadFlow from "./components/RoadFlow";
-import BlockLabel from "./components/BlockLabel";
-import BlockBoundary from "./components/BlockBoundary";
+import TrafficFlow from "./components/TrafficFlow";
 import Atmosphere from "./components/Atmosphere";
 import BloomEffect from "./components/BloomEffect";
 import PortHarbors from "./components/PortHarbors";
@@ -146,9 +141,6 @@ export default function App() {
     () => (displaySnapshot ? computeCableData(displaySnapshot.network.connections, positions, 80) : []),
     [displaySnapshot?.network.connections, positions],
   );
-
-  const cablePaths = useMemo(() => cableData.map((d) => d.path), [cableData]);
-  const cableProtocols = useMemo(() => cableData.map((d) => d.protocol), [cableData]);
 
   const selectedPosition = useMemo(() => {
     if (!selectedProcess) return null;
@@ -358,13 +350,17 @@ export default function App() {
         autoRotate={autoRotate}
       >
         <Atmosphere theme={theme} />
-        <BloomEffect enabled={bloomEnabled} strength={0.05} radius={0.4} threshold={0.85} />
-        <CityBackground theme={theme} />
-        <CityGround theme={theme} />
-        <RoadGrid blocks={blockCenters} />
-        <RoadFlow />
-        <BlockLabel blocks={blockCenters} />
-        <BlockBoundary blocks={blockCenters} theme={theme} />
+        {bloomEnabled && (
+          <BloomEffect
+            strength={0.05}
+            radius={0.4}
+            threshold={0.85}
+            enableVignette={false}
+            enableSMAA={false}
+          />
+        )}
+        <CityGround theme={theme} blocks={blockCenters} />
+        <TrafficFlow theme={theme} />
         <FsHeatmap hotspots={renderSnapshot.fs_hotspots} theme={theme} />
         <BuildingCluster
           processes={renderSnapshot.processes}
@@ -387,7 +383,6 @@ export default function App() {
           theme={theme}
         />
         <CableSystem cables={cableData} theme={theme} />
-        <CableFlow paths={cablePaths} protocols={cableProtocols} theme={theme} />
       </CityScene>
 
       <div className={`app-ui-layer ${kioskMode && !showUi ? "kiosk-hidden" : ""}`}>

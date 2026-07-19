@@ -52,18 +52,11 @@ export default function ProcessPopup({
       }
     };
 
-    const handlePointerDown = (e: PointerEvent) => {
-      const target = e.target as Node;
-      if (popupRef.current && !popupRef.current.contains(target)) {
-        onClose();
-      }
-    };
-
+    // 非模态 popup：仅 Esc 关闭，不再监听 pointerdown 外部点击
+    // （popup 已不全屏覆盖，OrbitControls 拖动建筑不应触发关闭）
     window.addEventListener("keydown", handleKeyDown);
-    window.addEventListener("pointerdown", handlePointerDown);
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
-      window.removeEventListener("pointerdown", handlePointerDown);
     };
   }, [process, onClose]);
 
@@ -135,14 +128,13 @@ export default function ProcessPopup({
   const hasBlockSection = Boolean(containingBlock);
 
   return (
-    <div className="process-popup-overlay" role="presentation" onClick={onClose}>
+    <div className="process-popup-overlay" role="presentation">
       <div
         ref={popupRef}
         className="process-popup"
         role="dialog"
         aria-modal="true"
         aria-label={`Process details for ${process.name}`}
-        onClick={(e) => e.stopPropagation()}
       >
         <div className="process-popup-header">
           <span className="process-popup-name" title={process.name}>
@@ -231,8 +223,8 @@ export default function ProcessPopup({
           <div className="process-popup-section">
             <div className="process-popup-section-title">监听端口</div>
             <ul className="process-popup-list">
-              {portList.slice(0, MAX_PORTS).map((p) => (
-                <li key={`${p.protocol}-${p.port}`} className="process-popup-list-item">
+              {portList.slice(0, MAX_PORTS).map((p, i) => (
+                <li key={`${p.protocol}-${p.port}-${i}`} className="process-popup-list-item">
                   {p.protocol} :{p.port} @ {p.address}
                 </li>
               ))}

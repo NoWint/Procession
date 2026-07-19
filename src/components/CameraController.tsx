@@ -26,7 +26,12 @@ export default function CameraController({
 
   useEffect(() => {
     if (!target) {
+      // target 被清空时，必须恢复 controls.enabled，否则会因之前飞行被禁用而永远卡死
       isFlying.current = false;
+      if (controls) {
+        (controls as any).enabled = true;
+        (controls as any).update?.();
+      }
       return;
     }
 
@@ -55,6 +60,14 @@ export default function CameraController({
     if (controls) {
       (controls as any).enabled = false;
     }
+
+    // 安全兜底：组件卸载或 target 变化时恢复 controls，避免永远禁用
+    return () => {
+      if (controls) {
+        (controls as any).enabled = true;
+        (controls as any).update?.();
+      }
+    };
   }, [target, camera, controls, offsetDistance, offsetY]);
 
   useFrame(() => {

@@ -1,207 +1,283 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useMemo, useRef, useEffect } from "react";
 import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
 import { FALLBACK_THEME, type Theme } from "../utils/theme";
+import { blockTypeColor } from "../utils/colors";
+import type { BlockInfo } from "../utils/layout";
 
 interface CityGroundProps {
   theme?: Theme;
+  blocks?: BlockInfo[];
 }
 
-const waterVertexShader = `
-varying vec2 vUv;
-varying vec3 vWorldPos;
-void main() {
-  vUv = uv;
-  vec4 worldPos = modelMatrix * vec4(position, 1.0);
-  vWorldPos = worldPos.xyz;
-  gl_Position = projectionMatrix * viewMatrix * worldPos;
-}
-`;
+const GROUND_SIZE = 160;
+const BLOCK_STEP = 16;        // 街区边长（与 layout.ts blockCell 一致）
+const ROAD_WIDTH = 2.5;        // 主干道宽度（加宽：之前 1.5 比建筑还窄）
+const ROAD_Y = 0.02;
+const BLOCK_BORDER_Y = 0.015;
+const GRID_HALF = GROUND_SIZE / 2;
 
-const waterFragmentShader = `
-uniform float uTime;
-uniform vec3 uColorDeep;
-uniform vec3 uColorShallow;
-uniform float uOpacity;
-varying vec2 vUv;
-varying vec3 vWorldPos;
+/**
+ * 地面：主题色地板 + 真正的城市道路网 + 按类型着色的街区边界。
+ *
+ * 设计逻辑（emil-design-eng "craft" + apple "familiarity"）：
+ *   1. 主地板：主题色铺满，作为视觉基底
+ *   2. 主干道：宽 2.5 单位的深沥青色带状平面（不发光），让发光建筑成为视觉焦点
+ *   3. 车道线：主干道中央双黄线 + 边缘白线（真实的道路语言）
+ *   4. 街区边界：按类型着色的方框（蓝=系统、紫=数据库、橙=浏览器...）
+ *   5. 街区中心标识：每个街区中心一个小圆盘（类型色），传递"这里是什么街区"
+ *
+ * 移除元素（emil-design-eng "decide what not to build"）：
+ *   - 81 个路口发光点（与路灯冗余，CityLandmarks 已有 120 个路灯）
+ *   - 中心广场 3 层同心圆（与中央塔冗余，CityLandmarks 已有 landmark-central-tower）
+ *   - 远端外环装饰圈（与 CableSystem 远端终点冲突）
+ *
+ * 主题差异化（apple "craft"）：
+ *   - light：日间混凝土，道路深灰
+ *   - dark：夜城感，道路微微反光
+ *   - midnight-blue：数据海感，道路 accent 色微弱 emissive
+ */
+export default function CityGround({ theme = FALLBACK_THEME, blocks = [] }: CityGroundProps) {
+  const groundMatRef = useRef<THREE.MeshStandardMaterial>(null);
+  const roadMatRef = useRef<THREE.MeshStandardMaterial>(null);
+  const laneMatRef = useRef<THREE.LineBasicMaterial>(null);
 
-float hash(vec2 p) {
-  return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
-}
+  const roadInstRef = useRef<THREE.InstancedMesh>(null);
+  const borderInstRef = useRef<THREE.InstancedMesh>(null);
+  const centerInstRef = useRef<THREE.InstancedMesh>(null);
 
-float noise(vec2 p) {
-  vec2 i = floor(p);
-  vec2 f = fract(p);
-  vec2 u = f * f * (3.0 - 2.0 * f);
-  return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), u.x),
-             mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x), u.y);
-}
+  const isLight = theme.mode === "light";
+  const themeName = theme.name.toLowerCase();
+  const isBlue = themeName.includes("blue") || themeName.includes("midnight");
 
-void main() {
-  vec2 p = vWorldPos.xz;
-  float t = uTime * 0.3;
-  float w1 = sin(p.x * 0.3 + t) * 0.5 + 0.5;
-  float w2 = sin(p.y * 0.4 - t * 1.3) * 0.5 + 0.5;
-  float w3 = sin(length(p) * 0.5 - t * 2.0) * 0.5 + 0.5;
-  float waves = (w1 + w2 + w3) / 3.0;
+  // 主题性格强度
+  const accentIntensity = isLight ? 0.35 : isBlue ? 1.6 : 0.9;
+  // 道路色：深沥青，不发光（让发光建筑成为视觉焦点）
+  const roadColor = isLight ? "#3a3a3a" : isBlue ? "#0a1424" : "#1a1a1a";
+  const roadEmissive = isLight ? 0.0 : isBlue ? 0.15 : 0.05;
+  // 车道线色：主题感知（light 黄白、dark 白、blue accent）
+  const laneColor = isLight ? "#f5e060" : isBlue ? theme.colors.accent : "#ffffff";
 
-  float dist = length(p);
-  float edgeFade = smoothstep(30.0, 35.0, dist) * (1.0 - smoothstep(70.0, 90.0, dist));
-
-  vec3 color = mix(uColorDeep, uColorShallow, waves);
-  float alpha = uOpacity * edgeFade * (0.6 + waves * 0.4);
-
-  gl_FragColor = vec4(color, alpha);
-}
-`;
-
-export default function CityGround({ theme = FALLBACK_THEME }: CityGroundProps) {
-  const plazaMatRef = useRef<THREE.MeshStandardMaterial>(null);
-
-  // Main city disk geometry (radius 30)
-  const cityGeometry = useMemo(() => {
-    const geo = new THREE.CircleGeometry(30, 96);
+  // === 1. 主地板 ===
+  const groundGeometry = useMemo(() => {
+    const geo = new THREE.PlaneGeometry(GROUND_SIZE, GROUND_SIZE);
     geo.rotateX(-Math.PI / 2);
     return geo;
   }, []);
 
-  // Outer water geometry (radius 90)
-  const waterGeometry = useMemo(() => {
-    const geo = new THREE.CircleGeometry(90, 96);
+  // === 2. 主干道带状平面 ===
+  const roadGeometry = useMemo(() => {
+    const geo = new THREE.PlaneGeometry(ROAD_WIDTH, GROUND_SIZE);
     geo.rotateX(-Math.PI / 2);
     return geo;
   }, []);
 
-  // Central plaza geometry (radius 5)
-  const plazaGeometry = useMemo(() => {
-    const geo = new THREE.CircleGeometry(5, 64);
-    geo.rotateX(-Math.PI / 2);
-    return geo;
-  }, []);
-
-  // Square grid lines clipped to main disk (radius 30)
-  const gridGeo = useMemo(() => {
-    const size = 60;
-    const divs = 30;
-    const step = size / divs;
-    const lines: number[] = [];
-    const half = size / 2;
-    for (let i = -divs / 2; i <= divs / 2; i++) {
-      const p = i * step;
-      lines.push(-half, 0.005, p, half, 0.005, p);
-      lines.push(p, 0.005, -half, p, 0.005, half);
+  const roadInstances = useMemo(() => {
+    const items: { pos: [number, number, number]; rotY: number }[] = [];
+    for (let i = 0; i <= 10; i++) {
+      const z = -GRID_HALF + i * BLOCK_STEP;
+      items.push({ pos: [0, ROAD_Y, z], rotY: 0 });
     }
+    for (let i = 0; i <= 10; i++) {
+      const x = -GRID_HALF + i * BLOCK_STEP;
+      items.push({ pos: [x, ROAD_Y, 0], rotY: Math.PI / 2 });
+    }
+    return items;
+  }, []);
+
+  // === 3. 车道线（中央双黄线 + 边缘白线） ===
+  // 用 LineSegments 实现，每条道路 1 条中央线
+  const laneGeo = useMemo(() => {
+    const lines: number[] = [];
+    const halfRoad = ROAD_WIDTH / 2;
+    // 横向道路的中央线（沿 X 方向，z = -GRID_HALF + i*BLOCK_STEP）
+    for (let i = 0; i <= 10; i++) {
+      const z = -GRID_HALF + i * BLOCK_STEP;
+      lines.push(-GRID_HALF, 0.03, z, GRID_HALF, 0.03, z);
+    }
+    // 纵向道路的中央线（沿 Z 方向，x = -GRID_HALF + i*BLOCK_STEP）
+    for (let i = 0; i <= 10; i++) {
+      const x = -GRID_HALF + i * BLOCK_STEP;
+      lines.push(x, 0.03, -GRID_HALF, x, 0.03, GRID_HALF);
+    }
+    void halfRoad;  // 暂存避免未使用警告（边缘线后续可加）
     const geo = new THREE.BufferGeometry();
     geo.setAttribute("position", new THREE.Float32BufferAttribute(lines, 3));
     return geo;
   }, []);
 
-  // 16 radiation roads from center to radius 28 (every 22.5 degrees)
-  const roadGeo = useMemo(() => {
-    const lines: number[] = [];
-    const innerR = 0;
-    const outerR = 28;
-    const count = 16;
-    for (let i = 0; i < count; i++) {
-      const angle = (i / count) * Math.PI * 2;
-      const x = Math.cos(angle);
-      const z = Math.sin(angle);
-      lines.push(x * innerR, 0.02, z * innerR, x * outerR, 0.02, z * outerR);
-    }
-    const geo = new THREE.BufferGeometry();
-    geo.setAttribute("position", new THREE.Float32BufferAttribute(lines, 3));
+  // === 4. 街区边界 ===
+  // 边框宽度从 0.2 加宽到 0.6，让俯视可见
+  // 每个街区按类型着色（BlockInfo.typeKey → blockTypeColor）
+  const borderEdgeGeo = useMemo(() => {
+    return new THREE.BoxGeometry(BLOCK_STEP - 2, 0.08, 0.6);
+  }, []);
+
+  // 街区边界实例：使用 blocks prop 而非全网格扫描
+  // 每个 BlockInfo 有 minX/maxX/minZ/maxZ，画 4 条边
+  const borderInstances = useMemo(() => {
+    if (blocks.length === 0) return [];
+    return blocks.flatMap((b) => {
+      const color = new THREE.Color(blockTypeColor(b.typeKey));
+      const midX = (b.minX + b.maxX) / 2;
+      const midZ = (b.minZ + b.maxZ) / 2;
+      return [
+        { pos: [midX, BLOCK_BORDER_Y, b.maxZ] as [number, number, number], rotY: 0, color },
+        { pos: [midX, BLOCK_BORDER_Y, b.minZ] as [number, number, number], rotY: 0, color },
+        { pos: [b.maxX, BLOCK_BORDER_Y, midZ] as [number, number, number], rotY: Math.PI / 2, color },
+        { pos: [b.minX, BLOCK_BORDER_Y, midZ] as [number, number, number], rotY: Math.PI / 2, color },
+      ];
+    }).slice(0, 256);  // 限制最大数量避免性能问题
+  }, [blocks]);
+
+  // === 5. 街区中心标识 ===
+  // 每个街区中心一个小圆盘（类型色），让用户一眼识别"这里是什么类型"
+  const centerDiskGeo = useMemo(() => {
+    const geo = new THREE.CircleGeometry(0.8, 24);  // 半径 0.8，比路口圆盘小
+    geo.rotateX(-Math.PI / 2);
     return geo;
   }, []);
 
-  // Water ShaderMaterial - created once to preserve uTime continuity;
-  // uniform colors are refreshed via useEffect when theme changes.
-  const waterMaterial = useMemo(
-    () =>
-      new THREE.ShaderMaterial({
-        uniforms: {
-          uTime: { value: 0 },
-          uColorDeep: {
-            value: new THREE.Color(theme.colors.coldBlue).multiplyScalar(0.3),
-          },
-          uColorShallow: {
-            value: new THREE.Color(theme.colors.electricCyan),
-          },
-          uOpacity: { value: 0.35 },
-        },
-        vertexShader: waterVertexShader,
-        fragmentShader: waterFragmentShader,
-        transparent: true,
-        depthWrite: false,
-      }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [],
-  );
+  const centerInstances = useMemo(() => {
+    return blocks.map((b) => ({
+      pos: [b.x, BLOCK_BORDER_Y + 0.001, b.z] as [number, number, number],
+      color: new THREE.Color(blockTypeColor(b.typeKey)),
+    }));
+  }, [blocks]);
 
-  // Sync water uniform colors when theme palette changes
+  // === 设置 InstancedMesh 的 matrix 和颜色 ===
   useEffect(() => {
-    waterMaterial.uniforms.uColorDeep.value
-      .set(theme.colors.coldBlue)
-      .multiplyScalar(0.3);
-    waterMaterial.uniforms.uColorShallow.value.set(theme.colors.electricCyan);
-  }, [theme.colors.coldBlue, theme.colors.electricCyan, waterMaterial]);
+    if (!roadInstRef.current) return;
+    const dummy = new THREE.Object3D();
+    roadInstances.forEach((item, i) => {
+      dummy.position.set(...item.pos);
+      dummy.rotation.set(0, item.rotY, 0);
+      dummy.updateMatrix();
+      roadInstRef.current!.setMatrixAt(i, dummy.matrix);
+    });
+    roadInstRef.current.instanceMatrix.needsUpdate = true;
+  }, [roadInstances]);
 
-  // Per-frame updates: water uTime + plaza emissiveIntensity pulse
+  useEffect(() => {
+    if (!borderInstRef.current) return;
+    const dummy = new THREE.Object3D();
+    const color = new THREE.Color();
+    borderInstances.forEach((item, i) => {
+      dummy.position.set(...item.pos);
+      dummy.rotation.set(0, item.rotY, 0);
+      dummy.updateMatrix();
+      borderInstRef.current!.setMatrixAt(i, dummy.matrix);
+      borderInstRef.current!.setColorAt(i, color.copy(item.color));
+    });
+    borderInstRef.current.instanceMatrix.needsUpdate = true;
+    if (borderInstRef.current.instanceColor) {
+      borderInstRef.current.instanceColor.needsUpdate = true;
+    }
+  }, [borderInstances]);
+
+  useEffect(() => {
+    if (!centerInstRef.current) return;
+    const dummy = new THREE.Object3D();
+    const color = new THREE.Color();
+    centerInstances.forEach((item, i) => {
+      dummy.position.set(...item.pos);
+      dummy.updateMatrix();
+      centerInstRef.current!.setMatrixAt(i, dummy.matrix);
+      centerInstRef.current!.setColorAt(i, color.copy(item.color));
+    });
+    centerInstRef.current.instanceMatrix.needsUpdate = true;
+    if (centerInstRef.current.instanceColor) {
+      centerInstRef.current.instanceColor.needsUpdate = true;
+    }
+  }, [centerInstances]);
+
+  // === 呼吸动画（仅地板微弱呼吸） ===
   useFrame((state) => {
     const t = state.clock.elapsedTime;
-    waterMaterial.uniforms.uTime.value = t;
-    if (plazaMatRef.current) {
-      plazaMatRef.current.emissiveIntensity = 0.15 + Math.sin(t * 1.5) * 0.05;
+    if (groundMatRef.current) {
+      groundMatRef.current.emissiveIntensity = 0.05 + Math.sin(t * 0.5) * 0.02;
+    }
+    if (roadMatRef.current) {
+      roadMatRef.current.emissiveIntensity = roadEmissive * (0.9 + Math.sin(t * 0.4) * 0.1);
     }
   });
 
   return (
     <group>
-      {/* Outer water (lowest, largest) */}
-      <mesh geometry={waterGeometry} position={[0, -0.02, 0]}>
-        <primitive object={waterMaterial} attach="material" />
-      </mesh>
-
-      {/* Main city disk */}
-      <mesh geometry={cityGeometry} position={[0, -0.01, 0]} receiveShadow>
+      {/* 1. 主题色矩形地板 */}
+      <mesh geometry={groundGeometry} position={[0, 0, 0]} receiveShadow>
         <meshStandardMaterial
+          ref={groundMatRef}
           color={theme.colors.ground}
-          roughness={0.85}
-          metalness={0.2}
+          roughness={0.9}
+          metalness={0.1}
+          emissive={theme.colors.ground}
+          emissiveIntensity={0.05}
         />
       </mesh>
 
-      {/* Grid lines within main disk */}
-      <lineSegments geometry={gridGeo} frustumCulled={false}>
-        <lineBasicMaterial
-          color="#6060c0"
-          transparent
-          opacity={0.2}
-          depthWrite={false}
-        />
-      </lineSegments>
-
-      {/* 16 radiation roads */}
-      <lineSegments geometry={roadGeo} frustumCulled={false}>
-        <lineBasicMaterial
-          color={theme.colors.electricCyan}
-          transparent
-          opacity={0.2}
-          depthWrite={false}
-        />
-      </lineSegments>
-
-      {/* Central plaza (top, glowing + pulsing) */}
-      <mesh geometry={plazaGeometry} position={[0, 0.01, 0]} receiveShadow>
+      {/* 2. 主干道带状平面（深沥青色，不发光，让发光建筑成为视觉焦点） */}
+      <instancedMesh
+        ref={roadInstRef}
+        args={[roadGeometry, undefined as unknown as THREE.Material, roadInstances.length]}
+        frustumCulled={false}
+      >
         <meshStandardMaterial
-          ref={plazaMatRef}
-          color={theme.colors.accent}
-          emissive={theme.colors.accent}
-          emissiveIntensity={0.15}
-          roughness={0.4}
-          metalness={0.3}
+          ref={roadMatRef}
+          color={roadColor}
+          emissive={isBlue ? theme.colors.accent : roadColor}
+          emissiveIntensity={roadEmissive}
+          roughness={0.85}
+          metalness={0.05}
         />
-      </mesh>
+      </instancedMesh>
+
+      {/* 3. 车道线（中央双黄线，真实的道路语言） */}
+      <lineSegments geometry={laneGeo} frustumCulled={false}>
+        <lineBasicMaterial
+          ref={laneMatRef}
+          color={laneColor}
+          transparent
+          opacity={0.7}
+          depthWrite={false}
+        />
+      </lineSegments>
+
+      {/* 4. 街区边界（按类型着色，边框宽 0.6 让俯视可见） */}
+      {borderInstances.length > 0 && (
+        <instancedMesh
+          ref={borderInstRef}
+          args={[borderEdgeGeo, undefined as unknown as THREE.Material, borderInstances.length]}
+          frustumCulled={false}
+        >
+          <meshStandardMaterial
+            vertexColors
+            roughness={0.6}
+            metalness={0.2}
+            emissiveIntensity={accentIntensity * 0.4}
+            transparent
+            opacity={0.85}
+          />
+        </instancedMesh>
+      )}
+
+      {/* 5. 街区中心标识（类型色圆盘） */}
+      {centerInstances.length > 0 && (
+        <instancedMesh
+          ref={centerInstRef}
+          args={[centerDiskGeo, undefined as unknown as THREE.Material, centerInstances.length]}
+          frustumCulled={false}
+        >
+          <meshStandardMaterial
+            vertexColors
+            emissiveIntensity={accentIntensity * 0.6}
+            roughness={0.5}
+            side={THREE.DoubleSide}
+            transparent
+            opacity={0.75}
+          />
+        </instancedMesh>
+      )}
     </group>
   );
 }

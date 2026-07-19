@@ -1,0 +1,63 @@
+{
+  "project": {
+    "name": "Procession 默认主界面",
+    "deviceType": "desktop",
+    "language": "zh",
+    "businessTheme": "系统进程监控 / 3D 数字城市可视化桌面应用",
+    "designRead": "desktop-app-main-ui / 开发者与技术爱好者 / 克制精密的工具型 / 平衡密度 / 避免沉浸式艺术绑架可用性",
+    "designDials": {
+      "layoutVariance": 2,
+      "motionIntensity": 2,
+      "visualDensity": 3
+    },
+    "styleDefinitionBrief": "克制的空间感监控台：深空黑画布 + 电光青数据能量色 + 3D 城市背景。工具优先，城市是可视化背景而非主角。默认状态常驻轻量 HUD（CPU/MEM/NET 摘要）+ 进程列表（可排序、可搜索、可杀进程），3D 城市作为右侧/背景的可视化映射。材质用有厚度的磨砂玻璃面板 + 陶瓷质感按钮，禁止廉价毛玻璃、霓虹泛滥、游戏 HUD 堆叠。",
+    "styleContinuityAnchors": {
+      "colorSystem": "Base 深空黑 #030305 / Surface #0c0c10 / Surface Elevated #131318 / Graphite #25252c；Text 柔和白 #f2f4f8 / muted #9da2ad / subtle #5c6070；Data Energy 电光青 #00e5ff（主数据能量色，只用于活跃焦点/能量流/选中/关键动作）+ 冷蓝 #4aa8ff（信息/连接）+ 琥珀 #ffb84d（警告）+ 深红 #ff3b5c（危险/崩溃）。禁止同屏超过 3 种主色相。",
+      "shapeSystem": "玻璃面板 radius-md 10px / 进程列表行 radius-sm 6px / 按钮 radius-md。玻璃面板有 1px 上边缘高光 + 内阴影，禁止无厚度毛玻璃。",
+      "typographySystem": "标题衬线 Songti SC（注入人文温度）+ 正文 SF Pro Display / Inter + 数据等宽 SF Mono / Cascadia Code。字号 Display 32-48 / Title 20-28 / Headline 16-18 / Body 13-15 / Caption 11-12 / Data 12-14 mono。数值保留一位小数。",
+      "spacingSystem": "安全区 顶 64 / 底 48 / 左右 32。进程列表行高紧凑但不拥挤，数据列等宽对齐。",
+      "componentLanguage": "Field HUD（顶部玻璃条）+ Index Console（左侧/底部进程列表）+ Entry Probe（点击建筑后的详情面板）。所有控件默认可见但低调，hover 时展开完整数值。禁止传统 Sidebar / Dashboard / 数据卡片堆叠 / 普通 Modal。",
+      "surfaceAndDepth": "Z-Layer 0 世界（3D 城市背景）→ Z-Layer 2 Field HUD（透明度 ≥ 60%）→ Z-Layer 3 Entry Probe（局部遮挡）。悬浮面板用 backdrop-filter blur(28px) saturate(150%) + 1px 高光边缘。",
+      "imageryAndIconography": "Lucide 图标（细线、克制）+ 程序化 3D 城市背景图。禁止 emoji 作为功能图标。",
+      "interactionTone": "工具优先：动效时长压缩（镜头飞向 250ms / 面板淡入 150ms），ambient 呼吸/天气动画保留但不挡操作。信息层级数值优先，语义短语辅助。"
+    },
+    "cssPreflightEvidence": {
+      "applies": true,
+      "status": "passed",
+      "command": "node c:/Users/HUAWEI/.trae-cn/builtin/design/default/skills/solo-design/script/fill-html-head.mjs e:/WechatDevelop/Procession/procession-main-ui.design/colors_and_type.css e:/WechatDevelop/Procession/procession-main-ui.design/.preflight/preflight.html --title=\"Preflight\" --lang=zh --prefix=proc",
+      "brandPrefix": "proc",
+      "checks": {
+        "themeVars": "present",
+        "semanticTokenFallback": "present",
+        "themeInline": "present",
+        "tailwindCdn": "present",
+        "htmlClass": "present",
+        "semanticMappings": "resolved"
+      },
+      "retryCount": 0,
+      "blockingReason": null
+    },
+    "intentProfile": {
+      "caseFamily": "free_exploration",
+      "operatingMode": "free-explore",
+      "routingReason": "单页桌面应用主界面，无 Design Library，无还原目标，free-fast simple lane。"
+    },
+    "contextReadBudget": {
+      "workflowFileReadLimit": 1,
+      "largeWorkflowFilesCachedInSummary": [],
+      "restoreInputsCached": [],
+      "subAgentReadsFullSummary": false
+    }
+  },
+  "pages": [
+    {
+      "nodeId": "page-main",
+      "htmlSrc": "pages/main.html",
+      "pageIndex": 1,
+      "title": "默认主界面",
+      "visualNorthStar": "一张让人立刻能查 CPU、杀进程的监控台，3D 城市是它的可视化脸面而不是主角。",
+      "compositionPattern": "全屏 app-shell：背景层 3D 城市图 + 顶部常驻 Field HUD 玻璃条 + 左侧 Index Console 进程列表 + 右下角轻量 Lens Console 透镜切换器。",
+      "continuityAnchors": ["深空黑 + 电光青配色", "玻璃面板有厚度", "等宽数据字体", "Lucide 细线图标"]
+    }
+  ]
+}

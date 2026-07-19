@@ -5,6 +5,8 @@ import { useEffect, useState } from "react";
 import type React from "react";
 import CameraController from "./CameraController";
 import SkyDome from "./SkyDome";
+import CityLandmarks from "./CityLandmarks";
+import Skyline from "./Skyline";
 import { FALLBACK_THEME, type Theme } from "../utils/theme";
 
 interface CitySceneProps {
@@ -44,7 +46,7 @@ export default function CityScene({
         powerPreference: "high-performance",
         logarithmicDepthBuffer: true,
       }}
-      shadows
+      shadows="soft"
       dpr={[1, 1.5]}
       frameloop={frameloop}
     >
@@ -78,6 +80,8 @@ export default function CityScene({
       />
       <CameraController target={cameraTarget} />
       {children}
+      <CityLandmarks theme={theme} />
+      <Skyline theme={theme} />
     </Canvas>
   );
 }
