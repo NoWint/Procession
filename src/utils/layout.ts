@@ -115,13 +115,17 @@ export function computeGridPositions(
   const center = Math.floor(side / 2);
   const indices = spiralGridIndices(side);
 
-  return indices.slice(0, sorted.length).map(([r, c], i) => ({
-    x: (c - center) * CELL_SIZE,
-    y: 0,
-    z: (r - center) * CELL_SIZE,
-    pid: sorted[i].pid,
-    height: cpuToHeight(sorted[i].cpu),
-  }));
+  return indices.slice(0, sorted.length).map(([r, c], i) => {
+    // Organic jitter: shift each building off perfect grid cell
+    let x = (c - center) * CELL_SIZE;
+    let z = (r - center) * CELL_SIZE;
+    if (i > 0) {
+      const pid = sorted[i].pid;
+      x += (hashSeed(pid) - 0.5) * 0.7;
+      z += (hashSeed(pid + 999) - 0.5) * 0.7;
+    }
+    return { x, y: 0, z, pid: sorted[i].pid, height: cpuToHeight(sorted[i].cpu) };
+  });
 }
 
 // Legacy radial/tree layout — kept for reference but no longer used.
