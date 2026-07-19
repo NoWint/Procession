@@ -1,4 +1,4 @@
-import { useRef, useMemo, useEffect, useCallback } from "react";
+import { useRef, useMemo, useEffect, useCallback, useState } from "react";
 import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
 import { Html } from "@react-three/drei";
@@ -54,6 +54,10 @@ export default function BuildingCluster({
   const hoveredIdRef = useRef(-1);
   const heightCurRef = useRef<Map<number, number>>(new Map());
   const initedRef = useRef(false);
+  // hoveredPid mirrors hoveredIdRef but in React state, so Html tooltips
+  // show/hide on hover. The ref is used inside useFrame to avoid per-frame
+  // setState when reading the hover target for color brightening.
+  const [hoveredPid, setHoveredPid] = useState<number | null>(null);
   // instanceId → pid map for the single mesh. Written every frame alongside
   // instanceMatrix, used to resolve pointer/click events back to a process.
   const pidMap = useRef<number[]>([]);
@@ -183,6 +187,13 @@ export default function BuildingCluster({
 
       const w = pos.width ?? 1;
       _c.set(colorForProcess(proc, themeRef.current));
+      // Hover/selected visual feedback: brighten instanceColor only (no
+      // instanceMatrix changes) to avoid per-frame matrix rewrite overhead.
+      if (proc.pid === hoveredIdRef.current) {
+        _c.multiplyScalar(1.6);
+      } else if (proc.pid === selectedPidRef.current) {
+        _c.multiplyScalar(1.3);
+      }
 
       dummy.position.set(pos.x, curH / 2, pos.z);
       dummy.scale.set(w, curH, w);
@@ -214,22 +225,26 @@ export default function BuildingCluster({
     const id = e.instanceId;
     if (id === undefined) {
       hoveredIdRef.current = -1;
+      setHoveredPid(null);
       onHover?.(null);
       return;
     }
     const pid = getPid(id);
     if (pid === null) {
       hoveredIdRef.current = -1;
+      setHoveredPid(null);
       onHover?.(null);
       return;
     }
     hoveredIdRef.current = pid;
+    setHoveredPid(pid);
     const proc = processes.find((p) => p.pid === pid);
     if (proc) onHover?.(proc);
   }, [onHover, getPid, processes]);
 
   const handlePointerOut = useCallback(() => {
     hoveredIdRef.current = -1;
+    setHoveredPid(null);
     onHover?.(null);
   }, [onHover]);
 
@@ -283,15 +298,26 @@ export default function BuildingCluster({
       {positions.map((pos) => {
         const proc = procMap.get(pos.pid);
         if (!proc) return null;
+        const isHovered = pos.pid === hoveredPid;
+        const isSelected = pos.pid === selectedPid;
+        // Only render tooltips for hovered or selected buildings to keep DOM
+        // nodes minimal — every Html element is a foreignObject in the SVG
+        // overlay, and 200 of them per frame is wasteful.
+        if (!isHovered && !isSelected) return null;
         return (
           <Html
             key={`l-${pos.pid}`}
-            position={[pos.x, (heightCurRef.current.get(pos.pid) ?? pos.height) + 0.9, pos.z]}
+            position={[pos.x, (heightCurRef.current.get(pos.pid) ?? pos.height) + 1.2, pos.z]}
             center
             distanceFactor={14}
             style={{ pointerEvents: "none" }}
           >
-            <div className="building-label">{proc.name}</div>
+            <div className={`building-tooltip${isSelected ? " selected" : ""}`}>
+              <div className="building-tooltip-name">{proc.name}</div>
+              <div className="building-tooltip-row">PID: {proc.pid}</div>
+              <div className="building-tooltip-row">CPU: {proc.cpu.toFixed(1)}%</div>
+              <div className="building-tooltip-row">MEM: {proc.memory_mb} MB</div>
+            </div>
           </Html>
         );
       })}

@@ -319,22 +319,6 @@ canvas {
   color: var(--proc-text);
 }
 
-.building-label {
-  color: #f2f4f8;
-  font-size: 12px;
-  font-family: var(--proc-font-body), -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
-  white-space: nowrap;
-  letter-spacing: 0.02em;
-  opacity: 0.95;
-  transition: transform 0.15s ease, opacity 0.15s ease;
-}
-
-.building-label:hover {
-  opacity: 1;
-  transform: scale(1.05);
-}
-
 .harbor-label {
   padding: 5px 8px;
   background: var(--proc-surface);
@@ -425,4 +409,45 @@ canvas {
 @keyframes proc-banner-pulse {
   0%, 100% { opacity: 0.85; }
   50% { opacity: 1; }
+}
+
+/* Building hover/selected tooltip — only rendered for hovered or selected
+   instances, so we can afford a richer styled box than the old
+   building-label which was rendered for every building. */
+.building-tooltip {
+  background: rgba(8, 12, 30, 0.92);
+  border: 1px solid rgba(120, 160, 255, 0.6);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-family: var(--proc-font-mono);
+  font-size: 11px;
+  color: #e0e8ff;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+}
+
+.building-tooltip.selected {
+  border-color: rgba(255, 200, 100, 0.9);
+  box-shadow: 0 0 20px rgba(255, 200, 100, 0.4);
+}
+
+.building-tooltip-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: #ffe9b0;
+  margin-bottom: 3px;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.building-tooltip-row {
+  color: #a0b0d0;
+  font-size: 10px;
+}
+
+.building-tooltip.selected .building-tooltip-name {
+  color: #ffd070;
 }
