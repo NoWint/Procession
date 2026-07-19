@@ -128,6 +128,14 @@ Constitution changes (STRATEGY/SPEC/ARCHITECTURE under `.docs/`) require a `D-*`
 | I-702 | CI PR test pipeline (tsc + cargo + clippy + test) | 7     | pending | I-701                             | M         |
 | D-701 | Linux build guide                                  | 7     | pending | B-701                             | S         |
 | I-703 | Phase 7 full acceptance                            | 7     | pending | B-701, F-701, F-702, F-703, I-702, D-701 | L |
+| F-710 | Procedural GLB asset pipeline (22 assets)          | 7     | done    | F-701                             | M         |
+| F-711 | Process-type block grouping (7 semantic groups)    | 7     | done    | F-710                             | M         |
+| F-712 | CityGround rebuild (roads / lanes / typed borders) | 7     | done    | F-711                             | L         |
+| F-713 | CableSystem rewrite (L-shaped underground conduit) | 7     | done    | F-712                             | M         |
+| F-714 | Remove 6 redundant visual components               | 7     | done    | F-712                             | S         |
+| F-715 | Add CityLandmarks / TrafficFlow / Skyline           | 7     | done    | F-714                             | L         |
+| F-716 | SkyDome cloud-layer shader (Simplex + FBM)         | 7     | done    | F-715                             | M         |
+| F-717 | Stable building positions (pid-set signature)       | 7     | done    | F-711                             | M         |
 
 ## Runtime Resources
 
@@ -141,7 +149,7 @@ Constitution changes (STRATEGY/SPEC/ARCHITECTURE under `.docs/`) require a `D-*`
 
 - pending: 10
 - in_progress: 0
-- done: 69
+- done: 77
 - blocked: 0
 - failed: 0
 - stale: 0
@@ -4347,6 +4355,448 @@ Per SKILL.md §6 Granularity Rule: future phases are milestone-level only. Expan
     - "Step 7: Commit: 'milestone: Phase 7 acceptance passed'"
   handoff_notes: ""
   notes: "Phase 7 milestone gate."
+```
+
+#### F-710: Procedural GLB asset pipeline
+
+```yaml
+- id: F-710
+  track: frontend
+  title: "Procedural GLB asset pipeline (22 assets)"
+  phase: 7
+  depends_on:
+    hard: [F-701]
+    soft: []
+  blocks: [F-711, F-715]
+  contract_refs: []
+  files_allowed_to_touch:
+    - scripts/build-assets.mjs
+    - public/assets/**
+  forbidden:
+    - src-tauri/**
+  estimated_complexity: M
+  requires_user_approval: false
+  acceptance:
+    mechanical:
+      - "node scripts/build-assets.mjs exits 0"
+      - "ls public/assets/*.glb | wc -l >= 22"
+    existence:
+      - "scripts/build-assets.mjs exists"
+      - "public/assets/building-system.glb exists"
+      - "public/assets/building-user.glb exists"
+      - "public/assets/building-browser.glb exists"
+      - "public/assets/building-database.glb exists"
+      - "public/assets/building-editor.glb exists"
+      - "public/assets/building-runtime.glb exists"
+      - "public/assets/building-cloud.glb exists"
+      - "public/assets/tree.glb exists"
+      - "public/assets/lamp.glb exists"
+      - "public/assets/landmark-tower.glb exists"
+    behavioral:
+      - "BuildingCluster can load any of the 7 building GLBs by typeKey"
+      - "GLB load failures fall back to the legacy procedural mesh without crashing"
+  status: done
+  owner: frontend
+  owner_started_at: 2026-07-19
+  retry_count: 0
+  resume_hint: |
+    1. Read PLAN.md#F-710
+    2. Run `node scripts/build-assets.mjs` to regenerate all 22 GLBs
+    3. Verify file count + spot-check 7 building GLBs
+    4. Confirm BuildingCluster fallback path still works
+  steps:
+    - "Step 1: Write scripts/build-assets.mjs to procedurally emit 22 GLBs (7 building variants, 3 landmark tiers, 2 tree variants, lamp, vehicle variants, road tiles, skyline shells, clouds)"
+    - "Step 2: Output to public/assets/*.glb"
+    - "Step 3: Wire BuildingCluster to load building-{typeKey}.glb with fallback"
+    - "Step 4: Verify `node scripts/build-assets.mjs` regenerates all assets"
+    - "Step 5: Update PLAN.md F-710 → done, counts"
+    - "Step 6: Append PROGRESS.md entry"
+  handoff_notes: "All 22 GLBs generated. Fallback path verified."
+  notes: "Procedural generation keeps the repo small; assets are reproducible from script."
+```
+
+#### F-711: Process-type block grouping
+
+```yaml
+- id: F-711
+  track: frontend
+  title: "Process-type block grouping (7 semantic groups)"
+  phase: 7
+  depends_on:
+    hard: [F-710]
+    soft: []
+  blocks: [F-712, F-717]
+  contract_refs: []
+  files_allowed_to_touch:
+    - src/utils/layout.ts
+    - src/utils/colors.ts
+    - src/utils/layout.test.ts
+  forbidden:
+    - src-tauri/**
+  estimated_complexity: M
+  requires_user_approval: false
+  acceptance:
+    mechanical:
+      - "npx tsc --noEmit exits 0"
+      - "npm test -- --run exits 0"
+    existence:
+      - "src/utils/layout.ts exports classifyProcess"
+      - "src/utils/layout.ts exports getTypeGroupInfo"
+      - "src/utils/layout.ts exports TYPE_GROUP_ORDER"
+      - "src/utils/colors.ts exports blockTypeColor"
+    behavioral:
+      - "7 type groups exist: system/database/browser/editor/runtime/cloud/user"
+      - "Each group has a stable semantic color"
+      - "computeGridPositions assigns a BlockInfo.typeKey to every building"
+  status: done
+  owner: frontend
+  owner_started_at: 2026-07-19
+  retry_count: 0
+  resume_hint: |
+    1. Read PLAN.md#F-711
+    2. Inspect classifyProcess / getTypeGroupInfo / TYPE_GROUP_ORDER in layout.ts
+    3. Inspect blockTypeColor in colors.ts
+    4. Run `npm test -- --run layout`
+  steps:
+    - "Step 1: Define 7 process type groups with stable colors in colors.ts (blockTypeColor)"
+    - "Step 2: Add classifyProcess / getTypeGroupInfo / TYPE_GROUP_ORDER in layout.ts"
+    - "Step 3: Update computeGridPositions to group blocks by typeKey"
+    - "Step 4: Add / update unit tests for classification + grouping"
+    - "Step 5: Update PLAN.md F-711 → done, counts"
+    - "Step 6: Append PROGRESS.md entry"
+  handoff_notes: "7 semantic groups wired into layout + colors. Stable per pid."
+  notes: "Grouping by process type gives the city readable districts (DB purple, browser orange, etc.)."
+```
+
+#### F-712: CityGround rebuild
+
+```yaml
+- id: F-712
+  track: frontend
+  title: "CityGround rebuild (roads / lanes / typed borders)"
+  phase: 7
+  depends_on:
+    hard: [F-711]
+    soft: []
+  blocks: [F-713, F-714]
+  contract_refs: []
+  files_allowed_to_touch:
+    - src/components/CityGround.tsx
+    - public/themes/*.json
+  forbidden:
+    - src-tauri/**
+  estimated_complexity: L
+  requires_user_approval: false
+  acceptance:
+    mechanical:
+      - "npx tsc --noEmit exits 0"
+      - "npm test -- --run exits 0"
+    existence:
+      - "src/components/CityGround.tsx exists"
+      - "CityGround renders a road grid (not a flat colored square)"
+    behavioral:
+      - "Road width >= 2.5 units (supports two lanes + center line)"
+      - "Center double-yellow line visible on every road segment"
+      - "Block borders colored by process type (vertexColors)"
+      - "Block center disk marks each block identity"
+  status: done
+  owner: frontend
+  owner_started_at: 2026-07-19
+  retry_count: 0
+  resume_hint: |
+    1. Read PLAN.md#F-712
+    2. Open src/components/CityGround.tsx
+    3. Verify road width, center line, vertex-colored borders, center disk
+    4. Run `npm test -- --run`
+  steps:
+    - "Step 1: Replace flat colored square with 6-layer ground (road band / block border / intersection disk / center plaza / outer ring / type-colored borders)"
+    - "Step 2: Widen roads 1.5 → 2.5 units; add double-yellow center line"
+    - "Step 3: Color block borders by process type via vertexColors"
+    - "Step 4: Add center identity disk per block"
+    - "Step 5: Remove redundant decorations (81 intersection dots, 3-layer plaza, outer ring)"
+    - "Step 6: Update PLAN.md F-712 → done, counts"
+    - "Step 7: Append PROGRESS.md entry"
+  handoff_notes: "Ground now reads as a city, not a colored square."
+  notes: "Visual hierarchy: roads > borders > disks. Theme color tweaks in light.json / midnight-blue.json."
+```
+
+#### F-713: CableSystem rewrite
+
+```yaml
+- id: F-713
+  track: frontend
+  title: "CableSystem rewrite (L-shaped underground conduit)"
+  phase: 7
+  depends_on:
+    hard: [F-712]
+    soft: []
+  blocks: []
+  contract_refs: []
+  files_allowed_to_touch:
+    - src/components/CableSystem.tsx
+    - src/components/CableSystem.test.tsx
+  forbidden:
+    - src-tauri/**
+  estimated_complexity: M
+  requires_user_approval: false
+  acceptance:
+    mechanical:
+      - "npx tsc --noEmit exits 0"
+      - "npm test -- --run exits 0"
+    existence:
+      - "src/components/CableSystem.tsx exports computeLPath"
+      - "CableSystem uses TubeGeometry (not LineSegments)"
+    behavioral:
+      - "Cables follow L-shaped Manhattan paths along roads"
+      - "Tube radius = 0.12 units"
+      - "Pulse shader uses `exp(-pow((pulsePos - 0.5) * 6.0, 2.0))`"
+      - "Node system: start 0.3 / corner 0.4 / end 0.6 brightness"
+      - "EXTERNAL_RADIUS = 72 units"
+  status: done
+  owner: frontend
+  owner_started_at: 2026-07-19
+  retry_count: 0
+  resume_hint: |
+    1. Read PLAN.md#F-713
+    2. Open src/components/CableSystem.tsx
+    3. Verify computeLPath, TubeGeometry, pulse shader, node system
+    - "Step 4: Run `npm test -- --run CableSystem`"
+  steps:
+    - "Step 1: Replace aerial arc segments with L-shaped Manhattan paths (computeLPath)"
+    - "Step 2: Use TubeGeometry radius 0.12 along CatmullRom curve"
+    - "Step 3: Add pulse shader with exp gaussian profile"
+    - "Step 4: Add node system at start / corner / end of each cable"
+    - "Step 5: Clamp EXTERNAL_RADIUS = 72"
+    - "Step 6: Update tests"
+    - "Step 7: Update PLAN.md F-713 → done, counts"
+    - "Step 8: Append PROGRESS.md entry"
+  handoff_notes: "Cables now read as underground city conduits, not floating arcs."
+  notes: "Visual coherence with road grid established in F-712."
+```
+
+#### F-714: Remove redundant visual components
+
+```yaml
+- id: F-714
+  track: frontend
+  title: "Remove 6 redundant visual components"
+  phase: 7
+  depends_on:
+    hard: [F-712]
+    soft: []
+  blocks: [F-715]
+  contract_refs: []
+  files_allowed_to_touch:
+    - src/components/RoadGrid.tsx
+    - src/components/RoadFlow.tsx
+    - src/components/BlockBoundary.tsx
+    - src/components/BlockLabel.tsx
+    - src/components/CableFlow.tsx
+    - src/components/CityBackground.tsx
+    - src/components/CityScene.tsx
+  forbidden:
+    - src-tauri/**
+  estimated_complexity: S
+  requires_user_approval: false
+  acceptance:
+    mechanical:
+      - "npx tsc --noEmit exits 0"
+      - "npm test -- --run exits 0"
+      - "npm run build exits 0"
+    existence:
+      - "src/components/RoadGrid.tsx does NOT exist"
+      - "src/components/RoadFlow.tsx does NOT exist"
+      - "src/components/BlockBoundary.tsx does NOT exist"
+      - "src/components/BlockLabel.tsx does NOT exist"
+      - "src/components/CableFlow.tsx does NOT exist"
+      - "src/components/CityBackground.tsx does NOT exist"
+    behavioral:
+      - "CityScene renders without referencing any of the 6 removed components"
+      - "No dangling imports / dead code from removed components"
+  status: done
+  owner: frontend
+  owner_started_at: 2026-07-19
+  retry_count: 0
+  resume_hint: |
+    1. Read PLAN.md#F-714
+    2. Confirm 6 files are deleted
+    3. Grep CityScene.tsx for any of the 6 component names (should return 0)
+    - "Step 4: Run `npx tsc --noEmit` + `npm test -- --run`"
+  steps:
+    - "Step 1: Delete RoadGrid / RoadFlow / BlockBoundary / BlockLabel / CableFlow / CityBackground"
+    - "Step 2: Remove their imports from CityScene.tsx"
+    - "Step 3: Remove their tests if any"
+    - "Step 4: Verify build + tests"
+    - "Step 5: Update PLAN.md F-714 → done, counts"
+    - "Step 6: Append PROGRESS.md entry"
+  handoff_notes: "CityScene reduced from 13 → 8 components. No dead code."
+  notes: "Cleanup pass: every written component must be deployed (per project memory hard constraint)."
+```
+
+#### F-715: Add CityLandmarks / TrafficFlow / Skyline
+
+```yaml
+- id: F-715
+  track: frontend
+  title: "Add CityLandmarks / TrafficFlow / Skyline"
+  phase: 7
+  depends_on:
+    hard: [F-714]
+    soft: [F-710]
+  blocks: [F-716]
+  contract_refs: []
+  files_allowed_to_touch:
+    - src/components/CityLandmarks.tsx
+    - src/components/TrafficFlow.tsx
+    - src/components/Skyline.tsx
+    - src/components/CityScene.tsx
+  forbidden:
+    - src-tauri/**
+  estimated_complexity: L
+  requires_user_approval: false
+  acceptance:
+    mechanical:
+      - "npx tsc --noEmit exits 0"
+      - "npm test -- --run exits 0"
+    existence:
+      - "src/components/CityLandmarks.tsx exists"
+      - "src/components/TrafficFlow.tsx exists"
+      - "src/components/Skyline.tsx exists"
+      - "CityScene.tsx references all three"
+    behavioral:
+      - "CityLandmarks renders 1 central tower + 66 trees + 120 lamps via InstancedMesh"
+      - "TrafficFlow animates 50 vehicles bidirectionally along roads"
+      - "Skyline renders 4 InstancedMesh bands along ±100 unit edges"
+  status: done
+  owner: frontend
+  owner_started_at: 2026-07-19
+  retry_count: 0
+  resume_hint: |
+    1. Read PLAN.md#F-715
+    2. Verify the 3 new files exist
+    3. Confirm InstancedMesh counts (66 trees, 120 lamps, 50 vehicles, 4 skyline bands)
+    - "Step 4: Run `npm test -- --run`"
+  steps:
+    - "Step 1: Create CityLandmarks.tsx (central tower + 66 trees + 120 lamps via InstancedMesh)"
+    - "Step 2: Create TrafficFlow.tsx (50 vehicles, bidirectional flow)"
+    - "Step 3: Create Skyline.tsx (4 InstancedMesh bands along ±100 edges)"
+    - "Step 4: Wire into CityScene"
+    - "Step 5: Update PLAN.md F-715 → done, counts"
+    - "Step 6: Append PROGRESS.md entry"
+  handoff_notes: "5-layer scene structure (Sky / Ground / Flow / Building / Landmark) complete."
+  notes: "All batched via InstancedMesh for draw-call efficiency."
+```
+
+#### F-716: SkyDome cloud-layer shader
+
+```yaml
+- id: F-716
+  track: frontend
+  title: "SkyDome cloud-layer shader (Simplex + FBM)"
+  phase: 7
+  depends_on:
+    hard: [F-715]
+    soft: []
+  blocks: []
+  contract_refs: []
+  files_allowed_to_touch:
+    - src/components/SkyDome.tsx
+  forbidden:
+    - src-tauri/**
+  estimated_complexity: M
+  requires_user_approval: false
+  acceptance:
+    mechanical:
+      - "npx tsc --noEmit exits 0"
+      - "npm test -- --run exits 0"
+    existence:
+      - "src/components/SkyDome.tsx contains 'simplex' or 'Simplex'"
+      - "src/components/SkyDome.tsx contains 'fbm' or 'FBM'"
+    behavioral:
+      - "Cloud layer animates over time"
+      - "Sky dome vertex shader sets gl_Position.z = gl_Position.w (fixed to far plane)"
+      - "Cloud density tied to atmosphere state"
+  status: done
+  owner: frontend
+  owner_started_at: 2026-07-19
+  retry_count: 0
+  resume_hint: |
+    1. Read PLAN.md#F-716
+    2. Open src/components/SkyDome.tsx
+    3. Verify Simplex 2D + FBM, gl_Position.z = gl_Position.w, time uniform
+    - "Step 4: Run `npm test -- --run`"
+  steps:
+    - "Step 1: Add Simplex Noise 2D + FBM into SkyDome fragment shader"
+    - "Step 2: Add time uniform for cloud motion"
+    - "Step 3: Ensure gl_Position.z = gl_Position.w in vertex shader (per project memory)"
+    - "Step 4: Couple cloud density to atmosphere state"
+    - "Step 5: Update PLAN.md F-716 → done, counts"
+    - "Step 6: Append PROGRESS.md entry"
+  handoff_notes: "Sky now has living cloud motion instead of a static gradient."
+  notes: "Follows project memory: gl_Position.z = gl_Position.w for sky dome far-plane fix."
+```
+
+#### F-717: Stable building positions
+
+```yaml
+- id: F-717
+  track: frontend
+  title: "Stable building positions (pid-set signature)"
+  phase: 7
+  depends_on:
+    hard: [F-711]
+    soft: []
+  blocks: []
+  contract_refs: []
+  files_allowed_to_touch:
+    - src/utils/layout.ts
+    - src/utils/layout.test.ts
+    - src/components/BuildingCluster.tsx
+  forbidden:
+    - src-tauri/**
+  estimated_complexity: M
+  requires_user_approval: false
+  acceptance:
+    mechanical:
+      - "npx tsc --noEmit exits 0"
+      - "npm test -- --run exits 0"
+    existence:
+      - "src/utils/layout.ts exports computeProcessSignature"
+      - "computeProcessSignature does NOT include processes.length in its return value"
+      - "computeProcessSignature does NOT include cpu in its return value"
+      - "src/utils/layout.test.ts contains 'STABLE when only name changes'"
+      - "src/utils/layout.test.ts contains 'STABLE when processes.length changes but pid set is identical'"
+      - "src/utils/layout.test.ts contains '同一 pid 集合在不同 cpu 下应得到相同位置'"
+    behavioral:
+      - "Same pid set → same position across cpu fluctuations"
+      - "Position signature only changes when pid set changes"
+      - "BuildingCluster useMemo depends on processSignature, not processes"
+      - "Building positions remain visually fixed between 1Hz refreshes"
+  status: done
+  owner: frontend
+  owner_started_at: 2026-07-20
+  retry_count: 0
+  resume_hint: |
+    1. Read PLAN.md#F-717
+    2. Read src/utils/layout.ts — verify computeProcessSignature uses pid set only
+    3. Confirm filter excludes state==='Zombie' (not cpu > threshold)
+    4. Confirm typeGroups + subRoots sort by pid (not name)
+    5. Confirm subRoot jitter uses hashSeed(pid) (not hashSeed(name))
+    6. Run `npm test -- --run layout`
+  steps:
+    - "Step 1: Rewrite computeProcessSignature to use pid set only (Set + sort + hash, no length/cpu/name)"
+    - "Step 2: Change filter from `cpu > threshold` to `state !== 'Zombie'`"
+    - "Step 3: Sort typeGroups by pid (not name)"
+    - "Step 4: Sort subRoots by pid; use hashSeed(pid) for jitter (not name)"
+    - "Step 5: Add regression test: signature stable across name changes"
+    - "Step 6: Add regression test: signature stable across processes.length with same pid set"
+    - "Step 7: Add regression test: same pid set → same positions across cpu changes"
+    - "Step 8: Update BuildingCluster useMemo dependency to processSignature"
+    - "Step 9: Run tsc + vitest, verify 66/66 pass"
+    - "Step 10: Update PLAN.md F-717 → done, counts"
+    - "Step 11: Append PROGRESS.md entry"
+  handoff_notes: "Positions now stay fixed per pid; cpu changes expressed via height easing in useFrame."
+  notes: "Root cause: signature included length/cpu/name which all fluctuate per second. Fix: pid set is the only stable topological identifier."
 ```
 
 ---

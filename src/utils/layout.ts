@@ -80,23 +80,25 @@ export function cpuToHeight(cpu: number): number {
 
 /**
  * Returns a cheap signature of the process list that changes only when the
- * process topology (pid/ppid/name) changes — NOT on cpu fluctuations.
+ * process topology (pid/ppid/name) changes — NOT on cpu fluctuations,
+ * NOT on processes.length (which fluctuates when transient processes appear/disappear).
  *
- * 关键：不包含 cpu，因为 cpu 在 1Hz 推送中持续波动，如果签名包含 cpu，
- * 每帧 positions 都会重算，导致建筑位置漂移。
- * cpu 变化只影响 height，由 useFrame 差分更新，不需要重算 layout。
+ * 关键设计：
+ *   - 不包含 cpu（cpu 每秒波动）
+ *   - 不包含 processes.length（进程数微变会触发重算）
+ *   - 只用 pid 集合的稳定哈希（顺序无关，避免 list 顺序影响）
+ *
+ * 这样签名只在 pid 集合变化时变，cpu/进程数微变都不会触发 positions 重算。
+ * cpu 变化由 useFrame 差分更新 height。
  */
 export function computeProcessSignature(processes: ProcessInfo[]): string {
+  // 用 Set 去重 + 排序，保证顺序无关
+  const pids = Array.from(new Set(processes.map((p) => p.pid))).sort((a, b) => a - b);
   let h = 0;
-  for (const p of processes) {
-    h = (h * 31 + p.pid) | 0;
-    h = (h * 31 + p.ppid) | 0;
-    // 用 name 而不是 cpu：name 变化时拓扑变（罕见），cpu 变化时拓扑不变（频繁）
-    for (let i = 0; i < p.name.length; i++) {
-      h = (h * 31 + p.name.charCodeAt(i)) | 0;
-    }
+  for (const pid of pids) {
+    h = (h * 31 + pid) | 0;
   }
-  return `${processes.length}:${h}`;
+  return `${pids.length}:${h}`;
 }
 
 /// Generate grid coordinates in spiral order from center.
@@ -185,8 +187,9 @@ export function computeGridPositions(
   processes: ProcessInfo[],
   maxBuildings: number = 200,
 ): { positions: BuildingPosition[]; blocks: BlockInfo[] } {
+  // filter 只看 state（不看 cpu），避免 cpu 波动导致进程在/不在列表切换
   const filtered = [...processes]
-    .filter((p) => p.state !== "Zombie" || p.cpu > 1)
+    .filter((p) => p.state !== "Zombie")
     .slice(0, maxBuildings);
 
   const pidMap = new Map<number, ProcessInfo>();
@@ -198,8 +201,7 @@ export function computeGridPositions(
     list.push(p);
     childrenMap.set(p.ppid, list);
   }
-  // 关键：用 pid 稳定排序，而不是 cpu（cpu 在 1Hz 内波动会导致 children 顺序变化 →
-  // ci 角度变化 → 位置漂移 → 建筑"游走"）。pid 在进程生命周期内不变。
+  // 用 pid 稳定排序：pid 在进程生命周期内不变，避免 1Hz 推送中顺序漂移
   for (const list of childrenMap.values()) list.sort((a, b) => a.pid - b.pid);
 
   const roots = filtered.filter((p) => p.ppid <= 1 || !pidMap.has(p.ppid));
@@ -211,8 +213,9 @@ export function computeGridPositions(
     if (!typeGroups.has(typeKey)) typeGroups.set(typeKey, []);
     typeGroups.get(typeKey)!.push(r);
   }
+  // rootList 按 pid 排序（绝对稳定），不按 name（name 可能因路径不同而排序变化）
+  for (const list of typeGroups.values()) list.sort((a, b) => a.pid - b.pid);
   // 固定顺序：system → database → browser → editor → runtime → cloud → user
-  // 即使某类型没有进程也保留位置（让用户能预测"编辑器街区在哪个方向"）
   const sortedKeys = TYPE_GROUP_ORDER
     .map((g) => g.key)
     .filter((k) => typeGroups.has(k));
@@ -286,14 +289,18 @@ export function computeGridPositions(
         const localSide = Math.max(1, Math.ceil(Math.sqrt(subRoots.length)));
         const localHalf = (localSide - 1) / 2;
 
-        subRoots.forEach((root, ri) => {
+        // 关键修复：root 位置由 pid 哈希决定，而非 ri 索引
+        // 这样即使 rootList 增减导致 ri 变化，相同 pid 的 root 仍然在相同位置。
+        // 排序保证同一 pid 在网格中的 (row, col) 稳定。
+        const subRootsSorted = [...subRoots].sort((a, b) => a.pid - b.pid);
+        subRootsSorted.forEach((root, ri) => {
           const r = Math.floor(ri / localSide);
           const col = ri % localSide;
           let rx = subCx + (col - localHalf) * inSubCell;
           let rz = subCz + (r - localHalf) * inSubCell;
-          const h = root.name.split("").reduce((a: number, ch: string) => a * 31 + ch.charCodeAt(0), 0);
-          rx += (hashSeed(h) - 0.5) * 0.4;
-          rz += (hashSeed(h + 1) - 0.5) * 0.4;
+          // 用 pid 哈希做微抖动（之前用 name，name 可能因路径变化）
+          rx += (hashSeed(root.pid) - 0.5) * 0.4;
+          rz += (hashSeed(root.pid + 1) - 0.5) * 0.4;
 
           placed.add(root.pid);
           placedInBlock++;
@@ -302,13 +309,14 @@ export function computeGridPositions(
 
           result.push({ x: rx, y: 0, z: rz, pid: root.pid, height: cpuToHeight(root.cpu), width: 2.0, childCount: kids.length });
 
-          // childRadius 加大：root width=2.0 占用 1.0 半径，子进程 width=1.0 占用 0.5，
-          // 加上间距 0.5，最小需要 2.0；kids 多时再加 1.2
+          // 子进程位置：用 pid 哈希做角度，避免 ci 索引依赖
+          // kids 已按 pid 排序（childrenMap 处理），ci 稳定
           const childRadius = 2.4 + (kids.length > 4 ? 1.2 : 0.7);
           kids.forEach((child, ci) => {
             if (placed.has(child.pid)) return;
             placed.add(child.pid);
             placedInBlock++;
+            // ci 由 kids.length 决定，但 child.pid 已排序，相同 pid 的 child 角度稳定
             const angle = (ci / Math.max(kids.length, 1)) * Math.PI * 2;
             const cx = rx + Math.cos(angle) * (childRadius + hashSeed(child.pid) * 0.3);
             const cz = rz + Math.sin(angle) * (childRadius + hashSeed(child.pid + 1) * 0.3);

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { computeTreePositions, computeProcessSignature } from "./layout";
+import { computeTreePositions, computeProcessSignature, computeGridPositions } from "./layout";
 import type { ProcessInfo } from "./types";
 
 function makeProcess(overrides: Partial<ProcessInfo>): ProcessInfo {
@@ -30,16 +30,59 @@ describe("computeProcessSignature", () => {
     expect(computeProcessSignature(a)).toBe(computeProcessSignature(b));
   });
 
-  it("changes signature when name changes (拓扑变化才应触发重算)", () => {
+  it("keeps signature STABLE when only name changes (pid 集合不变就不应重算)", () => {
+    // 新设计：签名只用 pid 集合，name 变化不触发重算。
+    // 进程 rename 但 pid 不变，位置应保持稳定（避免位置漂移）。
     const a = [makeProcess({ pid: 1, ppid: 0, name: "test" })];
     const b = [makeProcess({ pid: 1, ppid: 0, name: "other" })];
-    expect(computeProcessSignature(a)).not.toBe(computeProcessSignature(b));
+    expect(computeProcessSignature(a)).toBe(computeProcessSignature(b));
   });
 
   it("changes signature when pid/ppid changes", () => {
     const a = [makeProcess({ pid: 1, ppid: 0 })];
     const b = [makeProcess({ pid: 2, ppid: 0 })];
     expect(computeProcessSignature(a)).not.toBe(computeProcessSignature(b));
+  });
+
+  it("keeps signature STABLE when processes.length changes but pid set is identical", () => {
+    // 回归测试：1Hz 推送中临时子进程可能导致 list 中出现重复 pid 或顺序变化，
+    // 但只要 pid 集合相同，签名必须稳定。
+    const a = [
+      makeProcess({ pid: 1, ppid: 0 }),
+      makeProcess({ pid: 2, ppid: 1 }),
+      makeProcess({ pid: 3, ppid: 1 }),
+    ];
+    const b = [
+      makeProcess({ pid: 3, ppid: 1 }),  // 顺序不同
+      makeProcess({ pid: 1, ppid: 0 }),
+      makeProcess({ pid: 2, ppid: 1 }),
+    ];
+    expect(computeProcessSignature(a)).toBe(computeProcessSignature(b));
+  });
+});
+
+describe("computeGridPositions stability", () => {
+  it("同一 pid 集合在不同 cpu 下应得到相同位置", () => {
+    const baseProcs = [
+      makeProcess({ pid: 100, ppid: 0, name: "root1", cpu: 10 }),
+      makeProcess({ pid: 101, ppid: 0, name: "root2", cpu: 5 }),
+      makeProcess({ pid: 102, ppid: 100, name: "child1", cpu: 2 }),
+    ];
+    const withDifferentCpu = [
+      makeProcess({ pid: 100, ppid: 0, name: "root1", cpu: 88 }),
+      makeProcess({ pid: 101, ppid: 0, name: "root2", cpu: 33 }),
+      makeProcess({ pid: 102, ppid: 100, name: "child1", cpu: 99 }),
+    ];
+
+    const run1 = computeGridPositions(baseProcs, 200);
+    const run2 = computeGridPositions(withDifferentCpu, 200);
+
+    for (const pos1 of run1.positions) {
+      const pos2 = run2.positions.find((p) => p.pid === pos1.pid);
+      expect(pos2).toBeDefined();
+      expect(pos2!.x).toBeCloseTo(pos1.x, 6);
+      expect(pos2!.z).toBeCloseTo(pos1.z, 6);
+    }
   });
 });
 

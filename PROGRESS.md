@@ -4,6 +4,57 @@
 
 ## Session Log
 
+### 2026-07-20 — Session #042 (frontend, visual polish + city rebuild + position stability, ~3h)
+- Track: frontend
+- Task: F-710 ~ F-717 (visual polish + city rebuild + position stability)
+- Status: done
+- Summary:
+  - **F-710 Procedural GLB asset pipeline**: wrote scripts/build-assets.mjs that procedurally emits 22 GLBs into public/assets/ (7 building variants by process type, 3 landmark tiers, 2 tree variants, lamp, vehicle variants, road tiles, skyline shells, clouds). BuildingCluster loads building-{typeKey}.glb with a fallback to the legacy procedural mesh.
+  - **F-711 Process-type block grouping**: added 7 semantic groups (system/database/browser/editor/runtime/cloud/user) with stable per-type colors in colors.ts (blockTypeColor) and classification helpers in layout.ts (classifyProcess / getTypeGroupInfo / TYPE_GROUP_ORDER). computeGridPositions now assigns a BlockInfo.typeKey to every building.
+  - **F-712 CityGround rebuild**: replaced the flat colored square with a layered city ground — widened roads from 1.5 → 2.5 units, added double-yellow center lines, colored block borders by process type via vertexColors, added center identity disks per block. Removed redundant decorations (81 intersection dots, 3-layer plaza, outer ring). Tuned grid colors in light.json / midnight-blue.json.
+  - **F-713 CableSystem rewrite**: replaced aerial arc segments with L-shaped Manhattan paths (computeLPath) running along the road grid as underground conduits. TubeGeometry radius 0.12 along CatmullRom curve; pulse shader uses exp(-pow((pulsePos - 0.5) * 6.0, 2.0)); node system at start (0.3) / corner (0.4) / end (0.6). EXTERNAL_RADIUS clamped to 72.
+  - **F-714 Remove redundant components**: deleted 6 components that were either overlapping with the new layered ground or disabled via {false && ...} — RoadGrid / RoadFlow / BlockBoundary / BlockLabel / CableFlow / CityBackground. CityScene reduced from 13 → 8 components.
+  - **F-715 CityLandmarks / TrafficFlow / Skyline**: added CityLandmarks (central tower + 66 trees + 120 lamps via InstancedMesh), TrafficFlow (50 vehicles, bidirectional flow), Skyline (4 InstancedMesh bands along ±100 edges). 5-layer scene structure (Sky / Ground / Flow / Building / Landmark) now complete.
+  - **F-716 SkyDome cloud-layer shader**: added Simplex Noise 2D + FBM into SkyDome fragment shader with a time uniform for cloud motion. Vertex shader sets gl_Position.z = gl_Position.w to fix the dome to the far plane (per project memory). Cloud density coupled to atmosphere state.
+  - **F-717 Stable building positions**: root cause — computeProcessSignature returned `${processes.length}:${hash}` and the hash included cpu and name, so positions drifted every second on cpu / name / transient-process fluctuations. Fix: signature now uses only the sorted pid set; filter excludes state==='Zombie' instead of cpu > threshold; typeGroups and subRoots sort by pid; subRoot jitter uses hashSeed(pid) instead of hashSeed(name). BuildingCluster useMemo now depends on processSignature (not processes). Cpu changes are expressed via height easing in useFrame. Added 2 regression tests + updated 1 existing test. tsc passes, vitest 66/66 pass.
+- Decisions:
+  - Building positions must be derived from stable topological identifiers (pid set), never from fluctuating metrics (cpu / processes.length / name).
+  - All visual components must be deployed — no {false && ...} disabled code (per project memory hard constraint).
+  - 5-layer scene structure (Sky / Ground / Flow / Building / Landmark) adopted as the canonical city composition.
+  - Grouping by process type gives the city readable districts (DB purple, browser orange, etc.) instead of the prior cpu-bucketed chaos.
+- Commits:
+  - c24d7a1 — visual polish + city rebuild (F-710 ~ F-716)
+  - F-717 (position stability) included in this session, committed separately
+- Files:
+  - scripts/build-assets.mjs (new) — 22 GLB procedural generator
+  - public/assets/*.glb (new) — 22 generated assets
+  - src/utils/layout.ts (mod) — computeProcessSignature rewrite, classifyProcess / getTypeGroupInfo / TYPE_GROUP_ORDER, pid-sorted grouping, pid-based jitter, centered grid layout
+  - src/utils/layout.test.ts (mod) — 2 new stability tests + 1 updated test
+  - src/utils/colors.ts (mod) — blockTypeColor for 7 process types
+  - src/components/CityGround.tsx (mod) — 6-layer ground rebuild
+  - src/components/CableSystem.tsx (mod) — L-shaped conduit + pulse shader
+  - src/components/BuildingCluster.tsx (mod) — typeKey-based GLB loading + processSignature dependency
+  - src/components/CityLandmarks.tsx (new) — central tower + 66 trees + 120 lamps
+  - src/components/TrafficFlow.tsx (new) — 50 bidirectional vehicles
+  - src/components/Skyline.tsx (new) — 4 InstancedMesh edge bands
+  - src/components/SkyDome.tsx (mod) — Simplex + FBM cloud layer shader
+  - src/components/CityScene.tsx (mod) — 13 → 8 components
+  - public/themes/light.json (mod) — grid color tweaks
+  - public/themes/midnight-blue.json (mod) — grid color tweaks
+  - src/components/RoadGrid.tsx (deleted)
+  - src/components/RoadFlow.tsx (deleted)
+  - src/components/BlockBoundary.tsx (deleted)
+  - src/components/BlockLabel.tsx (deleted)
+  - src/components/CableFlow.tsx (deleted)
+  - src/components/CityBackground.tsx (deleted)
+  - PLAN.md (mod) — added F-710 ~ F-717 task specs + index rows + status counts
+  - PROGRESS.md (mod) — this entry
+- Next ready: F-702 (Settings panel — waits for 夏天), I-701 (E2E test infra), D-701 (Linux build guide)
+- Notes:
+  - Visual identity restored: the city now reads as a city (roads, lanes, typed districts, underground conduits, landmarks, traffic, skyline, living sky).
+  - Position stability regression tests lock the contract: same pid set → same positions regardless of cpu / name / processes.length fluctuations.
+  - Per project memory: SkyDome vertex shader uses gl_Position.z = gl_Position.w for far-plane fix; R3F useFrame hooks with priority > 0 are conditionally rendered; bloom params will dynamically adjust with theme (to be wired in a future task).
+
 ### 2026-07-18 — Session #041.1 (frontend, F-701 Building LOD, ~5min)
 - Track: frontend
 - Task: F-701 (Building LOD system)
