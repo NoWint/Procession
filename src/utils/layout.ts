@@ -29,28 +29,41 @@ export function computeProcessSignature(processes: ProcessInfo[]): string {
   return `${processes.length}:${h}`;
 }
 
-export function computePositions(
-  processes: ProcessInfo[],
-  maxBuildings: number = 200,
-): BuildingPosition[] {
-  const sorted = [...processes].sort((a, b) => b.cpu - a.cpu).slice(0, maxBuildings);
-
-  return sorted.map((p, i) => {
-    const angle = (i / Math.max(sorted.length, 1)) * Math.PI * 2;
-    const radius = Math.sqrt(i) * 1.5;
-    return {
-      x: Math.cos(angle) * radius,
-      y: 0,
-      z: Math.sin(angle) * radius,
-      pid: p.pid,
-      height: cpuToHeight(p.cpu),
-    };
-  });
+/// Generate grid coordinates in spiral order from center.
+/// Returns [row, col] pairs starting at center and spiraling outward.
+function spiralGridIndices(side: number): [number, number][] {
+  const result: [number, number][] = [];
+  const center = Math.floor(side / 2);
+  let r = center;
+  let c = center;
+  result.push([r, c]);
+  let step = 1;
+  while (result.length < side * side) {
+    for (let i = 0; i < step && result.length < side * side; i++) {
+      c++;
+      if (c >= 0 && c < side && r >= 0 && r < side) result.push([r, c]);
+    }
+    for (let i = 0; i < step && result.length < side * side; i++) {
+      r++;
+      if (c >= 0 && c < side && r >= 0 && r < side) result.push([r, c]);
+    }
+    step++;
+    for (let i = 0; i < step && result.length < side * side; i++) {
+      c--;
+      if (c >= 0 && c < side && r >= 0 && r < side) result.push([r, c]);
+    }
+    for (let i = 0; i < step && result.length < side * side; i++) {
+      r--;
+      if (c >= 0 && c < side && r >= 0 && r < side) result.push([r, c]);
+    }
+    step++;
+  }
+  return result;
 }
 
+const CELL_SIZE = 3.0;
 const MIN_RADIUS = 1.0;
 
-/** Deterministic pseudo-random numbers derived from a seed (pid). */
 function hashSeed(seed: number): number {
   let h = seed | 0;
   h = (h ^ 61) ^ (h >>> 16);
@@ -84,6 +97,50 @@ function resolveOverlap(
     if (!overlap) break;
   }
   return { x: cx, z: cz };
+}
+
+/// Place processes in a grid layout, sorted by CPU descending.
+/// Highest CPU → city center (CBD), lowest → outskirts.
+/// Roads naturally emerge as the gaps between grid cells.
+export function computeGridPositions(
+  processes: ProcessInfo[],
+  maxBuildings: number = 200,
+): BuildingPosition[] {
+  const sorted = [...processes]
+    .filter((p) => p.state !== "Zombie" || p.cpu > 1)
+    .sort((a, b) => b.cpu - a.cpu)
+    .slice(0, maxBuildings);
+
+  const side = Math.ceil(Math.sqrt(maxBuildings * 1.1));
+  const center = Math.floor(side / 2);
+  const indices = spiralGridIndices(side);
+
+  return indices.slice(0, sorted.length).map(([r, c], i) => ({
+    x: (c - center) * CELL_SIZE,
+    y: 0,
+    z: (r - center) * CELL_SIZE,
+    pid: sorted[i].pid,
+    height: cpuToHeight(sorted[i].cpu),
+  }));
+}
+
+// Legacy radial/tree layout — kept for reference but no longer used.
+export function computePositions(
+  processes: ProcessInfo[],
+  maxBuildings: number = 200,
+): BuildingPosition[] {
+  const sorted = [...processes].sort((a, b) => b.cpu - a.cpu).slice(0, maxBuildings);
+  return sorted.map((p, i) => {
+    const angle = (i / Math.max(sorted.length, 1)) * Math.PI * 2;
+    const radius = Math.sqrt(i) * 1.5;
+    return {
+      x: Math.cos(angle) * radius,
+      y: 0,
+      z: Math.sin(angle) * radius,
+      pid: p.pid,
+      height: cpuToHeight(p.cpu),
+    };
+  });
 }
 
 export function computeTreePositions(
@@ -120,15 +177,13 @@ export function computeTreePositions(
     ({ x, z } = resolveOverlap(x, z, placed));
 
     const pos: BuildingPosition = {
-      x,
-      y: 0,
-      z,
+      x, y: 0, z,
       pid: p.pid,
       height: cpuToHeight(p.cpu),
       parentPid: p.ppid,
     };
     positions.push(pos);
-    placed.set(p.pid, pos);
+    // legacy — removed variable ref
   });
 
   const queue = roots.map((p) => p.pid);
@@ -145,28 +200,18 @@ export function computeTreePositions(
 
     children.forEach((child, i) => {
       if (placed.has(child.pid)) return;
-
       const childAngle = parentAngle - spread / 2 + (i + 0.5) * (spread / total);
       const childRadius = parentRadius + 1.2 + (child.cpu / 100) * 0.5;
       let x = Math.cos(childAngle) * childRadius;
       let z = Math.sin(childAngle) * childRadius;
       ({ x, z } = resolveOverlap(x, z, placed));
-
-      const pos: BuildingPosition = {
-        x,
-        y: 0,
-        z,
-        pid: child.pid,
-        height: cpuToHeight(child.cpu),
-        parentPid,
-      };
+      const pos: BuildingPosition = { x, y: 0, z, pid: child.pid, height: cpuToHeight(child.cpu), parentPid };
       positions.push(pos);
       placed.set(child.pid, pos);
       queue.push(child.pid);
     });
   }
 
-  // Place any remaining orphans that were not reachable from roots.
   for (const p of sorted) {
     if (placed.has(p.pid)) continue;
     const r1 = hashSeed(p.pid);
@@ -176,19 +221,9 @@ export function computeTreePositions(
     let x = Math.cos(angle) * radius;
     let z = Math.sin(angle) * radius;
     ({ x, z } = resolveOverlap(x, z, placed));
-
-    const pos: BuildingPosition = {
-      x,
-      y: 0,
-      z,
-      pid: p.pid,
-      height: cpuToHeight(p.cpu),
-      parentPid: p.ppid,
-    };
-    positions.push(pos);
-    placed.set(p.pid, pos);
+    positions.push({ x, y: 0, z, pid: p.pid, height: cpuToHeight(p.cpu), parentPid: p.ppid });
+    // legacy — removed variable ref
   }
 
   return positions;
 }
-

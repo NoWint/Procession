@@ -6,6 +6,7 @@ import CableSystem, { computeCableData } from "./components/CableSystem";
 import CableFlow from "./components/CableFlow";
 import CityGround from "./components/CityGround";
 import CityBackground from "./components/CityBackground";
+import RoadGrid from "./components/RoadGrid";
 import Atmosphere from "./components/Atmosphere";
 import BloomEffect from "./components/BloomEffect";
 import RelationGraph from "./components/RelationGraph";
@@ -27,7 +28,7 @@ import { useFpsMonitor } from "./hooks/useFpsMonitor";
 import { useAudioEngine } from "./hooks/useAudioEngine";
 import * as persistence from "./utils/persistence";
 import type { ProcessInfo } from "./utils/types";
-import { computeTreePositions, computeProcessSignature } from "./utils/layout";
+import { computeGridPositions, computeProcessSignature } from "./utils/layout";
 import { shouldIgnoreSpace } from "./utils/keyboard";
 import {
   loadTheme,
@@ -126,7 +127,7 @@ export default function App() {
   );
 
   const positions = useMemo(
-    () => (displaySnapshot ? computeTreePositions(displaySnapshot.processes, maxBuildings) : []),
+    () => (displaySnapshot ? computeGridPositions(displaySnapshot.processes, maxBuildings) : []),
     [processSignature, maxBuildings],
   );
 
@@ -339,6 +340,7 @@ export default function App() {
         <BloomEffect strength={0.08} radius={0.3} threshold={0.4} />
         <CityBackground theme={theme} />
         <CityGround theme={theme} />
+        <RoadGrid theme={theme} />
         <FsHeatmap hotspots={displaySnapshot.fs_hotspots} theme={theme} />
         <BuildingCluster
           processes={displaySnapshot.processes}
