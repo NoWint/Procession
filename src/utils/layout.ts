@@ -99,8 +99,8 @@ function resolveOverlap(
   return { x: cx, z: cz };
 }
 
-/// Place processes in a grid layout, sorted by CPU descending.
-/// Sorted by process name A→Z — same name = same grid cell always.
+/// Group processes by first letter of name, each letter gets its own block district.
+/// A cluster on one block, B cluster on the next block, etc.
 /// Roads naturally emerge as the gaps between grid cells.
 export function computeGridPositions(
   processes: ProcessInfo[],
