@@ -2,34 +2,33 @@ import { useMemo } from "react";
 import * as THREE from "three";
 
 interface RoadGridProps {
-  gridSize?: number; // half the cell count in one direction
+  gridSize?: number;
 }
 
-const CELL = 3.0;
+
+const STREET = 2.5;  // spacing within a block
 
 export default function RoadGrid({
-gridSize = 12,
+  gridSize = 12,
 }: RoadGridProps) {
   const geometry = useMemo(() => {
-    // Roads run along the grid lines between buildings.
-    // Lines are drawn at half-cell offsets from the grid centers.
     const lines: THREE.Vector3[] = [];
-    const extent = gridSize * CELL;
+    const extent = gridSize * STREET;
 
-    // Horizontal roads (along X axis, at Z offsets)
+    // Major roads: between block centers at BLOCK spacing
     for (let i = -gridSize; i <= gridSize; i++) {
-      const z = i * CELL + CELL / 2;
-      if (z < -extent || z > extent) continue;
-      lines.push(new THREE.Vector3(-extent, 0, z));
-      lines.push(new THREE.Vector3(extent, 0, z));
+      const z = i * STREET + STREET / 2;
+      if (z >= -extent && z <= extent) {
+        lines.push(new THREE.Vector3(-extent, 0.01, z));
+        lines.push(new THREE.Vector3(extent, 0.01, z));
+      }
     }
-
-    // Vertical roads (along Z axis, at X offsets)
     for (let i = -gridSize; i <= gridSize; i++) {
-      const x = i * CELL + CELL / 2;
-      if (x < -extent || x > extent) continue;
-      lines.push(new THREE.Vector3(x, 0, -extent));
-      lines.push(new THREE.Vector3(x, 0, extent));
+      const x = i * STREET + STREET / 2;
+      if (x >= -extent && x <= extent) {
+        lines.push(new THREE.Vector3(x, 0.01, -extent));
+        lines.push(new THREE.Vector3(x, 0.01, extent));
+      }
     }
 
     const geo = new THREE.BufferGeometry();
@@ -41,9 +40,9 @@ gridSize = 12,
   return (
     <lineSegments geometry={geometry} frustumCulled={false}>
       <lineBasicMaterial
-        color="#1a1a30"
+        color="#1a1a35"
         transparent
-        opacity={0.5}
+        opacity={0.35}
         depthWrite={false}
       />
     </lineSegments>
