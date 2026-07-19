@@ -94,6 +94,8 @@ export default function BuildingCluster({
   onHover,
 }: BuildingClusterProps) {
   const meshRef = useRef<THREE.InstancedMesh>(null);
+  const midRef = useRef<THREE.InstancedMesh>(null);
+  const lowRef = useRef<THREE.InstancedMesh>(null);
   const spireRef = useRef<THREE.InstancedMesh>(null);
   const domeRef = useRef<THREE.InstancedMesh>(null);
   const steppedRef = useRef<THREE.InstancedMesh>(null);
@@ -106,6 +108,12 @@ export default function BuildingCluster({
   const hoveredIdRef = useRef(-1);
   const heightCurRef = useRef<Map<number, number>>(new Map());
   const initedRef = useRef(false);
+  // Per-LOD instanceId → pid maps. The high LOD writes in positions order,
+  // but mid/low are filled per-frame based on camera distance, so we must
+  // maintain separate maps to resolve events on each mesh.
+  const highPidMap = useRef<number[]>([]);
+  const midPidMap = useRef<number[]>([]);
+  const lowPidMap = useRef<number[]>([]);
 
   processesRef.current = processes;
   themeRef.current = theme;
@@ -174,6 +182,24 @@ export default function BuildingCluster({
         cap.instanceColor = ic;
       }
     }
+    // Allocate instanceColor buffers for mid/low LOD meshes so setColorAt
+    // works on first frame. Counts start at 0 — useFrame fills them in.
+    const midMesh = midRef.current;
+    if (midMesh && !midMesh.geometry.hasAttribute("instanceColor")) {
+      const arr = new Float32Array(capacity * 3);
+      const ic = new THREE.InstancedBufferAttribute(arr, 3);
+      midMesh.geometry.setAttribute("instanceColor", ic);
+      midMesh.instanceColor = ic;
+      midMesh.count = 0;
+    }
+    const lowMesh = lowRef.current;
+    if (lowMesh && !lowMesh.geometry.hasAttribute("instanceColor")) {
+      const arr = new Float32Array(capacity * 3);
+      const ic = new THREE.InstancedBufferAttribute(arr, 3);
+      lowMesh.geometry.setAttribute("instanceColor", ic);
+      lowMesh.instanceColor = ic;
+      lowMesh.count = 0;
+    }
 
     const ppos = positionsRef.current;
     const pprocs = processesRef.current;
@@ -238,10 +264,14 @@ export default function BuildingCluster({
     initedRef.current = true;
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Per-frame: only re-write everything when a height is changing.
+  // Per-frame: advance window-shader time, interpolate heights, and assign
+  // each building to one of three LOD meshes based on camera distance. LOD
+  // assignment runs every frame (camera moves independently of height changes).
   useFrame((state, delta) => {
-    const mesh = meshRef.current;
-    if (!mesh) return;
+    const high = meshRef.current;
+    const mid = midRef.current;
+    const low = lowRef.current;
+    if (!high || !mid || !low) return;
 
     // Always advance the window shader time so flicker keeps animating.
     updateBuildingMaterialTime(buildingMaterial, state.clock.elapsedTime);
@@ -251,8 +281,7 @@ export default function BuildingCluster({
     const lerpFactor = 1 - Math.pow(0.001, delta);
     const hMap = heightCurRef.current;
 
-    let anyChanged = false;
-
+    // Height interpolation pass — mutates hMap in place.
     for (let i = 0; i < ppos.length; i++) {
       const pos = ppos[i];
       const proc = pprocs.find((p) => p.pid === pos.pid);
@@ -264,14 +293,17 @@ export default function BuildingCluster({
         curH += (targetH - curH) * lerpFactor;
         if (Math.abs(curH - targetH) < 0.01) curH = targetH;
         hMap.set(proc.pid, curH);
-        anyChanged = true;
       }
     }
 
-    if (!anyChanged) return;
-
-    // Full rewrite: write ALL buildings so new arrivals get matrices.
-    let idx = 0;
+    // LOD assignment pass — always runs. Camera may have moved even if no
+    // building height changed.
+    const cameraPos = state.camera.position;
+    const camX = cameraPos.x;
+    const camZ = cameraPos.z;
+    let highIdx = 0;
+    let midIdx = 0;
+    let lowIdx = 0;
     const capIdx: Record<CapVariant, number> = {
       spire: 0,
       dome: 0,
@@ -279,49 +311,84 @@ export default function BuildingCluster({
       antenna: 0,
       flat: 0,
     };
-    const pidAttr = mesh.geometry.getAttribute("aPid") as THREE.InstancedBufferAttribute;
-    const stateAttr = mesh.geometry.getAttribute("aState") as THREE.InstancedBufferAttribute;
+    const pidAttr = high.geometry.getAttribute("aPid") as THREE.InstancedBufferAttribute;
+    const stateAttr = high.geometry.getAttribute("aState") as THREE.InstancedBufferAttribute;
     const pidArr = pidAttr.array as Float32Array;
     const stateArr = stateAttr.array as Float32Array;
+    const highMap = highPidMap.current;
+    const midMap = midPidMap.current;
+    const lowMap = lowPidMap.current;
+
     for (let i = 0; i < ppos.length; i++) {
       const pos = ppos[i];
       const proc = pprocs.find((p) => p.pid === pos.pid);
       if (!proc) continue;
 
-      const h = heightCurRef.current.get(proc.pid) ?? pos.height;
+      const h = hMap.get(proc.pid) ?? pos.height;
       const w = pos.width ?? 1;
-
-      dummy.position.set(pos.x, h / 2, pos.z);
-      dummy.scale.set(w, h, w);
-      dummy.updateMatrix();
-      mesh.setMatrixAt(idx, dummy.matrix);
+      const dx = pos.x - camX;
+      const dz = pos.z - camZ;
+      const distSq = dx * dx + dz * dz; // squared distance, avoids sqrt
 
       _c.set(colorForProcess(proc, themeRef.current));
-      mesh.setColorAt(idx, _c);
 
-      pidArr[idx] = proc.pid;
-      stateArr[idx] = stateToNumber(proc.state);
+      if (distSq < 625) {
+        // HIGH LOD — full box + window shader + caps (within 25 units).
+        dummy.position.set(pos.x, h / 2, pos.z);
+        dummy.scale.set(w, h, w);
+        dummy.updateMatrix();
+        high.setMatrixAt(highIdx, dummy.matrix);
+        high.setColorAt(highIdx, _c);
+        pidArr[highIdx] = proc.pid;
+        stateArr[highIdx] = stateToNumber(proc.state);
+        highMap[highIdx] = proc.pid;
 
-      if (w >= 1.2) {
-        const variant = variantForProcess(proc);
-        const cap = capRefsByVariant[variant].current;
-        if (cap) {
-          dummy.position.set(pos.x, h + CAP_Y_OFFSET[variant], pos.z);
-          dummy.scale.set(1, 1, 1);
-          dummy.updateMatrix();
-          cap.setMatrixAt(capIdx[variant], dummy.matrix);
-          cap.setColorAt(capIdx[variant], _c.clone().multiplyScalar(1.3));
-          capIdx[variant]++;
+        if (w >= 1.2) {
+          const variant = variantForProcess(proc);
+          const cap = capRefsByVariant[variant].current;
+          if (cap) {
+            dummy.position.set(pos.x, h + CAP_Y_OFFSET[variant], pos.z);
+            dummy.scale.set(1, 1, 1);
+            dummy.updateMatrix();
+            cap.setMatrixAt(capIdx[variant], dummy.matrix);
+            cap.setColorAt(capIdx[variant], _c.clone().multiplyScalar(1.3));
+            capIdx[variant]++;
+          }
         }
+        highIdx++;
+      } else if (distSq < 3600) {
+        // MID LOD — same box geometry, plain standard material (25–60 units).
+        dummy.position.set(pos.x, h / 2, pos.z);
+        dummy.scale.set(w, h, w);
+        dummy.updateMatrix();
+        mid.setMatrixAt(midIdx, dummy.matrix);
+        mid.setColorAt(midIdx, _c);
+        midMap[midIdx] = proc.pid;
+        midIdx++;
+      } else {
+        // LOW LOD — small glowing line (60+ units).
+        dummy.position.set(pos.x, h, pos.z);
+        dummy.scale.set(1, h * 0.6, 1);
+        dummy.updateMatrix();
+        low.setMatrixAt(lowIdx, dummy.matrix);
+        _c.multiplyScalar(2.0); // brighter at distance, HDR (toneMapped=false)
+        low.setColorAt(lowIdx, _c);
+        lowMap[lowIdx] = proc.pid;
+        lowIdx++;
       }
-      idx++;
     }
 
-    mesh.count = Math.max(1, idx);
-    mesh.instanceMatrix.needsUpdate = true;
-    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+    high.count = Math.max(1, highIdx);
+    mid.count = midIdx;
+    low.count = lowIdx;
+    high.instanceMatrix.needsUpdate = true;
+    if (high.instanceColor) high.instanceColor.needsUpdate = true;
     pidAttr.needsUpdate = true;
     stateAttr.needsUpdate = true;
+    mid.instanceMatrix.needsUpdate = true;
+    if (mid.instanceColor) mid.instanceColor.needsUpdate = true;
+    low.instanceMatrix.needsUpdate = true;
+    if (low.instanceColor) low.instanceColor.needsUpdate = true;
     for (const variant of CAP_VARIANTS) {
       const cap = capRefsByVariant[variant].current;
       if (!cap) continue;
@@ -331,26 +398,36 @@ export default function BuildingCluster({
     }
   });
 
-  const getPid = useCallback((id: number) => {
-    if (id < 0 || id >= positions.length) return null;
-    return positions[id]?.pid ?? null;
-  }, [positions]);
+  const getPid = useCallback((lod: "high" | "mid" | "low", id: number) => {
+    const map = lod === "high"
+      ? highPidMap.current
+      : lod === "mid"
+        ? midPidMap.current
+        : lowPidMap.current;
+    if (id < 0 || id >= map.length) return null;
+    const pid = map[id];
+    return pid !== undefined ? pid : null;
+  }, []);
 
   const handlePointerOver = useCallback((e: ThreeEvent<PointerEvent>) => {
     e.stopPropagation();
     const id = e.instanceId;
-    if (id === undefined || id >= positions.length) {
+    if (id === undefined) {
       hoveredIdRef.current = -1;
       onHover?.(null);
       return;
     }
-    hoveredIdRef.current = id;
-    const pid = getPid(id);
-    if (pid !== null) {
-      const proc = processes.find((p) => p.pid === pid);
-      if (proc) onHover?.(proc);
+    const lod = (e.eventObject.userData.lod ?? "high") as "high" | "mid" | "low";
+    const pid = getPid(lod, id);
+    if (pid === null) {
+      hoveredIdRef.current = -1;
+      onHover?.(null);
+      return;
     }
-  }, [onHover, getPid, processes, positions.length]);
+    hoveredIdRef.current = pid;
+    const proc = processes.find((p) => p.pid === pid);
+    if (proc) onHover?.(proc);
+  }, [onHover, getPid, processes]);
 
   const handlePointerOut = useCallback(() => {
     hoveredIdRef.current = -1;
@@ -362,7 +439,8 @@ export default function BuildingCluster({
     if (!onClick) return;
     const id = e.instanceId;
     if (id === undefined) return;
-    const pid = getPid(id);
+    const lod = (e.eventObject.userData.lod ?? "high") as "high" | "mid" | "low";
+    const pid = getPid(lod, id);
     if (pid !== null) {
       const proc = processes.find((p) => p.pid === pid);
       if (proc) onClick(proc);
@@ -374,7 +452,8 @@ export default function BuildingCluster({
     if (!onDoubleClick) return;
     const id = e.instanceId;
     if (id === undefined) return;
-    const pid = getPid(id);
+    const lod = (e.eventObject.userData.lod ?? "high") as "high" | "mid" | "low";
+    const pid = getPid(lod, id);
     if (pid !== null) {
       const proc = processes.find((p) => p.pid === pid);
       if (proc) onDoubleClick(proc);
@@ -402,6 +481,32 @@ export default function BuildingCluster({
       >
         <boxGeometry args={[0.5, 1, 0.5]} />
         <primitive object={buildingMaterial} attach="material" />
+      </instancedMesh>
+
+      <instancedMesh
+        ref={midRef}
+        args={[undefined, undefined, capacity]}
+        userData={{ lod: "mid" }}
+        onClick={handleClick}
+        onDoubleClick={handleDoubleClick}
+        onPointerOver={handlePointerOver}
+        onPointerOut={handlePointerOut}
+        castShadow
+        receiveShadow
+        frustumCulled={false}
+      >
+        <boxGeometry args={[0.5, 1, 0.5]} />
+        <meshStandardMaterial roughness={0.7} metalness={0.3} emissiveIntensity={0.3} />
+      </instancedMesh>
+
+      <instancedMesh
+        ref={lowRef}
+        args={[undefined, undefined, capacity]}
+        userData={{ lod: "low" }}
+        frustumCulled={false}
+      >
+        <boxGeometry args={[0.15, 1, 0.15]} />
+        <meshBasicMaterial toneMapped={false} />
       </instancedMesh>
 
       <instancedMesh ref={spireRef} args={[undefined, undefined, parentCap]} castShadow frustumCulled={false}>
