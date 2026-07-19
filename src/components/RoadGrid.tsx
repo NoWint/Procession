@@ -1,17 +1,14 @@
 import { useMemo } from "react";
 import * as THREE from "three";
-import { FALLBACK_THEME, type Theme } from "../utils/theme";
 
 interface RoadGridProps {
-  theme?: Theme;
   gridSize?: number; // half the cell count in one direction
 }
 
 const CELL = 3.0;
 
 export default function RoadGrid({
-  theme = FALLBACK_THEME,
-  gridSize = 12,
+gridSize = 12,
 }: RoadGridProps) {
   const geometry = useMemo(() => {
     // Roads run along the grid lines between buildings.
@@ -44,9 +41,9 @@ export default function RoadGrid({
   return (
     <lineSegments geometry={geometry} frustumCulled={false}>
       <lineBasicMaterial
-        color={theme.colors.grid}
+        color="#1a1a30"
         transparent
-        opacity={0.6}
+        opacity={0.5}
         depthWrite={false}
       />
     </lineSegments>

@@ -340,7 +340,7 @@ export default function App() {
         <BloomEffect strength={0.08} radius={0.3} threshold={0.4} />
         <CityBackground theme={theme} />
         <CityGround theme={theme} />
-        <RoadGrid theme={theme} />
+        <RoadGrid />
         <FsHeatmap hotspots={displaySnapshot.fs_hotspots} theme={theme} />
         <BuildingCluster
           processes={displaySnapshot.processes}
