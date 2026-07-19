@@ -33,7 +33,7 @@ interface LifecycleEntry {
 
 const dummy = new THREE.Object3D();
 const _c = new THREE.Color();
-const _tmp = new THREE.Color();
+// _tmp unused
 const _black = new THREE.Color(0x000000);
 const BIRTH_DURATION = 0.8;
 const DEATH_DURATION = 1.0;
@@ -163,12 +163,7 @@ export default function BuildingCluster({
       const t = themeRef.current;
       _c.set(proc ? colorForProcess(proc, t) : entry?.color ?? t.colors.idle);
 
-      // Boost brightness for MeshBasicMaterial (no emissive channel)
-      _c.multiplyScalar(1.5);
 
-      if (selectedPidRef.current === pos.pid) {
-        _c.lerp(_tmp.set(t.colors.pulseWhite), 0.45);
-      }
 
       mesh.setColorAt(idx, _c);
       idx++;
