@@ -3,6 +3,7 @@ import { OrbitControls } from "@react-three/drei";
 import * as THREE from "three";
 import type React from "react";
 import CameraController from "./CameraController";
+import SkyDome from "./SkyDome";
 import { FALLBACK_THEME, type Theme } from "../utils/theme";
 
 interface CitySceneProps {
@@ -29,8 +30,8 @@ export default function CityScene({
       }}
       shadows
     >
-      <color attach="background" args={[theme.colors.background]} />
       <fog attach="fog" args={[theme.scene.fogColor, theme.scene.fogNear, theme.scene.fogFar]} />
+      <SkyDome theme={theme} />
       <ambientLight intensity={Math.max(theme.scene.ambientIntensity, 0.35)} />
       <hemisphereLight args={[theme.colors.coldBlue, theme.colors.ground, 0.4]} />
       <directionalLight
