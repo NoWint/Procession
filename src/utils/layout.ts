@@ -10,7 +10,7 @@ export interface BuildingPosition {
 }
 
 export function cpuToHeight(cpu: number): number {
-  return Math.max(0.5, 0.5 + cpu * 0.15);
+  return Math.max(0.5, 0.5 + cpu * 0.08);
 }
 
 /**
@@ -31,7 +31,8 @@ export function computeProcessSignature(processes: ProcessInfo[]): string {
 
 /// Generate grid coordinates in spiral order from center.
 /// Returns [row, col] pairs starting at center and spiraling outward.
-function spiralGridIndices(side: number): [number, number][] { // @ts-ignore - used in legacy
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function spiralGridIndices(side: number): [number, number][] {
   const result: [number, number][] = [];
   const center = Math.floor(side / 2);
   let r = center;
@@ -61,7 +62,8 @@ function spiralGridIndices(side: number): [number, number][] { // @ts-ignore - u
   return result;
 }
 
-const CELL_SIZE = 3.0; // @ts-ignore - used in legacy
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const CELL_SIZE = 3.0;
 const MIN_RADIUS = 1.0;
 
 function hashSeed(seed: number): number {
@@ -107,7 +109,7 @@ function resolveOverlap(
 export function computeGridPositions(
   processes: ProcessInfo[],
   maxBuildings: number = 200,
-): BuildingPosition[] {
+): { positions: BuildingPosition[]; blocks: { letter: string; x: number; z: number }[] } {
   const filtered = [...processes]
     .filter((p) => p.state !== "Zombie" || p.cpu > 1)
     .slice(0, maxBuildings);
@@ -122,10 +124,11 @@ export function computeGridPositions(
 
   const sortedKeys = Array.from(groups.keys()).sort();
   const blockCols = 8;
-  const blockCell = 6.0;
+  const blockCell = 8.0;
   const inBlockCell = 2.5;
 
   const result: BuildingPosition[] = [];
+  const blockInfo: { letter: string; x: number; z: number }[] = [];
 
   sortedKeys.forEach((letter, bi) => {
     const members = groups.get(letter)!;
@@ -137,6 +140,8 @@ export function computeGridPositions(
 
     const side = Math.ceil(Math.sqrt(members.length + 1));
     const half = Math.floor(side / 2);
+
+    blockInfo.push({ letter, x: bx, z: bz - centerOffset });
 
     members.forEach((p: ProcessInfo, mi: number) => {
       const r = Math.floor(mi / side);
@@ -153,9 +158,10 @@ export function computeGridPositions(
     });
   });
 
-  return result;
+  return { positions: result, blocks: blockInfo };
 }
 
+// computeGridPositions now returns { positions, blocks }
 void spiralGridIndices; void CELL_SIZE;
 
 // Legacy radial/tree layout// Legacy radial/tree layout — kept for reference but no longer used.

@@ -7,6 +7,7 @@ import CableFlow from "./components/CableFlow";
 import CityGround from "./components/CityGround";
 import CityBackground from "./components/CityBackground";
 import RoadGrid from "./components/RoadGrid";
+import BlockLabel from "./components/BlockLabel";
 import Atmosphere from "./components/Atmosphere";
 import BloomEffect from "./components/BloomEffect";
 import RelationGraph from "./components/RelationGraph";
@@ -126,10 +127,12 @@ export default function App() {
     [displaySnapshot],
   );
 
-  const positions = useMemo(
-    () => (displaySnapshot ? computeGridPositions(displaySnapshot.processes, maxBuildings) : []),
+  const layoutResult = useMemo(
+    () => (displaySnapshot ? computeGridPositions(displaySnapshot.processes, maxBuildings) : { positions: [], blocks: [] }),
     [processSignature, maxBuildings],
   );
+  const positions = layoutResult.positions;
+  const blockCenters = layoutResult.blocks;
 
   const cableData = useMemo(
     () => (displaySnapshot ? computeCableData(displaySnapshot.network.connections, positions, 80) : []),
@@ -341,6 +344,7 @@ export default function App() {
         <CityBackground theme={theme} />
         <CityGround theme={theme} />
         <RoadGrid />
+        <BlockLabel blocks={blockCenters} />
         <FsHeatmap hotspots={displaySnapshot.fs_hotspots} theme={theme} />
         <BuildingCluster
           processes={displaySnapshot.processes}

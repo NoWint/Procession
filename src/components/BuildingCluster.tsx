@@ -50,7 +50,7 @@ export default function BuildingCluster({
   selectedPidRef.current = selectedPid;
 
   const positions = useMemo(
-    () => propPositions ?? computeGridPositions(processes, maxBuildings),
+    () => propPositions ?? computeGridPositions(processes, maxBuildings).positions,
     [propPositions, processes, maxBuildings],
   );
   positionsRef.current = positions;
