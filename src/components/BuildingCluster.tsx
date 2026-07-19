@@ -56,21 +56,18 @@ export default function BuildingCluster({
   const capacity = Math.max(1, maxBuildings * 2);
   const parentCap = Math.max(1, parents.length + 10);
 
-  // Initialize instanceColor buffers + write initial matrices (runs once)
+  // Init: allocate instanceColor buffers, write all matrices once.
   useEffect(() => {
     const mesh = meshRef.current;
     const cap = capRef.current;
     if (!mesh || initedRef.current) return;
 
-    // instanceColor for main bodies
     if (!mesh.geometry.hasAttribute("instanceColor")) {
       const arr = new Float32Array(capacity * 3);
       const ic = new THREE.InstancedBufferAttribute(arr, 3);
       mesh.geometry.setAttribute("instanceColor", ic);
       mesh.instanceColor = ic;
     }
-
-    // instanceColor for caps
     if (cap && !cap.geometry.hasAttribute("instanceColor")) {
       const arr = new Float32Array(parentCap * 3);
       const ic = new THREE.InstancedBufferAttribute(arr, 3);
@@ -122,7 +119,7 @@ export default function BuildingCluster({
     initedRef.current = true;
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Per-frame: only update heights still smoothing
+  // Per-frame: only re-write everything when a height is changing.
   useFrame((_state, delta) => {
     const mesh = meshRef.current;
     const cap = capRef.current;
@@ -134,8 +131,6 @@ export default function BuildingCluster({
     const hMap = heightCurRef.current;
 
     let anyChanged = false;
-    let idx = 0;
-    let capIdx = 0;
 
     for (let i = 0; i < ppos.length; i++) {
       const pos = ppos[i];
@@ -144,41 +139,46 @@ export default function BuildingCluster({
 
       const targetH = pos.height;
       let curH = hMap.get(proc.pid) ?? targetH;
-      const changed = Math.abs(curH - targetH) > 0.01;
-
-      if (changed) {
+      if (Math.abs(curH - targetH) > 0.01) {
         curH += (targetH - curH) * lerpFactor;
         if (Math.abs(curH - targetH) < 0.01) curH = targetH;
         hMap.set(proc.pid, curH);
         anyChanged = true;
       }
-
-      if (changed) {
-        const h = curH;
-        const w = pos.width ?? 1;
-
-        dummy.position.set(pos.x, h / 2, pos.z);
-        dummy.scale.set(w, h, w);
-        dummy.updateMatrix();
-        mesh.setMatrixAt(idx, dummy.matrix);
-
-        _c.set(colorForProcess(proc, themeRef.current));
-        mesh.setColorAt(idx, _c);
-
-        if (cap && w >= 1.2) {
-          const capH = Math.min(h * 0.18, 1.0);
-          dummy.position.set(pos.x, h + capH / 2, pos.z);
-          dummy.scale.set(w * 0.7, capH, w * 0.7);
-          dummy.updateMatrix();
-          cap.setMatrixAt(capIdx, dummy.matrix);
-          cap.setColorAt(capIdx, _c.clone().multiplyScalar(1.3));
-          capIdx++;
-        }
-      }
-      idx++;
     }
 
     if (!anyChanged) return;
+
+    // Full rewrite: write ALL buildings so new arrivals get matrices.
+    let idx = 0;
+    let capIdx = 0;
+    for (let i = 0; i < ppos.length; i++) {
+      const pos = ppos[i];
+      const proc = pprocs.find((p) => p.pid === pos.pid);
+      if (!proc) continue;
+
+      const h = heightCurRef.current.get(proc.pid) ?? pos.height;
+      const w = pos.width ?? 1;
+
+      dummy.position.set(pos.x, h / 2, pos.z);
+      dummy.scale.set(w, h, w);
+      dummy.updateMatrix();
+      mesh.setMatrixAt(idx, dummy.matrix);
+
+      _c.set(colorForProcess(proc, themeRef.current));
+      mesh.setColorAt(idx, _c);
+
+      if (cap && w >= 1.2) {
+        const capH = Math.min(h * 0.18, 1.0);
+        dummy.position.set(pos.x, h + capH / 2, pos.z);
+        dummy.scale.set(w * 0.7, capH, w * 0.7);
+        dummy.updateMatrix();
+        cap.setMatrixAt(capIdx, dummy.matrix);
+        cap.setColorAt(capIdx, _c.clone().multiplyScalar(1.3));
+        capIdx++;
+      }
+      idx++;
+    }
 
     mesh.count = Math.max(1, idx);
     mesh.instanceMatrix.needsUpdate = true;
