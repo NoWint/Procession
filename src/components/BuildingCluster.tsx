@@ -40,6 +40,7 @@ export default function BuildingCluster({
   const selectedPidRef = useRef(selectedPid);
   const hoveredIdRef = useRef(-1);
   const heightCurRef = useRef<Map<number, number>>(new Map());
+  const initedRef = useRef(false);
 
   processesRef.current = processes;
   themeRef.current = theme;
@@ -55,26 +56,73 @@ export default function BuildingCluster({
   const capacity = Math.max(1, maxBuildings * 2);
   const parentCap = Math.max(1, parents.length + 10);
 
+  // Initialize instanceColor buffers + write initial matrices (runs once)
   useEffect(() => {
     const mesh = meshRef.current;
-    if (!mesh || mesh.geometry.hasAttribute("instanceColor")) return;
-    const arr = new Float32Array(capacity * 3);
-    const ic = new THREE.InstancedBufferAttribute(arr, 3);
-    mesh.geometry.setAttribute("instanceColor", ic);
-    mesh.instanceColor = ic;
-    ic.needsUpdate = true;
-  }, [capacity]);
-
-  useEffect(() => {
     const cap = capRef.current;
-    if (!cap || cap.geometry.hasAttribute("instanceColor")) return;
-    const arr = new Float32Array(parentCap * 3);
-    const ic = new THREE.InstancedBufferAttribute(arr, 3);
-    cap.geometry.setAttribute("instanceColor", ic);
-    cap.instanceColor = ic;
-    ic.needsUpdate = true;
-  }, [parentCap]);
+    if (!mesh || initedRef.current) return;
 
+    // instanceColor for main bodies
+    if (!mesh.geometry.hasAttribute("instanceColor")) {
+      const arr = new Float32Array(capacity * 3);
+      const ic = new THREE.InstancedBufferAttribute(arr, 3);
+      mesh.geometry.setAttribute("instanceColor", ic);
+      mesh.instanceColor = ic;
+    }
+
+    // instanceColor for caps
+    if (cap && !cap.geometry.hasAttribute("instanceColor")) {
+      const arr = new Float32Array(parentCap * 3);
+      const ic = new THREE.InstancedBufferAttribute(arr, 3);
+      cap.geometry.setAttribute("instanceColor", ic);
+      cap.instanceColor = ic;
+    }
+
+    const ppos = positionsRef.current;
+    const pprocs = processesRef.current;
+    let idx = 0;
+    let capIdx = 0;
+
+    for (let i = 0; i < ppos.length; i++) {
+      const pos = ppos[i];
+      const proc = pprocs.find((p) => p.pid === pos.pid);
+      if (!proc) continue;
+
+      const h = pos.height;
+      const w = pos.width ?? 1;
+      heightCurRef.current.set(proc.pid, h);
+
+      dummy.position.set(pos.x, h / 2, pos.z);
+      dummy.scale.set(w, h, w);
+      dummy.updateMatrix();
+      mesh.setMatrixAt(idx, dummy.matrix);
+      _c.set(colorForProcess(proc, themeRef.current));
+      mesh.setColorAt(idx, _c);
+      idx++;
+
+      if (cap && w >= 1.2) {
+        const capH = Math.min(h * 0.18, 1.0);
+        dummy.position.set(pos.x, h + capH / 2, pos.z);
+        dummy.scale.set(w * 0.7, capH, w * 0.7);
+        dummy.updateMatrix();
+        cap.setMatrixAt(capIdx, dummy.matrix);
+        cap.setColorAt(capIdx, _c.clone().multiplyScalar(1.3));
+        capIdx++;
+      }
+    }
+
+    mesh.count = Math.max(1, idx);
+    mesh.instanceMatrix.needsUpdate = true;
+    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+    if (cap && capIdx > 0) {
+      cap.count = capIdx;
+      cap.instanceMatrix.needsUpdate = true;
+      if (cap.instanceColor) cap.instanceColor.needsUpdate = true;
+    }
+    initedRef.current = true;
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Per-frame: only update heights still smoothing
   useFrame((_state, delta) => {
     const mesh = meshRef.current;
     const cap = capRef.current;
@@ -84,6 +132,8 @@ export default function BuildingCluster({
     const pprocs = processesRef.current;
     const lerpFactor = 1 - Math.pow(0.001, delta);
     const hMap = heightCurRef.current;
+
+    let anyChanged = false;
     let idx = 0;
     let capIdx = 0;
 
@@ -93,48 +143,46 @@ export default function BuildingCluster({
       if (!proc) continue;
 
       const targetH = pos.height;
-      let curH = hMap.get(proc.pid);
-      if (curH === undefined) {
-        curH = targetH;
-      } else {
+      let curH = hMap.get(proc.pid) ?? targetH;
+      const changed = Math.abs(curH - targetH) > 0.01;
+
+      if (changed) {
         curH += (targetH - curH) * lerpFactor;
         if (Math.abs(curH - targetH) < 0.01) curH = targetH;
+        hMap.set(proc.pid, curH);
+        anyChanged = true;
       }
-      hMap.set(proc.pid, curH);
 
-      const h = curH;
-      const w = pos.width ?? 1;
-      const isParent = w >= 1.2;
+      if (changed) {
+        const h = curH;
+        const w = pos.width ?? 1;
 
-      // Main body
-      dummy.position.set(pos.x, h / 2, pos.z);
-      dummy.scale.set(w, h, w);
-      dummy.updateMatrix();
-      mesh.setMatrixAt(idx, dummy.matrix);
-
-      _c.set(colorForProcess(proc, themeRef.current));
-      mesh.setColorAt(idx, _c);
-      idx++;
-
-      // Cap — small pyramid on parent towers
-      if (cap && isParent) {
-        const capH = Math.min(h * 0.18, 1.0);
-        dummy.position.set(pos.x, h + capH / 2, pos.z);
-        dummy.scale.set(w * 0.7, capH, w * 0.7);
+        dummy.position.set(pos.x, h / 2, pos.z);
+        dummy.scale.set(w, h, w);
         dummy.updateMatrix();
-        cap.setMatrixAt(capIdx, dummy.matrix);
+        mesh.setMatrixAt(idx, dummy.matrix);
 
-        // Cap slightly brighter
-        _c.multiplyScalar(1.3);
-        cap.setColorAt(capIdx, _c);
-        capIdx++;
+        _c.set(colorForProcess(proc, themeRef.current));
+        mesh.setColorAt(idx, _c);
+
+        if (cap && w >= 1.2) {
+          const capH = Math.min(h * 0.18, 1.0);
+          dummy.position.set(pos.x, h + capH / 2, pos.z);
+          dummy.scale.set(w * 0.7, capH, w * 0.7);
+          dummy.updateMatrix();
+          cap.setMatrixAt(capIdx, dummy.matrix);
+          cap.setColorAt(capIdx, _c.clone().multiplyScalar(1.3));
+          capIdx++;
+        }
       }
+      idx++;
     }
+
+    if (!anyChanged) return;
 
     mesh.count = Math.max(1, idx);
     mesh.instanceMatrix.needsUpdate = true;
     if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
-
     if (cap && capIdx > 0) {
       cap.count = capIdx;
       cap.instanceMatrix.needsUpdate = true;
@@ -213,7 +261,6 @@ export default function BuildingCluster({
         <meshBasicMaterial toneMapped={false} />
       </instancedMesh>
 
-      {/* Pyramid cap on parent towers */}
       <instancedMesh ref={capRef} args={[undefined, undefined, parentCap]} frustumCulled={false}>
         <coneGeometry args={[0.4, 1, 4]} />
         <meshBasicMaterial toneMapped={false} />

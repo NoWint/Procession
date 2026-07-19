@@ -1,13 +1,10 @@
-import { useRef, useMemo } from "react";
+import { useRef, useEffect, useMemo } from "react";
 import * as THREE from "three";
-import { useFrame } from "@react-three/fiber";
 
 interface CityTreesProps {
   blockSpacing?: number;
   gridCount?: number;
 }
-
-const _d = new THREE.Object3D();
 
 export default function CityTrees({
   blockSpacing = 8.0,
@@ -31,16 +28,13 @@ export default function CityTrees({
     return { pts: items, n: items.length };
   }, [blockSpacing, gridCount]);
 
-  // One-time color attribute initialization
-  const inited = useRef(false);
-
-  useFrame(({ clock }) => {
+  // One-time init
+  useEffect(() => {
     const t = trunkRef.current;
     const c = crownRef.current;
-    if (!t || !c) return;
+    if (!t || !c || n === 0) return;
 
-    const pulse = Math.sin(clock.elapsedTime * 0.5) * 0.12 + 0.88;
-
+    const _d = new THREE.Object3D();
     for (let i = 0; i < n; i++) {
       const x = pts[i][0];
       const z = pts[i][1];
@@ -50,8 +44,8 @@ export default function CityTrees({
       _d.updateMatrix();
       t.setMatrixAt(i, _d.matrix);
 
-      _d.position.set(x, 2.6 * pulse, z);
-      _d.scale.set(0.7 * pulse, 0.7 * pulse, 0.7 * pulse);
+      _d.position.set(x, 2.5, z);
+      _d.scale.set(0.65, 0.65, 0.65);
       _d.updateMatrix();
       c.setMatrixAt(i, _d.matrix);
     }
@@ -61,25 +55,24 @@ export default function CityTrees({
     c.count = n;
     c.instanceMatrix.needsUpdate = true;
 
-    // Init colors once
-    if (!inited.current && n > 0) {
-      inited.current = true;
-      const _col = new THREE.Color();
-      const tcArr = new Float32Array(n * 3);
-      const ccArr = new Float32Array(n * 3);
-      for (let i = 0; i < n; i++) {
-        tcArr[i * 3] = 0.3; tcArr[i * 3 + 1] = 0.2; tcArr[i * 3 + 2] = 0.4;
-        _col.setHSL(0.6 + Math.sin(i * 2.3) * 0.05, 0.8, 0.4 + Math.sin(i * 1.7) * 0.1 + 0.1);
-        ccArr[i * 3] = _col.r; ccArr[i * 3 + 1] = _col.g; ccArr[i * 3 + 2] = _col.b;
-      }
-      const tcAttr = new THREE.InstancedBufferAttribute(tcArr, 3);
-      const ccAttr = new THREE.InstancedBufferAttribute(ccArr, 3);
-      t.geometry.setAttribute("instanceColor", tcAttr);
-      t.instanceColor = tcAttr;
-      c.geometry.setAttribute("instanceColor", ccAttr);
-      c.instanceColor = ccAttr;
+    // Colors
+    const _col = new THREE.Color();
+    const tcArr = new Float32Array(n * 3);
+    const ccArr = new Float32Array(n * 3);
+    for (let i = 0; i < n; i++) {
+      tcArr[i * 3] = 0.3; tcArr[i * 3 + 1] = 0.2; tcArr[i * 3 + 2] = 0.4;
+      _col.setHSL(0.6 + Math.sin(i * 2.3) * 0.05, 0.8, 0.45 + Math.sin(i * 1.7) * 0.08);
+      ccArr[i * 3] = _col.r; ccArr[i * 3 + 1] = _col.g; ccArr[i * 3 + 2] = _col.b;
     }
-  });
+    const tcAttr = new THREE.InstancedBufferAttribute(tcArr, 3);
+    const ccAttr = new THREE.InstancedBufferAttribute(ccArr, 3);
+    t.geometry.setAttribute("instanceColor", tcAttr);
+    t.instanceColor = tcAttr;
+    c.geometry.setAttribute("instanceColor", ccAttr);
+    c.instanceColor = ccAttr;
+  }, [n]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (n === 0) return null;
 
   return (
     <group>
