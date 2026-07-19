@@ -7,6 +7,8 @@ import CableFlow from "./components/CableFlow";
 import CityGround from "./components/CityGround";
 import CityBackground from "./components/CityBackground";
 import RoadGrid from "./components/RoadGrid";
+import CityTrees from "./components/CityTrees";
+import RoadFlow from "./components/RoadFlow";
 import BlockLabel from "./components/BlockLabel";
 import Atmosphere from "./components/Atmosphere";
 import BloomEffect from "./components/BloomEffect";
@@ -342,6 +344,8 @@ export default function App() {
         <CityBackground theme={theme} />
         <CityGround theme={theme} />
         <RoadGrid />
+        <CityTrees />
+        <RoadFlow />
         <BlockLabel blocks={blockCenters} />
         <FsHeatmap hotspots={displaySnapshot.fs_hotspots} theme={theme} />
         <BuildingCluster
