@@ -62,7 +62,7 @@ export default function RoadGrid({
         <lineBasicMaterial
           color="#8080ff"
           transparent
-          opacity={0.85}
+          opacity={0.35}
           depthWrite={false}
         />
       </lineSegments>
@@ -70,7 +70,7 @@ export default function RoadGrid({
         <lineBasicMaterial
           color="#282850"
           transparent
-          opacity={0.3}
+          opacity={0.12}
           depthWrite={false}
         />
       </lineSegments>

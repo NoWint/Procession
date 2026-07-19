@@ -13,6 +13,7 @@ void main() {
   vec4 worldPos = modelMatrix * vec4(position, 1.0);
   vWorldPos = worldPos.xyz;
   gl_Position = projectionMatrix * viewMatrix * worldPos;
+  gl_Position.z = gl_Position.w;  // 钉到远平面，让天空球永远跟随相机
 }
 `;
 
@@ -57,7 +58,7 @@ export default function SkyDome({ theme = FALLBACK_THEME }: SkyDomeProps) {
           uTopColor: { value: new THREE.Color(theme.colors.background) },
           uHorizonColor: { value: new THREE.Color(theme.colors.coldBlue) },
           uGroundColor: { value: new THREE.Color("#000000") },
-          uHorizonGlow: { value: 0.4 },
+          uHorizonGlow: { value: 0.1 },
           uTime: { value: 0 },
         },
         vertexShader: skyVertexShader,
@@ -75,7 +76,7 @@ export default function SkyDome({ theme = FALLBACK_THEME }: SkyDomeProps) {
     material.uniforms.uTopColor.value.set(theme.colors.background);
     material.uniforms.uHorizonColor.value.set(theme.colors.coldBlue);
     material.uniforms.uGroundColor.value.set("#000000");
-    material.uniforms.uHorizonGlow.value = 0.4;
+    material.uniforms.uHorizonGlow.value = 0.1;
   }, [
     theme.colors.background,
     theme.colors.coldBlue,

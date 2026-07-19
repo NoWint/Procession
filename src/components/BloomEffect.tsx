@@ -21,9 +21,9 @@ interface BloomEffectProps {
 }
 
 export default function BloomEffect({
-  strength = 0.3,
-  radius = 0.5,
-  threshold = 0.1,
+  strength = 0.05,
+  radius = 0.4,
+  threshold = 0.85,
   enableSMAA = true,
   enableVignette = true,
   enableSSAO = false,

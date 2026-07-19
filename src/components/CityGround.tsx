@@ -127,7 +127,7 @@ export default function CityGround({ theme = FALLBACK_THEME }: CityGroundProps) 
           uColorShallow: {
             value: new THREE.Color(theme.colors.electricCyan),
           },
-          uOpacity: { value: 0.7 },
+          uOpacity: { value: 0.35 },
         },
         vertexShader: waterVertexShader,
         fragmentShader: waterFragmentShader,
@@ -151,7 +151,7 @@ export default function CityGround({ theme = FALLBACK_THEME }: CityGroundProps) 
     const t = state.clock.elapsedTime;
     waterMaterial.uniforms.uTime.value = t;
     if (plazaMatRef.current) {
-      plazaMatRef.current.emissiveIntensity = 0.5 + Math.sin(t * 1.5) * 0.3;
+      plazaMatRef.current.emissiveIntensity = 0.15 + Math.sin(t * 1.5) * 0.05;
     }
   });
 
@@ -176,7 +176,7 @@ export default function CityGround({ theme = FALLBACK_THEME }: CityGroundProps) 
         <lineBasicMaterial
           color="#6060c0"
           transparent
-          opacity={0.5}
+          opacity={0.2}
           depthWrite={false}
         />
       </lineSegments>
@@ -186,7 +186,7 @@ export default function CityGround({ theme = FALLBACK_THEME }: CityGroundProps) 
         <lineBasicMaterial
           color={theme.colors.electricCyan}
           transparent
-          opacity={0.5}
+          opacity={0.2}
           depthWrite={false}
         />
       </lineSegments>
@@ -197,7 +197,7 @@ export default function CityGround({ theme = FALLBACK_THEME }: CityGroundProps) 
           ref={plazaMatRef}
           color={theme.colors.accent}
           emissive={theme.colors.accent}
-          emissiveIntensity={0.5}
+          emissiveIntensity={0.15}
           roughness={0.4}
           metalness={0.3}
         />

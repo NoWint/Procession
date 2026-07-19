@@ -202,7 +202,7 @@ export default function PortHarbors({
           roughness={0.4}
           metalness={0.6}
           emissive={theme.colors.accent}
-          emissiveIntensity={0.25}
+          emissiveIntensity={0.08}
         />
       </instancedMesh>
 
@@ -210,7 +210,7 @@ export default function PortHarbors({
         <lineBasicMaterial
           color={theme.colors.accent}
           transparent
-          opacity={0.35}
+          opacity={0.15}
           depthWrite={false}
           blending={THREE.AdditiveBlending}
         />

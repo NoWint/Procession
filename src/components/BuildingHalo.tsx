@@ -47,7 +47,7 @@ export function createHaloMaterial(theme: Theme = FALLBACK_THEME): THREE.ShaderM
     uniforms: {
       time: { value: 0 },
       color: { value: new THREE.Color(theme.colors.active) },
-      opacity: { value: 0.75 },
+      opacity: { value: 0.2 },
     },
     vertexShader,
     fragmentShader,

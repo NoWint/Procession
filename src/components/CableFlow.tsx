@@ -145,7 +145,7 @@ export default function CableFlow({
       <pointsMaterial
         size={PARTICLE_SIZE}
         transparent
-        opacity={0.98}
+        opacity={0.4}
         depthWrite={false}
         sizeAttenuation
         vertexColors

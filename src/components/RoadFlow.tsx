@@ -53,7 +53,7 @@ export default function RoadFlow({
         color="#8080ff"
         size={0.25}
         transparent
-        opacity={0.5}
+        opacity={0.2}
         blending={THREE.AdditiveBlending}
         depthWrite={false}
         sizeAttenuation

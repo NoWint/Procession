@@ -91,7 +91,7 @@ export default function Atmosphere({
     const t = state.clock.elapsedTime;
     // 星空整体缓慢闪烁
     if (pointsMatRef.current) {
-      pointsMatRef.current.opacity = 0.7 + 0.15 * Math.sin(t * 0.4);
+      pointsMatRef.current.opacity = 0.25 + 0.1 * Math.sin(t * 0.4);
     }
     // 星空整体缓慢旋转
     if (pointsRef.current) {
@@ -103,7 +103,7 @@ export default function Atmosphere({
       if (m) {
         const phase = (i * Math.PI * 2) / METEOR_COUNT;
         const v = Math.max(0, Math.sin(t * 0.3 + phase));
-        m.opacity = v * 0.7;
+        m.opacity = v * 0.25;
       }
     }
   });
@@ -120,7 +120,7 @@ export default function Atmosphere({
           size={0.6}
           sizeAttenuation
           transparent
-          opacity={0.85}
+          opacity={0.35}
           vertexColors
           depthWrite={false}
           fog={false}

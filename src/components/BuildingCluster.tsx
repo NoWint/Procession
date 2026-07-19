@@ -136,7 +136,7 @@ export default function BuildingCluster({
         windowColorSleeping: new THREE.Color("#4aa8ff"),
         windowDensity: 2.0,
         windowSize: 0.35,
-        nightIntensity: 1.4,
+        nightIntensity: 0.3,
         flickerRate: 0.15,
       }),
     [],
@@ -371,7 +371,7 @@ export default function BuildingCluster({
         dummy.scale.set(1, h * 0.6, 1);
         dummy.updateMatrix();
         low.setMatrixAt(lowIdx, dummy.matrix);
-        _c.multiplyScalar(2.0); // brighter at distance, HDR (toneMapped=false)
+        _c.multiplyScalar(1.0); // distant dots kept dim — bloom already amplifies
         low.setColorAt(lowIdx, _c);
         lowMap[lowIdx] = proc.pid;
         lowIdx++;
@@ -496,7 +496,7 @@ export default function BuildingCluster({
         frustumCulled={false}
       >
         <boxGeometry args={[0.5, 1, 0.5]} />
-        <meshStandardMaterial roughness={0.7} metalness={0.3} emissiveIntensity={0.3} />
+        <meshStandardMaterial roughness={0.7} metalness={0.3} emissiveIntensity={0.05} />
       </instancedMesh>
 
       <instancedMesh
@@ -506,7 +506,7 @@ export default function BuildingCluster({
         frustumCulled={false}
       >
         <boxGeometry args={[0.15, 1, 0.15]} />
-        <meshBasicMaterial toneMapped={false} />
+        <meshBasicMaterial toneMapped />
       </instancedMesh>
 
       <instancedMesh ref={spireRef} args={[undefined, undefined, parentCap]} castShadow frustumCulled={false}>
@@ -514,7 +514,7 @@ export default function BuildingCluster({
         <meshStandardMaterial
           roughness={0.4}
           metalness={0.5}
-          emissiveIntensity={0.8}
+          emissiveIntensity={0.15}
         />
       </instancedMesh>
 
@@ -523,7 +523,7 @@ export default function BuildingCluster({
         <meshStandardMaterial
           roughness={0.4}
           metalness={0.5}
-          emissiveIntensity={0.8}
+          emissiveIntensity={0.15}
         />
       </instancedMesh>
 
@@ -532,7 +532,7 @@ export default function BuildingCluster({
         <meshStandardMaterial
           roughness={0.4}
           metalness={0.5}
-          emissiveIntensity={0.8}
+          emissiveIntensity={0.15}
         />
       </instancedMesh>
 
@@ -541,7 +541,7 @@ export default function BuildingCluster({
         <meshStandardMaterial
           roughness={0.4}
           metalness={0.5}
-          emissiveIntensity={0.8}
+          emissiveIntensity={0.15}
         />
       </instancedMesh>
 
@@ -550,7 +550,7 @@ export default function BuildingCluster({
         <meshStandardMaterial
           roughness={0.4}
           metalness={0.5}
-          emissiveIntensity={0.8}
+          emissiveIntensity={0.15}
         />
       </instancedMesh>
 

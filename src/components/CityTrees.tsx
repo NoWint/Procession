@@ -78,11 +78,11 @@ export default function CityTrees({
     <group>
       <instancedMesh ref={trunkRef} args={[undefined, undefined, n]} frustumCulled={false}>
         <cylinderGeometry args={[0.1, 0.15, 2, 6]} />
-        <meshBasicMaterial toneMapped={false} />
+        <meshStandardMaterial roughness={0.9} metalness={0.0} />
       </instancedMesh>
       <instancedMesh ref={crownRef} args={[undefined, undefined, n]} frustumCulled={false}>
         <sphereGeometry args={[0.6, 8, 8]} />
-        <meshBasicMaterial toneMapped={false} />
+        <meshStandardMaterial roughness={0.9} metalness={0.0} />
       </instancedMesh>
     </group>
   );

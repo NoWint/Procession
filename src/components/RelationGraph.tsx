@@ -161,7 +161,7 @@ export default function RelationGraph({
       <lineBasicMaterial
         vertexColors
         transparent
-        opacity={0.45}
+        opacity={0.2}
         depthWrite={false}
         linewidth={1}
         blending={THREE.AdditiveBlending}

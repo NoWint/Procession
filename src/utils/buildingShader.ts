@@ -102,7 +102,7 @@ export function createBuildingMaterial(
     color: new THREE.Color(baseColor),
     roughness: 0.55,
     metalness: 0.35,
-    emissiveIntensity: 0.6,
+    emissiveIntensity: 0.15,
   });
 
   const uniforms: BuildingUniforms = {

@@ -1,6 +1,7 @@
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
 import * as THREE from "three";
+import { useEffect, useState } from "react";
 import type React from "react";
 import CameraController from "./CameraController";
 import SkyDome from "./SkyDome";
@@ -19,6 +20,19 @@ export default function CityScene({
   cameraTarget,
   autoRotate = false,
 }: CitySceneProps) {
+  // tab 隐藏时暂停渲染循环，节省 CPU/GPU 资源
+  const [frameloop, setFrameloop] = useState<"always" | "never">("always");
+
+  useEffect(() => {
+    const handleVisibility = () => {
+      setFrameloop(document.hidden ? "never" : "always");
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  }, []);
+
   return (
     <Canvas
       camera={{ position: [16, 18, 22], fov: 55 }}
@@ -27,8 +41,12 @@ export default function CityScene({
         alpha: false,
         toneMapping: THREE.ACESFilmicToneMapping,
         toneMappingExposure: 1.05,
+        powerPreference: "high-performance",
+        logarithmicDepthBuffer: true,
       }}
       shadows
+      dpr={[1, 1.5]}
+      frameloop={frameloop}
     >
       <fog attach="fog" args={[theme.scene.fogColor, theme.scene.fogNear, theme.scene.fogFar]} />
       <SkyDome theme={theme} />
