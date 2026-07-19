@@ -1,7 +1,8 @@
-import { useRef, useMemo, useEffect } from "react";
+import { useRef, useMemo, useEffect, useCallback } from "react";
 import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
 import { Html } from "@react-three/drei";
+import type { ThreeEvent } from "@react-three/fiber";
 import type { ProcessInfo } from "../utils/types";
 import { computeGridPositions, type BuildingPosition } from "../utils/layout";
 import { colorForProcess, type Theme } from "../utils/colors";
@@ -41,14 +42,19 @@ export default function BuildingCluster({
   processes,
   positions: propPositions,
   theme = FALLBACK_THEME,
-  selectedPid: _selectedPid = null,
+  selectedPid = null,
   layout: _layout = "tree",
   maxBuildings = 200,
+  onClick,
+  onDoubleClick,
+  onHover,
 }: BuildingClusterProps) {
   const meshRef = useRef<THREE.InstancedMesh>(null);
   const processesRef = useRef(processes);
   const positionsRef = useRef<BuildingPosition[]>([]);
   const themeRef = useRef(theme);
+  const selectedPidRef = useRef(selectedPid);
+  const hoveredIdRef = useRef(-1);
   const lifecycleRef = useRef<Map<number, LifecycleEntry>>(new Map());
   const prevProcessesRef = useRef<ProcessInfo[]>([]);
   const prevPositionsRef = useRef<BuildingPosition[]>([]);
@@ -56,16 +62,15 @@ export default function BuildingCluster({
 
   processesRef.current = processes;
   themeRef.current = theme;
+  selectedPidRef.current = selectedPid;
 
   const positions = useMemo(
     () => propPositions ?? computeGridPositions(processes, maxBuildings),
     [propPositions, processes, maxBuildings],
   );
   positionsRef.current = positions;
-
   const capacity = Math.max(1, maxBuildings * 2);
 
-  // Pre-allocate instanceColor before first frame.
   useEffect(() => {
     const mesh = meshRef.current;
     if (!mesh || mesh.geometry.hasAttribute("instanceColor")) return;
@@ -159,6 +164,13 @@ export default function BuildingCluster({
       const t = themeRef.current;
       _c.set(proc ? colorForProcess(proc, t) : entry?.color ?? t.colors.idle);
 
+      // Highlight: hover → lerp toward white; selected → stronger
+      const isHov = hoveredIdRef.current === i;
+      const isSel = selectedPidRef.current === pos.pid;
+      if (isHov || isSel) {
+        _c.lerp(_tmp.set(t.colors.pulseWhite), isSel ? 0.45 : 0.25);
+      }
+
       if (entry?.state === "born") {
         _c.lerp(_tmp.set(t.colors.pulseWhite), (1 - entry.progress) * 0.5);
       }
@@ -188,11 +200,56 @@ export default function BuildingCluster({
     if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
   });
 
+  const getProcessFromEvent = useCallback((e: ThreeEvent<MouseEvent | PointerEvent>) => {
+    const id = e.instanceId;
+    if (id === undefined || id >= positions.length) return null;
+    const pos = positions[id];
+    if (!pos) return null;
+    return processes.find((p) => p.pid === pos.pid) ?? null;
+  }, [positions, processes]);
+
+  const handlePointerOver = useCallback((e: ThreeEvent<PointerEvent>) => {
+    e.stopPropagation();
+    const id = e.instanceId;
+    if (id === undefined || id >= positions.length) {
+      hoveredIdRef.current = -1;
+      onHover?.(null);
+      return;
+    }
+    hoveredIdRef.current = id;
+    const proc = getProcessFromEvent(e);
+    if (proc) onHover?.(proc);
+  }, [onHover, getProcessFromEvent]);
+
+  const handlePointerOut = useCallback((e: ThreeEvent<PointerEvent>) => {
+    e.stopPropagation();
+    hoveredIdRef.current = -1;
+    onHover?.(null);
+  }, [onHover]);
+
+  const handleClick = useCallback((e: ThreeEvent<MouseEvent>) => {
+    e.stopPropagation();
+    if (!onClick) return;
+    const proc = getProcessFromEvent(e);
+    if (proc) onClick(proc);
+  }, [onClick, getProcessFromEvent]);
+
+  const handleDoubleClick = useCallback((e: ThreeEvent<MouseEvent>) => {
+    e.stopPropagation();
+    if (!onDoubleClick) return;
+    const proc = getProcessFromEvent(e);
+    if (proc) onDoubleClick(proc);
+  }, [onDoubleClick, getProcessFromEvent]);
+
   return (
     <group>
       <instancedMesh
         ref={meshRef}
         args={[undefined, undefined, capacity]}
+        onClick={handleClick}
+        onDoubleClick={handleDoubleClick}
+        onPointerOver={handlePointerOver}
+        onPointerOut={handlePointerOut}
         frustumCulled={false}
       >
         <boxGeometry args={[0.5, 1, 0.5]} />
