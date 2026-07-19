@@ -122,12 +122,12 @@ Constitution changes (STRATEGY/SPEC/ARCHITECTURE under `.docs/`) require a `D-*`
 |-------|----------------------------------------------------|-------|---------|-----------------------------------|-----------|
 | B-701 | Linux PlatformAdapter (sysinfo + /proc)            | 7     | done    | B-002                             | L         |
 | F-701 | Building LOD system (3-level)                      | 7     | done    | F-008                             | L         |
-| F-702 | Settings panel (refresh rate, caps, quality)       | 7     | pending | F-012                             | L         |
-| F-703 | i18n (Chinese + English)                          | 7     | pending | F-702                             | M         |
-| I-701 | E2E test infrastructure                           | 7     | pending | I-001                             | M         |
-| I-702 | CI PR test pipeline (tsc + cargo + clippy + test) | 7     | pending | I-701                             | M         |
-| D-701 | Linux build guide                                  | 7     | pending | B-701                             | S         |
-| I-703 | Phase 7 full acceptance                            | 7     | pending | B-701, F-701, F-702, F-703, I-702, D-701 | L |
+| F-702 | Settings panel (refresh rate, caps, quality)       | 7     | done    | F-012                             | L         |
+| F-703 | i18n (Chinese + English)                          | 7     | done    | F-702                             | M         |
+| I-701 | E2E test infrastructure                           | 7     | done    | I-001                             | M         |
+| I-702 | CI PR test pipeline (tsc + cargo + clippy + test) | 7     | done    | I-701                             | M         |
+| D-701 | Linux build guide                                  | 7     | done    | B-701                             | S         |
+| I-703 | Phase 7 full acceptance                            | 7     | done    | B-701, F-701, F-702, F-703, I-702, D-701 | L |
 | F-710 | Procedural GLB asset pipeline (22 assets)          | 7     | done    | F-701                             | M         |
 | F-711 | Process-type block grouping (7 semantic groups)    | 7     | done    | F-710                             | M         |
 | F-712 | CityGround rebuild (roads / lanes / typed borders) | 7     | done    | F-711                             | L         |
@@ -147,9 +147,9 @@ Constitution changes (STRATEGY/SPEC/ARCHITECTURE under `.docs/`) require a `D-*`
 
 ## Status Counts
 
-- pending: 10
+- pending: 4
 - in_progress: 0
-- done: 77
+- done: 83
 - blocked: 0
 - failed: 0
 - stale: 0
@@ -4147,8 +4147,8 @@ Per SKILL.md §6 Granularity Rule: future phases are milestone-level only. Expan
       - "Color theme selector changes building/ground/atmosphere colors in real time"
       - "Process cap slider (100-2000) limits visible building count"
       - "Quality toggle (performance/quality) enables/disables bloom"
-  status: pending
-  owner: null
+  status: done
+  owner: frontend
   owner_started_at: null
   notes: "Implements SPEC §7.4. 夏天's task."
 ```
@@ -4188,8 +4188,8 @@ Per SKILL.md §6 Granularity Rule: future phases are milestone-level only. Expan
       - "Chinese system locale → HUD/process popup/settings display Chinese text"
       - "English system locale → all text displays in English"
       - "No hardcoded user-facing strings remain in components (all via t() function)"
-  status: pending
-  owner: null
+  status: done
+  owner: frontend
   owner_started_at: null
   notes: "Covers HUD, ProcessPopup, SettingsPanel, and any other user-facing UI. 夏天's task."
 ```
@@ -4225,8 +4225,8 @@ Per SKILL.md §6 Granularity Rule: future phases are milestone-level only. Expan
     behavioral:
       - "`npx playwright test` launches the app and verifies title 'Procession'"
       - "Smoke test confirms app window opens and R3F canvas renders"
-  status: pending
-  owner: null
+  status: done
+  owner: integration
   owner_started_at: null
   notes: "Use Tauri's WebDriver or a simple Playwright setup that connects to the dev server."
 ```
@@ -4262,8 +4262,8 @@ Per SKILL.md §6 Granularity Rule: future phases are milestone-level only. Expan
     behavioral:
       - "Opening a PR triggers the workflow"
       - "All checks pass on current main"
-  status: pending
-  owner: null
+  status: done
+  owner: integration
   owner_started_at: null
   notes: "Separate from the release.yml. Focus on fast feedback: tsc, cargo build, clippy, unit tests."
 ```
@@ -4294,8 +4294,8 @@ Per SKILL.md §6 Granularity Rule: future phases are milestone-level only. Expan
       - "grep 'apt' docs/linux.md OR grep 'dnf' docs/linux.md OR grep 'pacman' docs/linux.md ≥ 1"
     behavioral:
       - "Linux user follows docs/linux.md and builds the app successfully"
-  status: pending
-  owner: null
+  status: done
+  owner: docs
   owner_started_at: null
   notes: "List system deps (libwebkit2gtk, libgtk-3, etc.), Rust toolchain, build steps, known issues."
 ```
@@ -4336,8 +4336,8 @@ Per SKILL.md §6 Granularity Rule: future phases are milestone-level only. Expan
       - "App runs on Linux with real system data (if B-701 done)"
       - "Settings panel accessible and functional (if F-702 done)"
       - "Language toggle works: Chinese ↔ English (if F-703 done)"
-  status: pending
-  owner: null
+  status: done
+  owner: integration
   owner_started_at: null
   resume_hint: |
     1. Read PLAN.md#I-703

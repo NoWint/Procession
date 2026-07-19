@@ -1,5 +1,6 @@
 import type { SystemSnapshot } from "../utils/types";
 import { FALLBACK_THEME, type Theme } from "../utils/theme";
+import { useI18n } from "../hooks/useI18n";
 
 interface HudPanelProps {
   snapshot: SystemSnapshot;
@@ -13,6 +14,7 @@ function alertClass(value: number, warning: number, critical: number): string {
 }
 
 export default function HudPanel({ snapshot, theme = FALLBACK_THEME }: HudPanelProps) {
+  const { t } = useI18n();
   const cpu = snapshot.cpu.total;
   const cpuText = cpu.toFixed(1);
   const memUsed = snapshot.memory.used_mb;
@@ -29,21 +31,21 @@ export default function HudPanel({ snapshot, theme = FALLBACK_THEME }: HudPanelP
   return (
     <div className="hud-panel" style={{ "--proc-accent-local": theme.colors.accent } as React.CSSProperties}>
       <div className="hud-row">
-        <span className="hud-label">CPU</span>
+        <span className="hud-label">{t("hud.cpu")}</span>
         <span className={`hud-value ${cpuClass}`}>{cpuText}%</span>
       </div>
       <div className="hud-row">
-        <span className="hud-label">MEM</span>
+        <span className="hud-label">{t("hud.mem")}</span>
         <span className={`hud-value ${memClass}`}>{memText}%</span>
       </div>
       <div className="hud-row">
-        <span className="hud-label">NET</span>
+        <span className="hud-label">{t("hud.net")}</span>
         <span className="hud-value">
           ↑{netUp} ↓{netDown}
         </span>
       </div>
       <div className="hud-row">
-        <span className="hud-label">PROC</span>
+        <span className="hud-label">{t("hud.proc")}</span>
         <span className="hud-value">{procs}</span>
       </div>
     </div>

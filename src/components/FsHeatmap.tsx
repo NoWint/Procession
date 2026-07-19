@@ -4,6 +4,7 @@ import { Html } from "@react-three/drei";
 import type { ThreeEvent } from "@react-three/fiber";
 import type { FsHotspot } from "../utils/types";
 import { FALLBACK_THEME, type Theme } from "../utils/theme";
+import { useI18n } from "../hooks/useI18n";
 
 interface FsHeatmapProps {
   hotspots: FsHotspot[];
@@ -73,6 +74,7 @@ export default function FsHeatmap({
   const meshRef = useRef<THREE.InstancedMesh>(null);
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const [zones, setZones] = useState<HeatZone[]>([]);
+  const { t } = useI18n();
 
   // Keep a fading-stable zone list: new hotspots appear, missing ones fade out.
   useEffect(() => {
@@ -203,7 +205,7 @@ export default function FsHeatmap({
           style={{ pointerEvents: "none" }}
         >
           <div className="harbor-label">
-            <div className="harbor-label-port">{hoveredZone.eventCount} events</div>
+            <div className="harbor-label-port">{t("harbor.events", { count: hoveredZone.eventCount })}</div>
             <div className="harbor-label-address">{hoveredZone.path}</div>
           </div>
         </Html>

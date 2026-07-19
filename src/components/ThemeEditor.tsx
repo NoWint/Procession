@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect } from "react";
 import type { Theme, ThemeColors, ThemeScene, ThemeTypography } from "../utils/theme";
 import "./ThemeEditor.css";
 import { exportThemeJson, importThemeJson, FALLBACK_THEME } from "../utils/theme";
+import { useI18n } from "../hooks/useI18n";
 
 interface ThemeEditorProps {
   theme: Theme;
@@ -35,6 +36,7 @@ export default function ThemeEditor({ theme, onChange, onSave, onClose }: ThemeE
   const [draft, setDraft] = useState<Theme>(theme);
   const [importText, setImportText] = useState("");
   const [importError, setImportError] = useState<string | null>(null);
+  const { t } = useI18n();
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -109,9 +111,9 @@ export default function ThemeEditor({ theme, onChange, onSave, onClose }: ThemeE
       setImportError(null);
       onChange(imported);
     } else {
-      setImportError("Invalid theme JSON");
+      setImportError(t("theme_editor.invalid_json"));
     }
-  }, [importText, onChange]);
+  }, [importText, onChange, t]);
 
   const handleExport = useCallback(() => {
     const blob = new Blob([exportThemeJson(draft)], { type: "application/json" });
@@ -136,17 +138,17 @@ export default function ThemeEditor({ theme, onChange, onSave, onClose }: ThemeE
     <div className="theme-editor-overlay" onClick={onClose}>
       <div className="theme-editor-panel" onClick={(e) => e.stopPropagation()}>
         <div className="theme-editor-header">
-          <h2>Signal Editor</h2>
-          <button className="theme-editor-close" onClick={onClose} aria-label="Close">
+          <h2>{t("theme_editor.title")}</h2>
+          <button className="theme-editor-close" onClick={onClose} aria-label={t("theme_editor.close_aria")}>
             ×
           </button>
         </div>
 
         <div className="theme-editor-body">
           <section className="theme-editor-section">
-            <h3>Identity</h3>
+            <h3>{t("theme_editor.identity")}</h3>
             <label className="theme-editor-field">
-              <span>Name</span>
+              <span>{t("theme_editor.name")}</span>
               <input
                 type="text"
                 value={draft.name}
@@ -154,19 +156,19 @@ export default function ThemeEditor({ theme, onChange, onSave, onClose }: ThemeE
               />
             </label>
             <label className="theme-editor-field">
-              <span>Mode</span>
+              <span>{t("theme_editor.mode")}</span>
               <select
                 value={draft.mode}
                 onChange={(e) => updateMode(e.target.value as "dark" | "light")}
               >
-                <option value="dark">Dark</option>
-                <option value="light">Light</option>
+                <option value="dark">{t("theme_editor.mode.dark")}</option>
+                <option value="light">{t("theme_editor.mode.light")}</option>
               </select>
             </label>
           </section>
 
           <section className="theme-editor-section">
-            <h3>Colors</h3>
+            <h3>{t("theme_editor.colors")}</h3>
             <div className="theme-editor-grid">
               {COLOR_KEYS.map((key) => (
                 <label key={key} className="theme-editor-color-field">
@@ -182,9 +184,9 @@ export default function ThemeEditor({ theme, onChange, onSave, onClose }: ThemeE
           </section>
 
           <section className="theme-editor-section">
-            <h3>Typography</h3>
+            <h3>{t("theme_editor.typography")}</h3>
             <label className="theme-editor-field">
-              <span>Heading</span>
+              <span>{t("theme_editor.heading")}</span>
               <input
                 type="text"
                 value={draft.typography.heading}
@@ -192,7 +194,7 @@ export default function ThemeEditor({ theme, onChange, onSave, onClose }: ThemeE
               />
             </label>
             <label className="theme-editor-field">
-              <span>Body</span>
+              <span>{t("theme_editor.body")}</span>
               <input
                 type="text"
                 value={draft.typography.body}
@@ -200,7 +202,7 @@ export default function ThemeEditor({ theme, onChange, onSave, onClose }: ThemeE
               />
             </label>
             <label className="theme-editor-field">
-              <span>Mono</span>
+              <span>{t("theme_editor.mono")}</span>
               <input
                 type="text"
                 value={draft.typography.mono}
@@ -210,9 +212,9 @@ export default function ThemeEditor({ theme, onChange, onSave, onClose }: ThemeE
           </section>
 
           <section className="theme-editor-section">
-            <h3>Scene</h3>
+            <h3>{t("theme_editor.scene")}</h3>
             <label className="theme-editor-field">
-              <span>Ambient Intensity</span>
+              <span>{t("theme_editor.ambient_intensity")}</span>
               <input
                 type="number"
                 step={0.1}
@@ -223,7 +225,7 @@ export default function ThemeEditor({ theme, onChange, onSave, onClose }: ThemeE
               />
             </label>
             <label className="theme-editor-field">
-              <span>Directional Intensity</span>
+              <span>{t("theme_editor.directional_intensity")}</span>
               <input
                 type="number"
                 step={0.1}
@@ -236,7 +238,7 @@ export default function ThemeEditor({ theme, onChange, onSave, onClose }: ThemeE
               />
             </label>
             <label className="theme-editor-field">
-              <span>Fog Color</span>
+              <span>{t("theme_editor.fog_color")}</span>
               <input
                 type="color"
                 value={draft.scene.fogColor}
@@ -244,7 +246,7 @@ export default function ThemeEditor({ theme, onChange, onSave, onClose }: ThemeE
               />
             </label>
             <label className="theme-editor-field">
-              <span>Fog Near</span>
+              <span>{t("theme_editor.fog_near")}</span>
               <input
                 type="number"
                 step={1}
@@ -254,7 +256,7 @@ export default function ThemeEditor({ theme, onChange, onSave, onClose }: ThemeE
               />
             </label>
             <label className="theme-editor-field">
-              <span>Fog Far</span>
+              <span>{t("theme_editor.fog_far")}</span>
               <input
                 type="number"
                 step={1}
@@ -266,26 +268,26 @@ export default function ThemeEditor({ theme, onChange, onSave, onClose }: ThemeE
           </section>
 
           <section className="theme-editor-section">
-            <h3>Import / Export</h3>
+            <h3>{t("theme_editor.import_export")}</h3>
             <div className="theme-editor-actions">
-              <button onClick={handleExport}>Export JSON</button>
-              <button onClick={handleReset}>Reset to Default</button>
+              <button onClick={handleExport}>{t("theme_editor.export_json")}</button>
+              <button onClick={handleReset}>{t("theme_editor.reset")}</button>
             </div>
             <textarea
               className="theme-editor-import"
               rows={4}
-              placeholder="Paste theme JSON here..."
+              placeholder={t("theme_editor.import_placeholder")}
               value={importText}
               onChange={(e) => setImportText(e.target.value)}
             />
             {importError && <div className="theme-editor-error">{importError}</div>}
-            <button onClick={handleImport}>Import JSON</button>
+            <button onClick={handleImport}>{t("theme_editor.import_json")}</button>
           </section>
         </div>
 
         <div className="theme-editor-footer">
           <button className="theme-editor-save" onClick={handleSave}>
-            Save Custom Signal
+            {t("theme_editor.save")}
           </button>
         </div>
       </div>

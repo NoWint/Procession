@@ -4,6 +4,66 @@
 
 ## Session Log
 
+### 2026-07-20 — Session #043 (integration, Phase 7 backlog fulfillment: F-702 + F-703 + I-701 + I-702 + D-701 + I-703, ~1.5h)
+- Track: integration (multi-track)
+- Task: F-702, F-703, I-701, I-702, D-701, I-703 (Phase 7 backlog completion)
+- Status: done
+- Summary:
+  - **F-702 Settings panel**: new `src/components/SettingsPanel.tsx` + `.css` (right-side drawer, no scrim — keeps canvas interactive per project memory). Three sections: Appearance (embeds existing ThemeSelector), Performance (process-cap slider 100-2000 + quality toggle Auto/Performance/Quality), Refresh Rate (informational — backend pushes 1Hz per SPEC §5). App.tsx lifted `processCap` + `qualityMode` state and computes `effectiveBloom` / `effectiveMaxBuildings` to override `useFpsMonitor` outputs without modifying the hook (forbidden file). Escape coordination: settings closes first, popup next.
+  - **F-703 i18n (Chinese + English)**: pure React Context + JSON i18n (no library). Created `src/i18n/{index.ts, zh.json, en.json}` (140 keys each) + `src/hooks/useI18n.ts` (`I18nProvider`, `useI18n`, `detectLocale`, `applyLocaleHtml`, parameter interpolation). Wrapped `<App />` in `<I18nProvider>` in `main.tsx`. Replaced ALL hardcoded user-facing strings across 14 components with `t(...)` calls: HudPanel, ProcessPopup (incl. Linux state→key mapping for Running/Sleeping/etc.), SettingsPanel (incl. new Language segmented control "中文 / EN"), ErrorState, FpsCounter, TimelineConsole, UtilityMode, ScreenshotButton, ThemeSelector, ThemeEditor, BuildingCluster, PortHarbors, FsHeatmap, App.tsx. Locale persists to `localStorage["proc-locale"]`; detected via `navigator.language` on first load. Bilingual tagline `进程列队，系统成诗` preserved in both locales (brand element). Added 22 tests in `useI18n.test.tsx`.
+  - **I-701 E2E infra**: added `@playwright/test@^1.61.1` devDep, `test:e2e` script. Created `playwright.config.ts` (webServer on port 1420 — Tauri convention, not 5173; chromium only; 60s timeout for cold Vite start). Created `tests/smoke.spec.ts` with 3 tests: title "Procession", R3F canvas renders, loading state appears. Tolerates the browser-context backend-unresponsive fallback cycle (Loading → Waiting → empty city + "后端无响应" banner). Verified: `npx playwright test --list` exit 0 (3 tests collected); `npx playwright test` 3/3 pass in ~15s.
+  - **I-702 CI PR pipeline**: created `.github/workflows/pr.yml` (3 jobs, runs on pull_request/push to main, `concurrency: cancel-in-progress: true`, `permissions: contents: read`). Jobs: (1) frontend — `npm ci` → `build:assets` → `tsc --noEmit` → `vitest` → `vite build`; (2) backend — Tauri Linux deps install (libwebkit2gtk-4.1-dev, libxdo-dev, libssl-dev, librsvg2-dev) → `cargo build --all-targets` → `cargo clippy -- -D warnings` → `cargo test`; (3) e2e — gated by `needs: [frontend]`, `playwright install --with-deps chromium` → `npm run test:e2e`. Used canonical actions (`checkout@v4`, `setup-node@v4` with `cache: 'npm'`, `dtolnay/rust-toolchain@stable`, `swatinem/rust-cache@v2`). All 4 acceptance grep patterns verified.
+  - **D-701 Linux build guide**: created `docs/linux.md` (213 lines). Sections: Prerequisites (Rust 1.80+, Node 20+); System deps for apt/dnf/pacman (webkit2gtk 4.1 — explicit NOT 4.0 note); Clone & install; Build assets (`npm run build:assets`); Dev (`npm run tauri dev`); Production (`npm run tauri build -- --bundles deb,appimage` — bundles arg because tauri.conf.json defaults to msi/dmg); System data sources on Linux (matches B-701: /proc/stat, /proc/meminfo, /proc/[pid]/, /proc/net/dev delta, /sys/class/thermal/thermal_zone*/temp, GPU=None); Known issues (Wayland GDK_BACKEND=x11, WebKit 4.0 vs 4.1, AppImage sandbox, thermal module); Verification steps; Troubleshooting table. apt:7 / dnf:3 / pacman:3 grep matches.
+  - **I-703 Phase 7 full acceptance**: all 6 hard deps verified done (B-701, F-701, F-702, F-703, I-702, D-701). Mechanical checks: `npx tsc --noEmit` exit 0; `cargo build --manifest-path src-tauri/Cargo.toml` exit 0; `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings` exit 0; `cargo test --manifest-path src-tauri/Cargo.toml` 21/21 pass; `npm test -- --run` 88/88 pass across 14 files; `npm run build` 662 modules transformed; `npx playwright test --list` 3 tests collected. Existence: src-tauri/src/engine/linux.rs, src/components/SettingsPanel.tsx, src/i18n/zh.json, .github/workflows/pr.yml, docs/linux.md all confirmed. Behavioral: Linux PlatformAdapter (B-701), Settings panel (F-702), language toggle Chinese↔English (F-703) all functional.
+- Decisions:
+  - Settings panel: right-side drawer without scrim (per project memory — full-viewport `pointer-events: auto` overlays block the Three.js canvas and cause input unresponsiveness).
+  - Refresh rate control: informational only (useSystemData subscribes to the spec-fixed 1Hz `system-snapshot` Tauri event — no configurable interval).
+  - i18n: pure React Context + JSON (no library dep — small surface, ~50 strings, easy to reason about). Provider default value = English so isolated component test renders work without wrapping (existing TimelineConsole.test.tsx English assertions still pass unchanged).
+  - Quality override: applied in App.tsx via `effectiveBloom` / `effectiveMaxBuildings` rather than extending `useFpsMonitor` (forbidden file in F-702 scope).
+  - Playwright config: `reuseExistingServer: true` unconditional (host env has `CI` set, which would have made Playwright spawn its own dev server on a port already taken).
+  - CI workflow: install full Tauri Linux deps rather than `--no-default-features` (simpler + faithful to a real Linux build; Windows-only `windows` crate is cfg-gated in Cargo.toml).
+  - Phase 7 complete: pending 10 → 4, done 77 → 83.
+- Commits: pending (this entry + PLAN.md status updates)
+- Files:
+  - src/components/SettingsPanel.tsx (new) — right-side settings drawer, 3 sections
+  - src/components/SettingsPanel.css (new) — drawer styling, --proc-* variables
+  - src/i18n/index.ts (new) — Locale/TranslationDict types, detectLocale, applyLocaleHtml, translations dict
+  - src/i18n/zh.json (new) — 140 Chinese keys
+  - src/i18n/en.json (new) — 140 English keys
+  - src/hooks/useI18n.ts (new) — I18nContext + I18nProvider + useI18n hook + localStorage persistence
+  - src/hooks/useI18n.test.tsx (new) — 22 tests (detectLocale, translate, interpolation, localStorage, Context provider)
+  - src/main.tsx (mod) — wrap <App /> in <I18nProvider>
+  - src/App.tsx (mod) — processCap + qualityMode state, effectiveBloom/effectiveMaxBuildings, Settings button + panel wiring, all strings → t()
+  - src/App.css (mod) — .app-settings-toggle style, [data-locale="zh"] typography
+  - src/components/HudPanel.tsx (mod) — t() for labels
+  - src/components/ProcessPopup.tsx (mod) — t() + stateToKey() for Linux states
+  - src/components/SettingsPanel.tsx (mod) — Language section (中文 / EN segmented control)
+  - src/components/ErrorState.tsx (mod) — t() for messages
+  - src/components/FpsCounter.tsx (mod) — t("fps.label")
+  - src/components/TimelineConsole.tsx (mod) — t() for all labels
+  - src/components/UtilityMode.tsx (mod) — t()
+  - src/components/ScreenshotButton.tsx (mod) — t()
+  - src/components/ThemeSelector.tsx (mod) — t()
+  - src/components/ThemeEditor.tsx (mod) — t()
+  - src/components/BuildingCluster.tsx (mod) — t()
+  - src/components/PortHarbors.tsx (mod) — t()
+  - src/components/FsHeatmap.tsx (mod) — t()
+  - playwright.config.ts (new) — chromium, port 1420, webServer reuse, 60s timeout
+  - tests/smoke.spec.ts (new) — 3 smoke tests
+  - .github/workflows/pr.yml (new) — 3-job PR pipeline (frontend/backend/e2e)
+  - docs/linux.md (new) — 213-line Linux build guide
+  - package.json (mod) — @playwright/test devDep + test:e2e script
+  - package-lock.json (mod) — playwright install
+  - PLAN.md (mod) — F-702/F-703/I-701/I-702/D-701/I-703 → done, counts updated
+  - PROGRESS.md (mod) — this entry
+- Next ready: Phase 7 complete. Remaining 4 pending tasks are pre-Phase-7 backlog items (verify via `grep -n 'status: pending' PLAN.md`).
+- Notes:
+  - All Phase 7 acceptance gates passed: project is now feature-complete on the Phase 7 roadmap.
+  - i18n default context = English, so existing English-asserting tests pass unchanged (no test churn).
+  - Settings panel honors project memory hard constraints: no `{false && ...}` dead code, no full-viewport scrim, uses `--proc-*` CSS variables throughout.
+  - Playwright tests confirmed: title "Procession", R3F canvas mounts, loading state appears — the browser-context backend-unresponsive fallback is now an explicit E2E contract.
+  - CI pipeline will run on the next PR / push to main; lint locally clean (all 4 acceptance grep patterns ≥1 match).
+
 ### 2026-07-20 — Session #042 (frontend, visual polish + city rebuild + position stability, ~3h)
 - Track: frontend
 - Task: F-710 ~ F-717 (visual polish + city rebuild + position stability)

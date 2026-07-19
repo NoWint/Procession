@@ -15,6 +15,7 @@ import HudPanel from "./components/HudPanel";
 import UtilityMode from "./components/UtilityMode";
 import ThemeSelector from "./components/ThemeSelector";
 import ThemeEditor from "./components/ThemeEditor";
+import SettingsPanel, { type QualityMode } from "./components/SettingsPanel";
 import ScreensaverMode from "./components/ScreensaverMode";
 import ScreenshotButton from "./components/ScreenshotButton";
 import FpsCounter from "./components/FpsCounter";
@@ -23,6 +24,7 @@ import { useSystemData } from "./hooks/useSystemData";
 import { useSystemHistory } from "./hooks/useSystemHistory";
 import { useFpsMonitor } from "./hooks/useFpsMonitor";
 import { useAudioEngine } from "./hooks/useAudioEngine";
+import { useI18n } from "./hooks/useI18n";
 import * as persistence from "./utils/persistence";
 import type { ProcessInfo, SystemSnapshot } from "./utils/types";
 import { computeGridPositions, computeProcessSignature, type BlockInfo, type BuildingPosition } from "./utils/layout";
@@ -45,8 +47,8 @@ import "./components/TimelineConsole.css";
 
 const DATA_TIMEOUT_MS = 4000;
 
-// Adaptive quality: keep FPS ≥ 30 by adjusting rendered building count.
-const MAX_BUILDINGS_DEFAULT = 200;
+// Default process cap (rendered building ceiling). User-tunable via SettingsPanel.
+const DEFAULT_PROCESS_CAP = 200;
 
 // 后端无响应时渲染空城市使用的占位快照，避免下游组件访问 null 字段
 const EMPTY_SNAPSHOT: SystemSnapshot = {
@@ -67,12 +69,17 @@ const EMPTY_SNAPSHOT: SystemSnapshot = {
 
 export default function App() {
   const { snapshot: liveSnapshot, backendStatus } = useSystemData();
+  const { t } = useI18n();
   const history = useSystemHistory(liveSnapshot);
   const { displaySnapshot } = history;
+  // User-tunable settings (F-702). processCap replaces the old MAX_BUILDINGS_DEFAULT.
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [processCap, setProcessCap] = useState(DEFAULT_PROCESS_CAP);
+  const [qualityMode, setQualityMode] = useState<QualityMode>("auto");
   // 自适应质量：FPS 状态机已下沉到 hook 内部，App 只消费 buildingCount/bloomEnabled
   const { buildingCount, bloomEnabled } = useFpsMonitor({
     sampleSize: 30,
-    maxBuildings: MAX_BUILDINGS_DEFAULT,
+    maxBuildings: processCap,
   });
   const { isMuted, isSupported, toggleMute } = useAudioEngine({
     snapshot: liveSnapshot,
@@ -90,6 +97,22 @@ export default function App() {
   const [showUi, setShowUi] = useState(true);
   const [timelineOpen, setTimelineOpen] = useState(true);
   const kioskIdleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Quality mode override (F-702): in "auto" we delegate to useFpsMonitor;
+  // "performance" forces bloom off and 60% of cap; "quality" forces bloom on
+  // and the full cap. The hook itself is not modified (forbidden file).
+  const effectiveBloom =
+    qualityMode === "performance"
+      ? false
+      : qualityMode === "quality"
+        ? true
+        : bloomEnabled;
+  const effectiveMaxBuildings =
+    qualityMode === "performance"
+      ? Math.floor(processCap * 0.6)
+      : qualityMode === "quality"
+        ? processCap
+        : buildingCount;
 
   // Load theme on mount, restoring saved preference.
   useEffect(() => {
@@ -122,8 +145,9 @@ export default function App() {
   }, [liveSnapshot]);
 
   // Adaptive quality: reduce building count when FPS is low, increase when high.
-  // FPS 状态机已下沉到 useFpsMonitor，App 直接使用 hook 返回的 buildingCount
-  const maxBuildings = buildingCount;
+  // FPS 状态机已下沉到 useFpsMonitor，App 直接使用 hook 返回的 buildingCount；
+  // qualityMode 覆盖（F-702）通过 effectiveMaxBuildings 注入。
+  const maxBuildings = effectiveMaxBuildings;
 
   const processSignature = useMemo(
     () => (displaySnapshot ? computeProcessSignature(displaySnapshot.processes) : ""),
@@ -294,6 +318,12 @@ export default function App() {
         return;
       }
       if (e.key === "Escape") {
+        // Close settings drawer first (F-702); only fall through to popup
+        // dismissal on the next Escape press.
+        if (settingsOpen) {
+          setSettingsOpen(false);
+          return;
+        }
         setUtilityMode(false);
         setSelectedProcess(null);
         setCameraTarget(null);
@@ -302,23 +332,23 @@ export default function App() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [kioskMode, timelineOpen, toggleMute]);
+  }, [kioskMode, timelineOpen, toggleMute, settingsOpen]);
 
   if (!themeReady) {
-    return <ErrorState message="Loading visual system..." loading />;
+    return <ErrorState message={t("error.loading_visual")} loading />;
   }
 
   // connecting 阶段保留 loading 提示
   if (backendStatus === "connecting" && !liveSnapshot) {
-    return <ErrorState message="Waiting for system data..." loading />;
+    return <ErrorState message={t("error.waiting_data")} loading />;
   }
 
   // 后端无响应时不进入全屏 ErrorState，让空城市 + banner 渲染
   if (backendStatus !== "backend-unresponsive" && !liveSnapshot && timedOut) {
     return (
       <ErrorState
-        message="Failed to receive system data"
-        detail="The backend may still be initializing."
+        message={t("error.failed_data")}
+        detail={t("error.failed_data_detail")}
         onRetry={handleRetry}
       />
     );
@@ -331,8 +361,8 @@ export default function App() {
   ) {
     return (
       <ErrorState
-        message="No processes found"
-        detail="The city is empty. Try refreshing or check backend permissions."
+        message={t("error.no_processes")}
+        detail={t("error.no_processes_detail")}
         onRetry={handleRetry}
       />
     );
@@ -350,7 +380,7 @@ export default function App() {
         autoRotate={autoRotate}
       >
         <Atmosphere theme={theme} />
-        {bloomEnabled && (
+        {effectiveBloom && (
           <BloomEffect
             strength={0.05}
             radius={0.4}
@@ -388,22 +418,25 @@ export default function App() {
       <div className={`app-ui-layer ${kioskMode && !showUi ? "kiosk-hidden" : ""}`}>
         {showUnresponsiveBanner && (
           <div className="app-backend-banner" role="alert">
-            后端无响应，正在重试...
+            {t("app.banner.backend_unresponsive")}
           </div>
         )}
         <div className="app-header">
-          <span className="app-title">Procession</span>
+          <span className="app-title">{t("app.title")}</span>
           <span className="app-subtitle">
-            {renderSnapshot.processes.length} processes · {renderSnapshot.cpu.total.toFixed(1)}% CPU
+            {t("app.subtitle.process_count", {
+              count: renderSnapshot.processes.length,
+              cpu: renderSnapshot.cpu.total.toFixed(1),
+            })}
             {!history.isLive && (
-              <span className="app-history-indicator"> · Time Lens</span>
+              <span className="app-history-indicator">{t("app.subtitle.time_lens_indicator")}</span>
             )}
           </span>
           {isSupported && (
             <span
               className={`app-sound-indicator${isMuted ? " muted" : ""}`}
               onClick={toggleMute}
-              title={`Sound ${isMuted ? "off" : "on"} — press M to toggle`}
+              title={t(isMuted ? "app.sound.off_title" : "app.sound.on_title")}
               role="button"
               tabIndex={0}
               onKeyDown={(e) => { if (e.key === "Enter") toggleMute(); }}
@@ -424,22 +457,31 @@ export default function App() {
         <div className="app-controls">
           <ThemeSelector currentUrl={currentThemeUrl} onChange={handleThemeChange} />
           <button className="app-theme-toggle" onClick={handleOpenThemeEditor}>
-            Edit Signal
+            {t("app.button.edit_signal")}
           </button>
           <button
             className="app-theme-toggle"
             onClick={() => setAutoRotate((prev) => !prev)}
             aria-pressed={autoRotate}
           >
-            {autoRotate ? "Stop Orbit" : "Orbit"}
+            {autoRotate ? t("app.button.stop_orbit") : t("app.button.orbit")}
           </button>
           <button
             className={`app-theme-toggle ${timelineOpen ? "app-toggle-active" : ""}`}
             onClick={() => setTimelineOpen((prev) => !prev)}
             aria-pressed={timelineOpen}
-            title="Toggle time lens (H)"
+            title={t("app.button.time_lens_title")}
           >
-            Time Lens
+            {t("app.button.time_lens")}
+          </button>
+          <button
+            className={`app-settings-toggle ${settingsOpen ? "app-toggle-active" : ""}`}
+            onClick={() => setSettingsOpen((prev) => !prev)}
+            aria-pressed={settingsOpen}
+            aria-expanded={settingsOpen}
+            title={t("app.button.settings_open_title")}
+          >
+            {t("app.button.settings")}
           </button>
           <ScreenshotButton />
         </div>
@@ -471,6 +513,16 @@ export default function App() {
             onClose={handleCloseThemeEditor}
           />
         )}
+        <SettingsPanel
+          open={settingsOpen}
+          onClose={() => setSettingsOpen(false)}
+          processCap={processCap}
+          onProcessCapChange={setProcessCap}
+          qualityMode={qualityMode}
+          onQualityModeChange={setQualityMode}
+          currentThemeUrl={currentThemeUrl}
+          onThemeChange={handleThemeChange}
+        />
         <ProcessPopup
           process={selectedProcess}
           relations={renderSnapshot.process_relations}
@@ -481,7 +533,7 @@ export default function App() {
           blocks={blockCenters}
           onClose={handleClosePopup}
         />
-        <div className="app-slogan">Procession · 进程列队，系统成诗</div>
+        <div className="app-slogan">{t("app.tagline")}</div>
       </div>
       <ScreensaverMode enabled={kioskMode} onExit={handleExitKiosk} onUiShow={handleUiShow} />
     </div>

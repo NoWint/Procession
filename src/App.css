@@ -129,6 +129,29 @@ canvas {
   transform: translateY(1px);
 }
 
+/* Settings toggle button (F-702) — mirrors .app-theme-toggle so it sits
+   naturally next to the existing header buttons. */
+.app-settings-toggle {
+  background: var(--proc-surface);
+  color: var(--proc-text);
+  border: 1px solid var(--proc-border);
+  border-radius: var(--proc-radius-md);
+  padding: 8px 14px;
+  font-size: 13px;
+  cursor: pointer;
+  box-shadow: var(--proc-shadow-sm);
+  transition: background 0.2s ease, border-color 0.2s ease, transform 0.1s ease;
+}
+
+.app-settings-toggle:hover {
+  background: var(--proc-surface-elevated);
+  border-color: var(--proc-accent);
+}
+
+.app-settings-toggle:active {
+  transform: translateY(1px);
+}
+
 .error-state {
   display: flex;
   flex-direction: column;
@@ -520,3 +543,19 @@ canvas {
 .building-tooltip.selected .building-tooltip-name {
   color: #ffd070;
 }
+
+/* Language toggle (F-703) — segmented control living in the SettingsPanel
+ * Language section. Shares the .settings-toggle-group / .settings-toggle-option
+ * styles already defined in SettingsPanel.css, so this only adds a thin
+ * locale-specific accent when the active locale is zh (Chinese typography
+ * tends to need slightly more horizontal padding). */
+[data-locale="zh"] .settings-toggle-option {
+  letter-spacing: 0.02em;
+}
+
+/* When the user picks a locale, also re-sync the subtitle font weight —
+ * Chinese characters read better at 500 weight vs. the mono-leaning 400. */
+[data-locale="zh"] .app-subtitle {
+  font-weight: 500;
+}
+

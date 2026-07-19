@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import type { ProcessInfo, SystemSnapshot } from "../utils/types";
 import type { BuildingPosition } from "../utils/layout";
 import type { Theme } from "../utils/theme";
+import { useI18n } from "../hooks/useI18n";
 
 type SortKey = "cpu" | "memory";
 
@@ -18,6 +19,7 @@ export default function UtilityMode({
   onSelectProcess,
 }: UtilityModeProps) {
   const [sortKey, setSortKey] = useState<SortKey>("cpu");
+  const { t } = useI18n();
 
   const topProcesses = useMemo(() => {
     const sorted = [...snapshot.processes].sort((a, b) => {
@@ -45,21 +47,21 @@ export default function UtilityMode({
   return (
     <div className="utility-mode">
       <div className="utility-header">
-        <span className="utility-title">Process Monitor</span>
+        <span className="utility-title">{t("utility.title")}</span>
         <div className="utility-sort">
           <button
             className={sortKey === "cpu" ? "active" : ""}
             onClick={() => setSortKey("cpu")}
             aria-pressed={sortKey === "cpu"}
           >
-            CPU
+            {t("utility.sort.cpu")}
           </button>
           <button
             className={sortKey === "memory" ? "active" : ""}
             onClick={() => setSortKey("memory")}
             aria-pressed={sortKey === "memory"}
           >
-            Memory
+            {t("utility.sort.memory")}
           </button>
         </div>
       </div>
@@ -74,7 +76,7 @@ export default function UtilityMode({
               role="button"
               tabIndex={isVisible ? 0 : -1}
               aria-disabled={!isVisible}
-              title={isVisible ? "Click to locate in city" : "Not visible in current city view"}
+              title={isVisible ? t("utility.locate_visible") : t("utility.locate_hidden")}
               onKeyDown={(e) => handleRowKeyDown(e, p)}
             >
               <span className="utility-name" title={p.name}>
@@ -87,7 +89,7 @@ export default function UtilityMode({
           );
         })}
       </div>
-      <div className="utility-footer">Press Space to close</div>
+      <div className="utility-footer">{t("utility.footer")}</div>
     </div>
   );
 }

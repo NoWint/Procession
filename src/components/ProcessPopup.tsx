@@ -4,8 +4,10 @@ import type {
   ProcessRelation,
   ListeningPort,
   Connection,
+  ProcessState,
 } from "../utils/types";
 import type { BuildingPosition, BlockInfo } from "../utils/layout";
+import { useI18n } from "../hooks/useI18n";
 
 interface ProcessPopupProps {
   process: ProcessInfo | null;
@@ -20,8 +22,27 @@ interface ProcessPopupProps {
   onSelectProcess?: (pid: number) => void;
 }
 
-function formatState(state: string): string {
-  return state.charAt(0).toUpperCase() + state.slice(1).toLowerCase();
+// 将后端返回的进程状态字符串映射到 i18n key，支持 Linux 常见状态。
+function stateToKey(state: ProcessState | string): string {
+  const normalized = String(state).toLowerCase().replace(/[\s_-]+/g, "");
+  switch (normalized) {
+    case "running":
+      return "popup.state.running";
+    case "sleeping":
+    case "sleep":
+      return "popup.state.sleeping";
+    case "disksleep":
+    case "disk":
+      return "popup.state.disk_sleep";
+    case "stopped":
+      return "popup.state.stopped";
+    case "zombie":
+      return "popup.state.zombie";
+    case "idle":
+      return "popup.state.idle";
+    default:
+      return "popup.state.unknown";
+  }
 }
 
 // 列表最大显示数量
@@ -42,6 +63,7 @@ export default function ProcessPopup({
   onSelectProcess,
 }: ProcessPopupProps) {
   const popupRef = useRef<HTMLDivElement>(null);
+  const { t } = useI18n();
 
   useEffect(() => {
     if (!process) return;
@@ -97,7 +119,7 @@ export default function ProcessPopup({
     const content = (
       <>
         <span className="process-popup-list-item-name">
-          {p.name} (PID {p.pid})
+          {t("popup.peer_format", { name: p.name, pid: p.pid })}
         </span>
       </>
     );
@@ -134,7 +156,7 @@ export default function ProcessPopup({
         className="process-popup"
         role="dialog"
         aria-modal="true"
-        aria-label={`Process details for ${process.name}`}
+        aria-label={t("app.process.aria_label", { name: process.name })}
       >
         <div className="process-popup-header">
           <span className="process-popup-name" title={process.name}>
@@ -143,57 +165,57 @@ export default function ProcessPopup({
           <button
             className="process-popup-close"
             onClick={onClose}
-            aria-label="Close"
+            aria-label={t("popup.close")}
           >
             ×
           </button>
         </div>
         <div className="process-popup-row">
-          <span className="process-popup-label">PID</span>
+          <span className="process-popup-label">{t("popup.pid")}</span>
           <span className="process-popup-value">{process.pid}</span>
         </div>
         <div className="process-popup-row">
-          <span className="process-popup-label">CPU</span>
+          <span className="process-popup-label">{t("popup.cpu")}</span>
           <span className="process-popup-value">{process.cpu.toFixed(1)}%</span>
         </div>
         <div className="process-popup-row">
-          <span className="process-popup-label">Memory</span>
-          <span className="process-popup-value">{process.memory_mb} MB</span>
+          <span className="process-popup-label">{t("popup.memory")}</span>
+          <span className="process-popup-value">{t("popup.memory_value", { mb: process.memory_mb })}</span>
         </div>
         <div className="process-popup-row">
-          <span className="process-popup-label">State</span>
-          <span className="process-popup-value">{formatState(process.state)}</span>
+          <span className="process-popup-label">{t("popup.state")}</span>
+          <span className="process-popup-value">{t(stateToKey(process.state))}</span>
         </div>
         <div className="process-popup-row">
-          <span className="process-popup-label">PPID</span>
+          <span className="process-popup-label">{t("popup.ppid")}</span>
           <span className="process-popup-value">{process.ppid}</span>
         </div>
         <div className="process-popup-row">
-          <span className="process-popup-label">User</span>
+          <span className="process-popup-label">{t("popup.user")}</span>
           <span className="process-popup-value">{process.user}</span>
         </div>
 
         {/* A. 进程关系（主城/周边城） */}
         {hasRelationSection && (
           <div className="process-popup-section">
-            <div className="process-popup-section-title">进程关系</div>
+            <div className="process-popup-section-title">{t("popup.process_relations")}</div>
             <div className="process-popup-row">
-              <span className="process-popup-label">父进程</span>
+              <span className="process-popup-label">{t("popup.parent_process")}</span>
               <span className="process-popup-value">
-                {parent ? `${parent.name} (PID ${process.ppid})` : "—"}
+                {parent ? t("popup.parent_format", { name: parent.name, pid: process.ppid }) : "—"}
               </span>
             </div>
             {childList.length > 0 && (
               <>
                 <div className="process-popup-label process-popup-sublabel">
-                  子进程
+                  {t("popup.child_processes")}
                   <span className="process-popup-badge">{childList.length}</span>
                 </div>
                 <ul className="process-popup-list">
                   {childList.slice(0, MAX_CHILDREN).map(renderPeerItem)}
                   {childList.length > MAX_CHILDREN && (
                     <li className="process-popup-list-item process-popup-list-item-more">
-                      +{childList.length - MAX_CHILDREN} more
+                      {t("popup.more_format", { count: childList.length - MAX_CHILDREN })}
                     </li>
                   )}
                 </ul>
@@ -202,14 +224,14 @@ export default function ProcessPopup({
             {ipcList.length > 0 && (
               <>
                 <div className="process-popup-label process-popup-sublabel">
-                  IPC peers
+                  {t("popup.ipc_peers")}
                   <span className="process-popup-badge">{ipcList.length}</span>
                 </div>
                 <ul className="process-popup-list">
                   {ipcList.slice(0, MAX_IPC_PEERS).map(renderPeerItem)}
                   {ipcList.length > MAX_IPC_PEERS && (
                     <li className="process-popup-list-item process-popup-list-item-more">
-                      +{ipcList.length - MAX_IPC_PEERS} more
+                      {t("popup.more_format", { count: ipcList.length - MAX_IPC_PEERS })}
                     </li>
                   )}
                 </ul>
@@ -221,7 +243,7 @@ export default function ProcessPopup({
         {/* B. 监听端口 */}
         {hasPortSection && (
           <div className="process-popup-section">
-            <div className="process-popup-section-title">监听端口</div>
+            <div className="process-popup-section-title">{t("popup.listening_ports")}</div>
             <ul className="process-popup-list">
               {portList.slice(0, MAX_PORTS).map((p, i) => (
                 <li key={`${p.protocol}-${p.port}-${i}`} className="process-popup-list-item">
@@ -230,7 +252,7 @@ export default function ProcessPopup({
               ))}
               {portList.length > MAX_PORTS && (
                 <li className="process-popup-list-item process-popup-list-item-more">
-                  +{portList.length - MAX_PORTS} more
+                  {t("popup.more_format", { count: portList.length - MAX_PORTS })}
                 </li>
               )}
             </ul>
@@ -240,7 +262,7 @@ export default function ProcessPopup({
         {/* C. 网络连接 */}
         {hasConnSection && (
           <div className="process-popup-section">
-            <div className="process-popup-section-title">网络连接</div>
+            <div className="process-popup-section-title">{t("popup.network_connections")}</div>
             <ul className="process-popup-list">
               {connList.slice(0, MAX_CONNECTIONS).map((c, i) => (
                 <li key={i} className="process-popup-list-item">
@@ -250,7 +272,7 @@ export default function ProcessPopup({
               ))}
               {connList.length > MAX_CONNECTIONS && (
                 <li className="process-popup-list-item process-popup-list-item-more">
-                  +{connList.length - MAX_CONNECTIONS} more
+                  {t("popup.more_format", { count: connList.length - MAX_CONNECTIONS })}
                 </li>
               )}
             </ul>
@@ -260,17 +282,17 @@ export default function ProcessPopup({
         {/* D. 所在街区（主城） */}
         {hasBlockSection && containingBlock && pos && (
           <div className="process-popup-section">
-            <div className="process-popup-section-title">所在街区</div>
+            <div className="process-popup-section-title">{t("popup.containing_block")}</div>
             <div className="process-popup-row">
-              <span className="process-popup-label">街区</span>
+              <span className="process-popup-label">{t("popup.block")}</span>
               <span className="process-popup-value">
-                {containingBlock.letter} · 共 {containingBlock.processCount} 进程
+                {t("popup.block_summary", { letter: containingBlock.letter, count: containingBlock.processCount })}
               </span>
             </div>
             <div className="process-popup-row">
-              <span className="process-popup-label">坐标</span>
+              <span className="process-popup-label">{t("popup.coordinate")}</span>
               <span className="process-popup-value">
-                ({pos.x.toFixed(1)}, {pos.z.toFixed(1)})
+                {t("popup.coordinate_format", { x: pos.x.toFixed(1), z: pos.z.toFixed(1) })}
               </span>
             </div>
           </div>

@@ -2,6 +2,7 @@ import { useState, useCallback } from "react";
 import * as gifshot from "gifshot";
 import { save } from "@tauri-apps/plugin-dialog";
 import { invoke } from "@tauri-apps/api/core";
+import { useI18n } from "../hooks/useI18n";
 
 function downloadDataUrl(dataUrl: string, filename: string) {
   const a = document.createElement("a");
@@ -95,6 +96,7 @@ async function captureGif(onStart: () => void, onStop: () => void) {
 
 export default function ScreenshotButton() {
   const [recording, setRecording] = useState(false);
+  const { t } = useI18n();
 
   const handleScreenshot = useCallback(() => {
     void capturePng();
@@ -110,10 +112,10 @@ export default function ScreenshotButton() {
   return (
     <div className="screenshot-controls">
       <button className="app-theme-toggle" onClick={handleScreenshot}>
-        Screenshot
+        {t("app.button.screenshot")}
       </button>
       <button className="app-theme-toggle" onClick={handleGif} disabled={recording}>
-        {recording ? "Recording…" : "Record GIF"}
+        {recording ? t("app.button.recording") : t("app.button.record_gif")}
       </button>
     </div>
   );

@@ -9,6 +9,7 @@ import { computeGridPositions, computeProcessSignature, cpuToHeight, type Buildi
 import { colorForProcess, type Theme } from "../utils/colors";
 import { FALLBACK_THEME } from "../utils/theme";
 import { createBuildingMaterial, updateBuildingMaterialTime } from "../utils/buildingShader";
+import { useI18n } from "../hooks/useI18n";
 import {
   useGlbAssets,
   BUILDING_VARIANT_IDS,
@@ -724,6 +725,7 @@ export default function BuildingCluster({
 }: BuildingClusterProps) {
   // 异步加载 4 个 GLB；加载完成前各变体降级为 boxGeometry
   const { assets } = useGlbAssets();
+  const { t } = useI18n();
 
   // 共享 ref：避免每帧 React render，子组件通过 ref 读取最新值
   const themeRef = useRef(theme);
@@ -900,9 +902,9 @@ export default function BuildingCluster({
           >
             <div className={`building-tooltip${isSelected ? " selected" : ""}`}>
               <div className="building-tooltip-name">{proc.name}</div>
-              <div className="building-tooltip-row">PID: {proc.pid}</div>
-              <div className="building-tooltip-row">CPU: {proc.cpu.toFixed(1)}%</div>
-              <div className="building-tooltip-row">MEM: {proc.memory_mb} MB</div>
+              <div className="building-tooltip-row">{t("building_tooltip.pid", { pid: proc.pid })}</div>
+              <div className="building-tooltip-row">{t("building_tooltip.cpu", { cpu: proc.cpu.toFixed(1) })}</div>
+              <div className="building-tooltip-row">{t("building_tooltip.mem", { mb: proc.memory_mb })}</div>
             </div>
           </Html>
         );

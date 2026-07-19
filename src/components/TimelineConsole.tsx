@@ -1,4 +1,5 @@
 import type { SystemSnapshot } from "../utils/types";
+import { useI18n } from "../hooks/useI18n";
 
 export interface TimelineConsoleProps {
   history: readonly SystemSnapshot[];
@@ -52,6 +53,7 @@ export default function TimelineConsole({
   onLoad,
   canSave = true,
 }: TimelineConsoleProps) {
+  const { t } = useI18n();
   const maxIndex = Math.max(0, history.length - 1);
   const sliderValue = isLive ? maxIndex : index;
   const hasHistory = history.length >= 2;
@@ -65,10 +67,12 @@ export default function TimelineConsole({
   };
 
   return (
-    <div className="timeline-console" aria-label="Time lens console">
+    <div className="timeline-console" aria-label={t("timeline.aria_label")}>
       <div className="timeline-header">
-        <span className="timeline-title">Time Lens</span>
-        <span className="timeline-window">{formatDuration(windowSeconds)} buffered</span>
+        <span className="timeline-title">{t("timeline.title")}</span>
+        <span className="timeline-window">
+          {t("timeline.buffered", { duration: formatDuration(windowSeconds) })}
+        </span>
       </div>
 
       <div className="timeline-controls">
@@ -77,17 +81,17 @@ export default function TimelineConsole({
           onClick={onLive}
           disabled={isLive || !hasHistory}
           aria-pressed={isLive}
-          title="Return to live"
+          title={t("timeline.return_to_live")}
         >
-          Live
+          {t("timeline.live")}
         </button>
 
         <button
           className="timeline-button"
           onClick={() => onStep(-1)}
           disabled={!canStepBack}
-          aria-label="Step backward"
-          title="Step backward"
+          aria-label={t("timeline.step_backward")}
+          title={t("timeline.step_backward")}
         >
           ←
         </button>
@@ -96,18 +100,18 @@ export default function TimelineConsole({
           className={`timeline-button timeline-play ${mode === "playing" ? "timeline-active" : ""}`}
           onClick={onTogglePlay}
           disabled={!hasHistory}
-          aria-label={mode === "playing" ? "Pause" : "Play"}
-          title={mode === "playing" ? "Pause" : "Play"}
+          aria-label={mode === "playing" ? t("timeline.pause_aria") : t("timeline.play_aria")}
+          title={mode === "playing" ? t("timeline.pause_aria") : t("timeline.play_aria")}
         >
-          {mode === "playing" ? "Pause" : "Replay"}
+          {mode === "playing" ? t("timeline.pause") : t("timeline.replay")}
         </button>
 
         <button
           className="timeline-button"
           onClick={() => onStep(1)}
           disabled={!canStepForward}
-          aria-label="Step forward"
-          title="Step forward"
+          aria-label={t("timeline.step_forward")}
+          title={t("timeline.step_forward")}
         >
           →
         </button>
@@ -117,8 +121,8 @@ export default function TimelineConsole({
           value={playbackSpeed}
           onChange={(e) => setPlaybackSpeed(Number(e.target.value))}
           disabled={!hasHistory}
-          aria-label="Playback speed"
-          title="Playback speed"
+          aria-label={t("timeline.playback_speed")}
+          title={t("timeline.playback_speed")}
         >
           <option value={1}>1×</option>
           <option value={2}>2×</option>
@@ -130,10 +134,10 @@ export default function TimelineConsole({
             className="timeline-button"
             onClick={onSave}
             disabled={!canSave}
-            aria-label="Save city state"
-            title="Save city state"
+            aria-label={t("timeline.save_aria")}
+            title={t("timeline.save_aria")}
           >
-            Save
+            {t("timeline.save")}
           </button>
         )}
 
@@ -141,10 +145,10 @@ export default function TimelineConsole({
           <button
             className="timeline-button"
             onClick={onLoad}
-            aria-label="Load city state"
-            title="Load city state"
+            aria-label={t("timeline.load_aria")}
+            title={t("timeline.load_aria")}
           >
-            Load
+            {t("timeline.load")}
           </button>
         )}
       </div>
@@ -157,14 +161,14 @@ export default function TimelineConsole({
           value={sliderValue}
           onChange={handleScrub}
           disabled={!hasHistory}
-          aria-label="History scrubber"
+          aria-label={t("timeline.scrubber_aria")}
           aria-valuemin={0}
           aria-valuemax={maxIndex}
           aria-valuenow={sliderValue}
         />
         <div className="timeline-timestamp">
           <span>{formatTime(currentTimestamp)}</span>
-          {isLive && <span className="timeline-live-badge">LIVE</span>}
+          {isLive && <span className="timeline-live-badge">{t("timeline.live_badge")}</span>}
         </div>
       </div>
     </div>

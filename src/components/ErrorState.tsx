@@ -1,3 +1,5 @@
+import { useI18n } from "../hooks/useI18n";
+
 interface ErrorStateProps {
   message: string;
   detail?: string;
@@ -13,10 +15,11 @@ export default function ErrorState({
   loading = false,
   className = "",
 }: ErrorStateProps) {
+  const { t } = useI18n();
   return (
     <div className={`error-state ${className}`}>
       {loading && (
-        <div className="error-state-loader" aria-label="Loading">
+        <div className="error-state-loader" aria-label={t("error.loading_aria")}>
           <span />
           <span />
           <span />
@@ -26,7 +29,7 @@ export default function ErrorState({
       {detail && <div className="error-state-detail">{detail}</div>}
       {onRetry && (
         <button className="error-state-retry" onClick={onRetry}>
-          Retry
+          {t("error.retry")}
         </button>
       )}
     </div>

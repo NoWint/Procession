@@ -5,6 +5,7 @@ import type { ThreeEvent } from "@react-three/fiber";
 import type { ListeningPort } from "../utils/types";
 import type { BuildingPosition } from "../utils/layout";
 import { FALLBACK_THEME, type Theme } from "../utils/theme";
+import { useI18n } from "../hooks/useI18n";
 
 interface PortHarborsProps {
   ports: ListeningPort[];
@@ -130,6 +131,7 @@ export default function PortHarbors({
   const dockMeshRef = useRef<THREE.InstancedMesh>(null);
   const cableGeoRef = useRef<THREE.BufferGeometry | null>(null);
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+  const { t } = useI18n();
 
   const harbors = useMemo(
     () => computeHarborData(ports, positions, maxHarbors),
@@ -229,7 +231,7 @@ export default function PortHarbors({
             </div>
             <div className="harbor-label-address">{hoveredHarbor.address}</div>
             <div className="harbor-label-scope">
-              {hoveredHarbor.isPublic ? "Public" : "Private"}
+              {hoveredHarbor.isPublic ? t("harbor.public") : t("harbor.private")}
             </div>
           </div>
         </Html>
