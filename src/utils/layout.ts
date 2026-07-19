@@ -6,7 +6,9 @@ export interface BuildingPosition {
   z: number;
   pid: number;
   height: number;
+  width?: number;        // 1.5 for parent (main tower), 0.5 for child (annex)
   parentPid?: number;
+  childCount?: number;   // how many children cluster around this parent
 }
 
 export function cpuToHeight(cpu: number): number {
@@ -114,52 +116,98 @@ export function computeGridPositions(
     .filter((p) => p.state !== "Zombie" || p.cpu > 1)
     .slice(0, maxBuildings);
 
-  // Group by first letter of process name
-  const groups = new Map<string, ProcessInfo[]>();
-  for (const p of filtered) {
-    const key = p.name.charAt(0).toUpperCase();
-    if (!groups.has(key)) groups.set(key, []);
-    groups.get(key)!.push(p);
-  }
+  const pidMap = new Map<number, ProcessInfo>();
+  for (const p of filtered) pidMap.set(p.pid, p);
 
-  const sortedKeys = Array.from(groups.keys()).sort();
+  const childrenMap = new Map<number, ProcessInfo[]>();
+  for (const p of filtered) {
+    const list = childrenMap.get(p.ppid) ?? [];
+    list.push(p);
+    childrenMap.set(p.ppid, list);
+  }
+  for (const list of childrenMap.values()) list.sort((a, b) => b.cpu - a.cpu);
+
+  const roots = filtered.filter((p) => p.ppid <= 1 || !pidMap.has(p.ppid));
+
+  const letterGroups = new Map<string, ProcessInfo[]>();
+  for (const r of roots) {
+    const key = r.name.charAt(0).toUpperCase();
+    if (!letterGroups.has(key)) letterGroups.set(key, []);
+    letterGroups.get(key)!.push(r);
+  }
+  const sortedKeys = Array.from(letterGroups.keys()).sort();
+
   const blockCols = 8;
   const blockCell = 8.0;
-  const inBlockCell = 2.5;
+  const inBlockCell = 3.0;
 
   const result: BuildingPosition[] = [];
   const blockInfo: { letter: string; x: number; z: number }[] = [];
+  const placed = new Set<number>();
 
   sortedKeys.forEach((letter, bi) => {
-    const members = groups.get(letter)!;
-    members.sort((a: ProcessInfo, b: ProcessInfo) => a.name.localeCompare(b.name));
+    const rootList = letterGroups.get(letter)!;
+    rootList.sort((a, b) => a.name.localeCompare(b.name));
 
     const bx = (bi % blockCols) * blockCell;
     const bz = Math.floor(bi / blockCols) * blockCell;
     const centerOffset = Math.floor(sortedKeys.length / blockCols) * blockCell / 2;
 
-    const side = Math.ceil(Math.sqrt(members.length + 1));
-    const half = Math.floor(side / 2);
-
     blockInfo.push({ letter, x: bx, z: bz - centerOffset });
 
-    members.forEach((p: ProcessInfo, mi: number) => {
-      const r = Math.floor(mi / side);
-      const col = mi % side;
-      let x = bx + (col - half) * inBlockCell;
-      let z = bz + (r - half) * inBlockCell - centerOffset;
+    const side = Math.ceil(Math.sqrt(rootList.length + 1));
+    const half = Math.floor(side / 2);
 
-      // Name hash jitter — same name = same spot forever
-      const h = p.name.split("").reduce((a: number, ch: string) => a * 31 + ch.charCodeAt(0), 0);
-      x += (hashSeed(h) - 0.5) * 0.4;
-      z += (hashSeed(h + 1) - 0.5) * 0.4;
+    rootList.forEach((root, ri) => {
+      const r = Math.floor(ri / side);
+      const col = ri % side;
+      let rx = bx + (col - half) * inBlockCell;
+      let rz = bz + (r - half) * inBlockCell - centerOffset;
+      const h = root.name.split("").reduce((a: number, ch: string) => a * 31 + ch.charCodeAt(0), 0);
+      rx += (hashSeed(h) - 0.5) * 0.4;
+      rz += (hashSeed(h + 1) - 0.5) * 0.4;
 
-      result.push({ x, y: 0, z, pid: p.pid, height: cpuToHeight(p.cpu) });
+      placed.add(root.pid);
+
+      const kids = (childrenMap.get(root.pid) ?? []).filter((k) => pidMap.has(k.pid));
+
+      result.push({ x: rx, y: 0, z: rz, pid: root.pid, height: cpuToHeight(root.cpu), width: 1.5, childCount: kids.length });
+
+      const childRadius = 0.8 + (kids.length > 4 ? 1.2 : 0.7);
+      kids.forEach((child, ci) => {
+        if (placed.has(child.pid)) return;
+        placed.add(child.pid);
+        const angle = (ci / Math.max(kids.length, 1)) * Math.PI * 2;
+        const cx = rx + Math.cos(angle) * (childRadius + hashSeed(child.pid) * 0.3);
+        const cz = rz + Math.sin(angle) * (childRadius + hashSeed(child.pid + 1) * 0.3);
+        result.push({ x: cx, y: 0, z: cz, pid: child.pid, height: cpuToHeight(child.cpu), width: 0.5, parentPid: root.pid });
+      });
     });
   });
 
+  // Remaining processes (deep grandchildren or orphans)
+  for (const p of filtered) {
+    if (placed.has(p.pid)) continue;
+    const parent = pidMap.get(p.ppid);
+    if (parent && placed.has(parent.pid)) {
+      const parentPos = result.find((r) => r.pid === parent.pid);
+      if (parentPos) {
+        const angle = hashSeed(p.pid) * Math.PI * 2;
+        const cr = 0.8 + hashSeed(p.pid + 2) * 0.4;
+        result.push({ x: parentPos.x + Math.cos(angle) * cr, y: 0, z: parentPos.z + Math.sin(angle) * cr, pid: p.pid, height: cpuToHeight(p.cpu), width: 0.5, parentPid: parent.pid });
+        placed.add(p.pid);
+        continue;
+      }
+    }
+    const angle = hashSeed(p.pid) * Math.PI * 2;
+    const radius = 8 + hashSeed(p.pid + 3) * 3;
+    result.push({ x: Math.cos(angle) * radius, y: 0, z: Math.sin(angle) * radius, pid: p.pid, height: cpuToHeight(p.cpu), width: 0.5 });
+    placed.add(p.pid);
+  }
+
   return { positions: result, blocks: blockInfo };
 }
+
 
 // computeGridPositions now returns { positions, blocks }
 void spiralGridIndices; void CELL_SIZE;

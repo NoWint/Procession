@@ -96,7 +96,7 @@ export default function BuildingCluster({
       const h = curH;
 
       dummy.position.set(pos.x, h / 2, pos.z);
-      dummy.scale.set(1, h, 1);
+      dummy.scale.set(pos.width ?? 1, h, pos.width ?? 1);
       dummy.updateMatrix();
       mesh.setMatrixAt(idx, dummy.matrix);
 

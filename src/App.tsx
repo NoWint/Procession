@@ -10,7 +10,6 @@ import RoadGrid from "./components/RoadGrid";
 import BlockLabel from "./components/BlockLabel";
 import Atmosphere from "./components/Atmosphere";
 import BloomEffect from "./components/BloomEffect";
-import RelationGraph from "./components/RelationGraph";
 import PortHarbors from "./components/PortHarbors";
 import FsHeatmap from "./components/FsHeatmap";
 import ProcessPopup from "./components/ProcessPopup";
@@ -70,7 +69,6 @@ export default function App() {
   const [maxBuildings, setMaxBuildings] = useState(MAX_BUILDINGS_DEFAULT);
   const [timedOut, setTimedOut] = useState(false);
   const [selectedProcess, setSelectedProcess] = useState<ProcessInfo | null>(null);
-  const [hoveredProcess, setHoveredProcess] = useState<ProcessInfo | null>(null);
   const [cameraTarget, setCameraTarget] = useState<{ x: number; y: number; z: number } | null>(null);
   const [utilityMode, setUtilityMode] = useState(false);
   const [theme, setTheme] = useState<Theme>(FALLBACK_THEME);
@@ -355,15 +353,8 @@ export default function App() {
           maxBuildings={maxBuildings}
           onClick={handleBuildingClick}
           onDoubleClick={handleBuildingDoubleClick}
-          onHover={setHoveredProcess}
         />
-        <RelationGraph
-          positions={positions}
-          relations={displaySnapshot.process_relations}
-          theme={theme}
-          selectedPid={selectedProcess?.pid ?? null}
-          hoveredPid={hoveredProcess?.pid ?? null}
-        />
+
         <PortHarbors
           ports={displaySnapshot.listening_ports}
           positions={positions}
