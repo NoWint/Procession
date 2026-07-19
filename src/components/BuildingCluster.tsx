@@ -6,7 +6,6 @@ import type { ThreeEvent } from "@react-three/fiber";
 import type { ProcessInfo } from "../utils/types";
 import { computeGridPositions, type BuildingPosition } from "../utils/layout";
 import { colorForProcess, type Theme } from "../utils/colors";
-import { diffProcesses } from "../utils/lifecycle";
 import { FALLBACK_THEME } from "../utils/theme";
 
 interface BuildingClusterProps {
@@ -23,20 +22,8 @@ interface BuildingClusterProps {
   onHover?: (process: ProcessInfo | null) => void;
 }
 
-interface LifecycleEntry {
-  pid: number;
-  state: "born" | "alive" | "dying";
-  progress: number;
-  position: BuildingPosition;
-  color: THREE.Color;
-}
-
 const dummy = new THREE.Object3D();
 const _c = new THREE.Color();
-// _tmp unused
-const _black = new THREE.Color(0x000000);
-const BIRTH_DURATION = 0.8;
-const DEATH_DURATION = 1.0;
 
 export default function BuildingCluster({
   processes,
@@ -54,10 +41,9 @@ export default function BuildingCluster({
   const themeRef = useRef(theme);
   const selectedPidRef = useRef(selectedPid);
   const hoveredIdRef = useRef(-1);
-  const lifecycleRef = useRef<Map<number, LifecycleEntry>>(new Map());
-  const prevProcessesRef = useRef<ProcessInfo[]>([]);
-  const prevPositionsRef = useRef<BuildingPosition[]>([]);
-  const initialRef = useRef(false);
+
+  // Track current rendered height per pid, lerped toward target.
+  const heightCurRef = useRef<Map<number, number>>(new Map());
 
   processesRef.current = processes;
   themeRef.current = theme;
@@ -80,108 +66,46 @@ export default function BuildingCluster({
     ic.needsUpdate = true;
   }, [capacity]);
 
-  useEffect(() => {
-    const t = themeRef.current;
-    const ppos = positions;
-    const { births, deaths } = diffProcesses(prevProcessesRef.current, processes);
-
-    for (const p of processes) {
-      const entry = lifecycleRef.current.get(p.pid);
-      if (entry && entry.state === "dying") {
-        entry.state = "alive";
-        entry.progress = 1;
-        const pos = ppos.find((ps) => ps.pid === p.pid);
-        if (pos) entry.position = pos;
-        entry.color.set(colorForProcess(p, t));
-      }
-    }
-
-    for (const p of births) {
-      const pos = ppos.find((ps) => ps.pid === p.pid);
-      if (pos) {
-        lifecycleRef.current.set(p.pid, {
-          pid: p.pid,
-          state: initialRef.current ? "born" : "alive",
-          progress: 1,
-          position: pos,
-          color: new THREE.Color(colorForProcess(p, t)),
-        });
-      }
-    }
-
-    for (const p of deaths) {
-      const pos = prevPositionsRef.current.find((ps) => ps.pid === p.pid);
-      if (pos) {
-        lifecycleRef.current.set(p.pid, {
-          pid: p.pid,
-          state: "dying",
-          progress: 1,
-          position: pos,
-          color: new THREE.Color(colorForProcess(p, t)),
-        });
-      }
-    }
-
-    prevProcessesRef.current = processes;
-    prevPositionsRef.current = positions;
-    initialRef.current = true;
-  }, [processes, positions]);
-
   useFrame((_state, delta) => {
     const mesh = meshRef.current;
     if (!mesh) return;
 
-    for (const entry of lifecycleRef.current.values()) {
-      if (entry.state === "born") {
-        entry.progress = Math.min(1, entry.progress + delta / BIRTH_DURATION);
-        if (entry.progress >= 1) entry.state = "alive";
-      } else if (entry.state === "dying") {
-        entry.progress = Math.max(0, entry.progress - delta / DEATH_DURATION);
-      }
-    }
-    for (const [pid, entry] of lifecycleRef.current) {
-      if (entry.state === "dying" && entry.progress <= 0) {
-        lifecycleRef.current.delete(pid);
-      }
-    }
-
     const ppos = positionsRef.current;
     const pprocs = processesRef.current;
+    const lerpFactor = 1 - Math.pow(0.001, delta); // frame-rate-independent lerp
+    const hMap = heightCurRef.current;
     let idx = 0;
 
     for (let i = 0; i < ppos.length; i++) {
       const pos = ppos[i];
       const proc = pprocs.find((p) => p.pid === pos.pid);
-      const entry = lifecycleRef.current.get(pos.pid);
-      const s = entry?.progress ?? 1;
+      if (!proc) continue;
 
-      dummy.position.set(pos.x, (pos.height / 2) * s, pos.z);
-      dummy.scale.set(s, s * pos.height, s);
+      const targetH = pos.height;
+
+      // Smooth height lerp
+      let curH = hMap.get(proc.pid);
+      if (curH === undefined) {
+        curH = targetH;
+      } else {
+        curH += (targetH - curH) * lerpFactor;
+        if (Math.abs(curH - targetH) < 0.01) curH = targetH;
+      }
+      hMap.set(proc.pid, curH);
+
+      const h = curH;
+
+      dummy.position.set(pos.x, h / 2, pos.z);
+      dummy.scale.set(1, h, 1);
       dummy.updateMatrix();
       mesh.setMatrixAt(idx, dummy.matrix);
 
-      const t = themeRef.current;
-      _c.set(proc ? colorForProcess(proc, t) : entry?.color ?? t.colors.idle);
-
-
-
+      _c.set(colorForProcess(proc, themeRef.current));
       mesh.setColorAt(idx, _c);
       idx++;
     }
 
-    for (const entry of lifecycleRef.current.values()) {
-      if (entry.state !== "dying") continue;
-      const s = entry.progress;
-      dummy.position.set(entry.position.x, (entry.position.height / 2) * s, entry.position.z);
-      dummy.scale.set(s, s * entry.position.height, s);
-      dummy.updateMatrix();
-      mesh.setMatrixAt(idx, dummy.matrix);
-      _c.copy(entry.color).lerp(_black, 1 - s);
-      mesh.setColorAt(idx, _c);
-      idx++;
-    }
-
-    mesh.count = idx;
+    mesh.count = Math.max(1, idx);
     mesh.instanceMatrix.needsUpdate = true;
     if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
   });
@@ -207,8 +131,7 @@ export default function BuildingCluster({
     }
   }, [onHover, getPid, processes, positions.length]);
 
-  const handlePointerOut = useCallback((e: ThreeEvent<PointerEvent>) => {
-    e.stopPropagation();
+  const handlePointerOut = useCallback(() => {
     hoveredIdRef.current = -1;
     onHover?.(null);
   }, [onHover]);
@@ -237,6 +160,13 @@ export default function BuildingCluster({
     }
   }, [onDoubleClick, getPid, processes]);
 
+  // Build a quick pid→process lookup map for label rendering.
+  const procMap = useMemo(() => {
+    const m = new Map<number, ProcessInfo>();
+    for (const p of processes) m.set(p.pid, p);
+    return m;
+  }, [processes]);
+
   return (
     <group>
       <instancedMesh
@@ -253,12 +183,12 @@ export default function BuildingCluster({
       </instancedMesh>
 
       {positions.map((pos) => {
-        const proc = processes.find((p) => p.pid === pos.pid);
+        const proc = procMap.get(pos.pid);
         if (!proc) return null;
         return (
           <Html
             key={`l-${pos.pid}`}
-            position={[pos.x, pos.height + 0.9, pos.z]}
+            position={[pos.x, (heightCurRef.current.get(pos.pid) ?? pos.height) + 0.9, pos.z]}
             center
             distanceFactor={14}
             style={{ pointerEvents: "none" }}

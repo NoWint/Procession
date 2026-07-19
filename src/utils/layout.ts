@@ -100,7 +100,7 @@ function resolveOverlap(
 }
 
 /// Place processes in a grid layout, sorted by CPU descending.
-/// Highest CPU → city center (CBD), lowest → outskirts.
+/// Sorted by process name A→Z — same name = same grid cell always.
 /// Roads naturally emerge as the gaps between grid cells.
 export function computeGridPositions(
   processes: ProcessInfo[],
@@ -108,7 +108,7 @@ export function computeGridPositions(
 ): BuildingPosition[] {
   const sorted = [...processes]
     .filter((p) => p.state !== "Zombie" || p.cpu > 1)
-    .sort((a, b) => b.cpu - a.cpu)
+    .sort((a, b) => a.name.localeCompare(b.name))
     .slice(0, maxBuildings);
 
   const side = Math.ceil(Math.sqrt(maxBuildings * 1.1));
@@ -116,7 +116,7 @@ export function computeGridPositions(
   const indices = spiralGridIndices(side);
 
   return indices.slice(0, sorted.length).map(([r, c], i) => {
-    // Organic jitter: shift each building off perfect grid cell
+    // Deterministic jitter from process name hash — same name = same spot
     let x = (c - center) * CELL_SIZE;
     let z = (r - center) * CELL_SIZE;
     if (i > 0) {
