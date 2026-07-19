@@ -60,9 +60,9 @@ export default function RoadGrid({
     <group>
       <lineSegments geometry={majorGeo} frustumCulled={false}>
         <lineBasicMaterial
-          color="#6060d0"
+          color="#8080ff"
           transparent
-          opacity={0.7}
+          opacity={0.85}
           depthWrite={false}
         />
       </lineSegments>

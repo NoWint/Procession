@@ -33,14 +33,14 @@ export default function CityGround({ theme: _theme = FALLBACK_THEME }: CityGroun
     <group>
       <lineSegments geometry={gridGeo} frustumCulled={false}>
         <lineBasicMaterial
-          color="#404080"
+          color="#6060c0"
           transparent
-          opacity={0.4}
+          opacity={0.5}
           depthWrite={false}
         />
       </lineSegments>
       <mesh geometry={geometry} position={[0, -0.01, 0]}>
-        <meshBasicMaterial color="#202045" toneMapped={false} />
+        <meshBasicMaterial color="#303060" toneMapped={false} />
       </mesh>
     </group>
   );

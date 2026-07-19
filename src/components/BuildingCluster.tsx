@@ -13,10 +13,7 @@ interface BuildingClusterProps {
   positions?: BuildingPosition[];
   theme?: Theme;
   selectedPid?: number | null;
-  layout?: "radial" | "tree";
   maxBuildings?: number;
-  showLabels?: boolean;
-  maxLabels?: number;
   onClick?: (process: ProcessInfo) => void;
   onDoubleClick?: (process: ProcessInfo) => void;
   onHover?: (process: ProcessInfo | null) => void;
@@ -36,13 +33,12 @@ export default function BuildingCluster({
   onHover,
 }: BuildingClusterProps) {
   const meshRef = useRef<THREE.InstancedMesh>(null);
+  const capRef = useRef<THREE.InstancedMesh>(null);
   const processesRef = useRef(processes);
   const positionsRef = useRef<BuildingPosition[]>([]);
   const themeRef = useRef(theme);
   const selectedPidRef = useRef(selectedPid);
   const hoveredIdRef = useRef(-1);
-
-  // Track current rendered height per pid, lerped toward target.
   const heightCurRef = useRef<Map<number, number>>(new Map());
 
   processesRef.current = processes;
@@ -54,7 +50,10 @@ export default function BuildingCluster({
     [propPositions, processes, maxBuildings],
   );
   positionsRef.current = positions;
+
+  const parents = useMemo(() => positions.filter((p) => (p.width ?? 1) >= 1.2), [positions]);
   const capacity = Math.max(1, maxBuildings * 2);
+  const parentCap = Math.max(1, parents.length + 10);
 
   useEffect(() => {
     const mesh = meshRef.current;
@@ -66,15 +65,27 @@ export default function BuildingCluster({
     ic.needsUpdate = true;
   }, [capacity]);
 
+  useEffect(() => {
+    const cap = capRef.current;
+    if (!cap || cap.geometry.hasAttribute("instanceColor")) return;
+    const arr = new Float32Array(parentCap * 3);
+    const ic = new THREE.InstancedBufferAttribute(arr, 3);
+    cap.geometry.setAttribute("instanceColor", ic);
+    cap.instanceColor = ic;
+    ic.needsUpdate = true;
+  }, [parentCap]);
+
   useFrame((_state, delta) => {
     const mesh = meshRef.current;
+    const cap = capRef.current;
     if (!mesh) return;
 
     const ppos = positionsRef.current;
     const pprocs = processesRef.current;
-    const lerpFactor = 1 - Math.pow(0.001, delta); // frame-rate-independent lerp
+    const lerpFactor = 1 - Math.pow(0.001, delta);
     const hMap = heightCurRef.current;
     let idx = 0;
+    let capIdx = 0;
 
     for (let i = 0; i < ppos.length; i++) {
       const pos = ppos[i];
@@ -82,8 +93,6 @@ export default function BuildingCluster({
       if (!proc) continue;
 
       const targetH = pos.height;
-
-      // Smooth height lerp
       let curH = hMap.get(proc.pid);
       if (curH === undefined) {
         curH = targetH;
@@ -94,20 +103,43 @@ export default function BuildingCluster({
       hMap.set(proc.pid, curH);
 
       const h = curH;
+      const w = pos.width ?? 1;
+      const isParent = w >= 1.2;
 
+      // Main body
       dummy.position.set(pos.x, h / 2, pos.z);
-      dummy.scale.set(pos.width ?? 1, h, pos.width ?? 1);
+      dummy.scale.set(w, h, w);
       dummy.updateMatrix();
       mesh.setMatrixAt(idx, dummy.matrix);
 
       _c.set(colorForProcess(proc, themeRef.current));
       mesh.setColorAt(idx, _c);
       idx++;
+
+      // Cap — small pyramid on parent towers
+      if (cap && isParent) {
+        const capH = Math.min(h * 0.18, 1.0);
+        dummy.position.set(pos.x, h + capH / 2, pos.z);
+        dummy.scale.set(w * 0.7, capH, w * 0.7);
+        dummy.updateMatrix();
+        cap.setMatrixAt(capIdx, dummy.matrix);
+
+        // Cap slightly brighter
+        _c.multiplyScalar(1.3);
+        cap.setColorAt(capIdx, _c);
+        capIdx++;
+      }
     }
 
     mesh.count = Math.max(1, idx);
     mesh.instanceMatrix.needsUpdate = true;
     if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+
+    if (cap && capIdx > 0) {
+      cap.count = capIdx;
+      cap.instanceMatrix.needsUpdate = true;
+      if (cap.instanceColor) cap.instanceColor.needsUpdate = true;
+    }
   });
 
   const getPid = useCallback((id: number) => {
@@ -160,7 +192,6 @@ export default function BuildingCluster({
     }
   }, [onDoubleClick, getPid, processes]);
 
-  // Build a quick pid→process lookup map for label rendering.
   const procMap = useMemo(() => {
     const m = new Map<number, ProcessInfo>();
     for (const p of processes) m.set(p.pid, p);
@@ -179,6 +210,12 @@ export default function BuildingCluster({
         frustumCulled={false}
       >
         <boxGeometry args={[0.5, 1, 0.5]} />
+        <meshBasicMaterial toneMapped={false} />
+      </instancedMesh>
+
+      {/* Pyramid cap on parent towers */}
+      <instancedMesh ref={capRef} args={[undefined, undefined, parentCap]} frustumCulled={false}>
+        <coneGeometry args={[0.4, 1, 4]} />
         <meshBasicMaterial toneMapped={false} />
       </instancedMesh>
 

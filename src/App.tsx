@@ -349,7 +349,6 @@ export default function App() {
           positions={positions}
           theme={theme}
           selectedPid={selectedProcess?.pid ?? null}
-          showLabels={true}
           maxBuildings={maxBuildings}
           onClick={handleBuildingClick}
           onDoubleClick={handleBuildingDoubleClick}
