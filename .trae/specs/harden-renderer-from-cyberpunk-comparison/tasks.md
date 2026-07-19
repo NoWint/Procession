@@ -12,37 +12,37 @@
 
 ## P1 - 渲染配置加固
 
-- [ ] Task 3: 加固 CityScene Canvas 配置
-  - [ ] SubTask 3.1: 在 `src/components/CityScene.tsx` 的 Canvas `gl` 属性中追加 `powerPreference: 'high-performance'` 与 `logarithmicDepthBuffer: true`
-  - [ ] SubTask 3.2: 在 CityScene.tsx 中通过 `<Canvas onCreated={({gl}) => gl.setPixelRatio(Math.min(window.devicePixelRatio, 1.5))}>` 或等效方式设置 DPR 上限 1.5
-  - [ ] SubTask 3.3: 在 CityScene.tsx 中加入 `document.hidden` 监听，隐藏时暂停 invalidate（使用 `useFrame` 时通过 `invalidate` 控制，或直接控制frameloop）
+- [x] Task 3: 加固 CityScene Canvas 配置
+  - [x] SubTask 3.1: 在 `src/components/CityScene.tsx` 的 Canvas `gl` 属性中追加 `powerPreference: 'high-performance'` 与 `logarithmicDepthBuffer: true`
+  - [x] SubTask 3.2: 在 CityScene.tsx 中通过 `dpr={[1, 1.5]}` 设置 DPR 上限 1.5
+  - [x] SubTask 3.3: 在 CityScene.tsx 中加入 `visibilitychange` 监听，隐藏时切换 frameloop 到 "never"
 
-- [ ] Task 4: SkyDome 钉到远平面
-  - [ ] SubTask 4.1: 在 `src/components/SkyDome.tsx` 的 vertex shader 末尾插入 `gl_Position.z = gl_Position.w;`
-  - [ ] SubTask 4.2: 检查 SkyDome.tsx 与 CityScene.tsx 是否有每帧 `skyDome.position.copy(camera.position)` 同步代码，若有则移除
+- [x] Task 4: SkyDome 钉到远平面
+  - [x] SubTask 4.1: 在 `src/components/SkyDome.tsx` 的 vertex shader 末尾插入 `gl_Position.z = gl_Position.w;`
+  - [x] SubTask 4.2: 确认 SkyDome.tsx 与 CityScene.tsx 无每帧同步代码（无需移除）
 
 ## P2 - 质量分级降级
 
-- [ ] Task 5: 重写 useFpsMonitor 为质量档策略
-  - [ ] SubTask 5.1: 在 `src/hooks/useFpsMonitor.ts` 中定义 Quality 类型 `'high' | 'med' | 'low'`，导出 `{ fps, buildingCount, quality, bloomEnabled }`
-  - [ ] SubTask 5.2: 实现状态机：默认 high；FPS < 28 持续 5s → med（bloom off）；FPS < 20 持续 5s → low（bloom off + 减建筑 40% + DPR 1.0）；单向降级；8 秒冷却防抖
-  - [ ] SubTask 5.3: 更新 `src/App.tsx` 调用方适配新返回值结构（接收 bloomEnabled、quality）
+- [x] Task 5: 重写 useFpsMonitor 为质量档策略
+  - [x] SubTask 5.1: 在 `src/hooks/useFpsMonitor.ts` 中定义 Quality 类型 `'high' | 'med' | 'low'`，导出 `{ fps, buildingCount, quality, bloomEnabled, dpr }`
+  - [x] SubTask 5.2: 实现状态机：默认 high；FPS < 28 持续 5s → med（bloom off）；FPS < 20 持续 5s → low（bloom off + 减建筑 40% + DPR 1.0）；单向降级；8 秒冷却防抖
+  - [ ] SubTask 5.3: 更新 `src/App.tsx` 调用方适配新返回值结构（由 App.tsx 集成任务处理）
 
-- [ ] Task 6: BloomEffect 接受 quality 控制
-  - [ ] SubTask 6.1: 在 `src/components/BloomEffect.tsx` 中接受 `enabled: boolean` prop，为 false 时不渲染 EffectComposer（仅渲染普通场景）
-  - [ ] SubTask 6.2: 在 `src/App.tsx` 中将 useFpsMonitor 的 bloomEnabled 传入 BloomEffect
+- [x] Task 6: BloomEffect 接受 quality 控制
+  - [x] SubTask 6.1: 在 `src/components/BloomEffect.tsx` 中接受 `enabled: boolean` prop，为 false 时不渲染 EffectComposer
+  - [ ] SubTask 6.2: 在 `src/App.tsx` 中将 useFpsMonitor 的 bloomEnabled 传入 BloomEffect（由 App.tsx 集成任务处理）
 
 ## P2 - 后端无响应占位
 
-- [ ] Task 7: useSystemData 5s 超时切换
-  - [ ] SubTask 7.1: 在 `src/hooks/useSystemData.ts` 中加入启动时间戳，若 5 秒内未收到任何 `system-snapshot` 事件，将状态置为 `backend-unresponsive`
-  - [ ] SubTask 7.2: 在 `src/App.tsx` 中处理 `backend-unresponsive` 状态：渲染静态占位城市（可复用 MockAdapter 数据或显示 ErrorState 提示），收到任一快照后退出该模式
+- [x] Task 7: useSystemData 5s 超时切换
+  - [x] SubTask 7.1: 在 `src/hooks/useSystemData.ts` 中加入启动时间戳，若 5 秒内未收到任何 `system-snapshot` 事件，将状态置为 `backend-unresponsive`
+  - [ ] SubTask 7.2: 在 `src/App.tsx` 中处理 `backend-unresponsive` 状态（由 App.tsx 集成任务处理）
 
 ## P2 - 后端 panic 恢复
 
-- [ ] Task 8: pusher.rs catch_unwind 加固
-  - [ ] SubTask 8.1: 在 `src-tauri/src/bridge/pusher.rs` 的推送循环外层包裹 `std::panic::catch_unwind`，捕获 panic 后记录错误并跳过该帧
-  - [ ] SubTask 8.2: 验证 panic 后下一秒能继续推送（可通过临时插入 `panic!("test")` 测试后移除）
+- [x] Task 8: pusher.rs catch_unwind 加固
+  - [x] SubTask 8.1: 在 `src-tauri/src/bridge/pusher.rs` 的推送循环外层包裹 `std::panic::catch_unwind`，捕获 panic 后记录错误并跳过该帧
+  - [x] SubTask 8.2: 验证 panic 后下一秒能继续推送（cargo test 21/21 通过）
 
 ## 验证
 

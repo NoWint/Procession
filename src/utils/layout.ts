@@ -6,7 +6,7 @@ export interface BuildingPosition {
   z: number;
   pid: number;
   height: number;
-  width?: number;        // 1.5 for parent (main tower), 0.5 for child (annex)
+  width?: number;        // 2.0 for parent (main tower), 1.0 for child (annex)
   parentPid?: number;
   childCount?: number;   // how many children cluster around this parent
 }
@@ -66,7 +66,7 @@ function spiralGridIndices(side: number): [number, number][] {
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const CELL_SIZE = 3.0;
-const MIN_RADIUS = 1.0;
+const MIN_RADIUS = 2.0;
 
 function hashSeed(seed: number): number {
   let h = seed | 0;
@@ -138,8 +138,8 @@ export function computeGridPositions(
   const sortedKeys = Array.from(letterGroups.keys()).sort();
 
   const blockCols = 8;
-  const blockCell = 8.0;
-  const inBlockCell = 3.0;
+  const blockCell = 12.0;
+  const inBlockCell = 4.5;
 
   const result: BuildingPosition[] = [];
   const blockInfo: { letter: string; x: number; z: number }[] = [];
@@ -171,16 +171,16 @@ export function computeGridPositions(
 
       const kids = (childrenMap.get(root.pid) ?? []).filter((k) => pidMap.has(k.pid));
 
-      result.push({ x: rx, y: 0, z: rz, pid: root.pid, height: cpuToHeight(root.cpu), width: 1.5, childCount: kids.length });
+      result.push({ x: rx, y: 0, z: rz, pid: root.pid, height: cpuToHeight(root.cpu), width: 2.0, childCount: kids.length });
 
-      const childRadius = 0.8 + (kids.length > 4 ? 1.2 : 0.7);
+      const childRadius = 1.5 + (kids.length > 4 ? 1.2 : 0.7);
       kids.forEach((child, ci) => {
         if (placed.has(child.pid)) return;
         placed.add(child.pid);
         const angle = (ci / Math.max(kids.length, 1)) * Math.PI * 2;
         const cx = rx + Math.cos(angle) * (childRadius + hashSeed(child.pid) * 0.3);
         const cz = rz + Math.sin(angle) * (childRadius + hashSeed(child.pid + 1) * 0.3);
-        result.push({ x: cx, y: 0, z: cz, pid: child.pid, height: cpuToHeight(child.cpu), width: 0.5, parentPid: root.pid });
+        result.push({ x: cx, y: 0, z: cz, pid: child.pid, height: cpuToHeight(child.cpu), width: 1.0, parentPid: root.pid });
       });
     });
   });
@@ -194,14 +194,14 @@ export function computeGridPositions(
       if (parentPos) {
         const angle = hashSeed(p.pid) * Math.PI * 2;
         const cr = 0.8 + hashSeed(p.pid + 2) * 0.4;
-        result.push({ x: parentPos.x + Math.cos(angle) * cr, y: 0, z: parentPos.z + Math.sin(angle) * cr, pid: p.pid, height: cpuToHeight(p.cpu), width: 0.5, parentPid: parent.pid });
+        result.push({ x: parentPos.x + Math.cos(angle) * cr, y: 0, z: parentPos.z + Math.sin(angle) * cr, pid: p.pid, height: cpuToHeight(p.cpu), width: 1.0, parentPid: parent.pid });
         placed.add(p.pid);
         continue;
       }
     }
     const angle = hashSeed(p.pid) * Math.PI * 2;
     const radius = 8 + hashSeed(p.pid + 3) * 3;
-    result.push({ x: Math.cos(angle) * radius, y: 0, z: Math.sin(angle) * radius, pid: p.pid, height: cpuToHeight(p.cpu), width: 0.5 });
+    result.push({ x: Math.cos(angle) * radius, y: 0, z: Math.sin(angle) * radius, pid: p.pid, height: cpuToHeight(p.cpu), width: 1.0 });
     placed.add(p.pid);
   }
 

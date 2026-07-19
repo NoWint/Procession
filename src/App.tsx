@@ -7,7 +7,6 @@ import CableFlow from "./components/CableFlow";
 import CityGround from "./components/CityGround";
 import CityBackground from "./components/CityBackground";
 import RoadGrid from "./components/RoadGrid";
-import CityTrees from "./components/CityTrees";
 import RoadFlow from "./components/RoadFlow";
 import BlockLabel from "./components/BlockLabel";
 import Atmosphere from "./components/Atmosphere";
@@ -52,23 +51,19 @@ const DATA_TIMEOUT_MS = 4000;
 
 // Adaptive quality: keep FPS ≥ 30 by adjusting rendered building count.
 const MAX_BUILDINGS_DEFAULT = 200;
-const MAX_BUILDINGS_MIN = 60;
-const MAX_BUILDINGS_MAX = 400;
-const BUILDINGS_STEP = 40;
 
 export default function App() {
-  const liveSnapshot = useSystemData();
+  const { snapshot: liveSnapshot } = useSystemData();
   const history = useSystemHistory(liveSnapshot);
   const { displaySnapshot } = history;
-  const { isLow, isHigh } = useFpsMonitor({
+  // 自适应质量：FPS 状态机已下沉到 hook 内部，App 只消费 buildingCount/bloomEnabled
+  const { buildingCount, bloomEnabled } = useFpsMonitor({
     sampleSize: 30,
-    lowThreshold: 28,
-    highThreshold: 50,
+    maxBuildings: MAX_BUILDINGS_DEFAULT,
   });
   const { isMuted, isSupported, toggleMute } = useAudioEngine({
     snapshot: liveSnapshot,
   });
-  const [maxBuildings, setMaxBuildings] = useState(MAX_BUILDINGS_DEFAULT);
   const [timedOut, setTimedOut] = useState(false);
   const [selectedProcess, setSelectedProcess] = useState<ProcessInfo | null>(null);
   const [cameraTarget, setCameraTarget] = useState<{ x: number; y: number; z: number } | null>(null);
@@ -114,13 +109,8 @@ export default function App() {
   }, [liveSnapshot]);
 
   // Adaptive quality: reduce building count when FPS is low, increase when high.
-  useEffect(() => {
-    if (isLow) {
-      setMaxBuildings((prev) => Math.max(MAX_BUILDINGS_MIN, prev - BUILDINGS_STEP));
-    } else if (isHigh) {
-      setMaxBuildings((prev) => Math.min(MAX_BUILDINGS_MAX, prev + BUILDINGS_STEP));
-    }
-  }, [isLow, isHigh]);
+  // FPS 状态机已下沉到 useFpsMonitor，App 直接使用 hook 返回的 buildingCount
+  const maxBuildings = buildingCount;
 
   const processSignature = useMemo(
     () => (displaySnapshot ? computeProcessSignature(displaySnapshot.processes) : ""),
@@ -340,11 +330,10 @@ export default function App() {
         autoRotate={autoRotate}
       >
         <Atmosphere theme={theme} />
-        <BloomEffect strength={0.05} radius={0.4} threshold={0.85} />
+        <BloomEffect enabled={bloomEnabled} strength={0.05} radius={0.4} threshold={0.85} />
         <CityBackground theme={theme} />
         <CityGround theme={theme} />
         <RoadGrid />
-        <CityTrees />
         <RoadFlow />
         <BlockLabel blocks={blockCenters} />
         <FsHeatmap hotspots={displaySnapshot.fs_hotspots} theme={theme} />
@@ -394,22 +383,20 @@ export default function App() {
             </span>
           )}
         </div>
-        {false && displaySnapshot ? <HudPanel snapshot={displaySnapshot!} theme={theme} /> : null}
-        {false && displaySnapshot && utilityMode ? (
+        {displaySnapshot ? <HudPanel snapshot={displaySnapshot} theme={theme} /> : null}
+        {displaySnapshot && utilityMode ? (
           <UtilityMode
-            snapshot={displaySnapshot!}
+            snapshot={displaySnapshot}
             positions={positions}
             theme={theme}
             onSelectProcess={handleSelectProcessFromUtility}
           />
         ) : null}
         <div className="app-controls">
-          {false && <ThemeSelector currentUrl={currentThemeUrl} onChange={handleThemeChange} />}
-          {false && (
-            <button className="app-theme-toggle" onClick={handleOpenThemeEditor}>
-              Edit Signal
-            </button>
-          )}
+          <ThemeSelector currentUrl={currentThemeUrl} onChange={handleThemeChange} />
+          <button className="app-theme-toggle" onClick={handleOpenThemeEditor}>
+            Edit Signal
+          </button>
           <button
             className="app-theme-toggle"
             onClick={() => setAutoRotate((prev) => !prev)}
@@ -427,7 +414,7 @@ export default function App() {
           </button>
           <ScreenshotButton />
         </div>
-        {false && <FpsCounter />}
+        <FpsCounter />
         {timelineOpen && (
           <TimelineConsole
             history={history.history}
@@ -447,7 +434,7 @@ export default function App() {
             canSave={history.history.length >= 2}
           />
         )}
-        {false && themeEditorOpen && (
+        {themeEditorOpen && (
           <ThemeEditor
             theme={theme}
             onChange={handleThemeEditorChange}

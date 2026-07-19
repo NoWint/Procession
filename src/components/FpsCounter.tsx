@@ -5,11 +5,13 @@ interface FpsCounterProps {
 }
 
 export default function FpsCounter({ className }: FpsCounterProps) {
-  const { fps, isLow } = useFpsMonitor({
+  const { fps, quality } = useFpsMonitor({
     sampleSize: 30,
-    lowThreshold: 28,
-    highThreshold: 50,
+    maxBuildings: 200,
   });
+
+  // 沿用旧 UI：非 high 档位即视为"低帧"，触发红色警告样式
+  const isLow = quality !== "high";
 
   return (
     <div className={`fps-counter ${isLow ? "fps-low" : ""} ${className ?? ""}`}>

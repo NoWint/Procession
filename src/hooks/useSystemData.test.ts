@@ -26,7 +26,8 @@ describe("useSystemData", () => {
     });
 
     const { result } = renderHook(() => useSystemData());
-    expect(result.current).toBeNull();
+    expect(result.current.snapshot).toBeNull();
+    expect(result.current.backendStatus).toBe("connecting");
 
     const snapshot = {
       cpu: { total: 10, per_core: [] },
@@ -39,7 +40,8 @@ describe("useSystemData", () => {
     act(() => {
       handler?.({ payload: snapshot });
     });
-    await waitFor(() => expect(result.current).toEqual(snapshot));
+    await waitFor(() => expect(result.current.snapshot).toEqual(snapshot));
+    expect(result.current.backendStatus).toBe("live");
   });
 
   it("warns when the event listener fails to attach", async () => {

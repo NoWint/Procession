@@ -10,6 +10,8 @@ import { SSAOPass } from "three/addons/postprocessing/SSAOPass.js";
 import { VignetteShader } from "three/addons/shaders/VignetteShader.js";
 
 interface BloomEffectProps {
+  /** 是否启用 Bloom 后处理。false 时不渲染 EffectComposer，由调用方（如 useFpsMonitor）按需控制。默认 true。 */
+  enabled?: boolean;
   strength?: number;
   radius?: number;
   threshold?: number;
@@ -21,6 +23,7 @@ interface BloomEffectProps {
 }
 
 export default function BloomEffect({
+  enabled = true,
   strength = 0.05,
   radius = 0.4,
   threshold = 0.85,
@@ -34,6 +37,12 @@ export default function BloomEffect({
   const composer = useRef<EffectComposer | null>(null);
 
   useEffect(() => {
+    // enabled 为 false 时不构建 EffectComposer，避免占用渲染资源
+    if (!enabled) {
+      composer.current = null;
+      return;
+    }
+
     const c = new EffectComposer(gl);
     c.addPass(new RenderPass(scene, camera));
 
@@ -68,7 +77,7 @@ export default function BloomEffect({
     return () => {
       c.dispose();
     };
-  }, [gl, scene, camera, size.width, size.height, strength, radius, threshold,
+  }, [enabled, gl, scene, camera, size.width, size.height, strength, radius, threshold,
     enableSMAA, enableVignette, enableSSAO, vignetteOffset, vignetteDarkness]);
 
   useEffect(() => {
@@ -81,5 +90,8 @@ export default function BloomEffect({
     composer.current?.render(delta);
   }, 2);
 
+  // 所有 hooks 已调用完毕，此处再判断 enabled，避免违反 hooks 规则。
+  // enabled === false 时直接返回 null，EffectComposer 不渲染。
+  if (!enabled) return null;
   return null;
 }
