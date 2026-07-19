@@ -403,3 +403,26 @@ canvas {
 .fps-counter.fps-low .fps-value {
   color: #ff6b6b;
 }
+
+.app-backend-banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  padding: 10px 16px;
+  background: rgba(255, 87, 34, 0.92);
+  color: #fff;
+  font-family: var(--proc-font-mono);
+  font-size: 13px;
+  text-align: center;
+  letter-spacing: 0.04em;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+  animation: proc-banner-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes proc-banner-pulse {
+  0%, 100% { opacity: 0.85; }
+  50% { opacity: 1; }
+}

@@ -28,7 +28,7 @@ import { useSystemHistory } from "./hooks/useSystemHistory";
 import { useFpsMonitor } from "./hooks/useFpsMonitor";
 import { useAudioEngine } from "./hooks/useAudioEngine";
 import * as persistence from "./utils/persistence";
-import type { ProcessInfo } from "./utils/types";
+import type { ProcessInfo, SystemSnapshot } from "./utils/types";
 import { computeGridPositions, computeProcessSignature } from "./utils/layout";
 import { shouldIgnoreSpace } from "./utils/keyboard";
 import {
@@ -52,8 +52,25 @@ const DATA_TIMEOUT_MS = 4000;
 // Adaptive quality: keep FPS ≥ 30 by adjusting rendered building count.
 const MAX_BUILDINGS_DEFAULT = 200;
 
+// 后端无响应时渲染空城市使用的占位快照，避免下游组件访问 null 字段
+const EMPTY_SNAPSHOT: SystemSnapshot = {
+  processes: [],
+  cpu: { total: 0, per_core: [] },
+  memory: { used_mb: 0, total_mb: 0, swap_used_mb: 0, swap_total_mb: 0 },
+  network: { up_bytes_per_sec: 0, down_bytes_per_sec: 0, connections: [] },
+  disk: { read_bytes_per_sec: 0, write_bytes_per_sec: 0, usage_percent: 0 },
+  gpu: null,
+  temperature: null,
+  process_relations: [],
+  listening_ports: [],
+  fs_hotspots: [],
+  plugins: {},
+  timestamp: 0,
+  stale: false,
+};
+
 export default function App() {
-  const { snapshot: liveSnapshot } = useSystemData();
+  const { snapshot: liveSnapshot, backendStatus } = useSystemData();
   const history = useSystemHistory(liveSnapshot);
   const { displaySnapshot } = history;
   // 自适应质量：FPS 状态机已下沉到 hook 内部，App 只消费 buildingCount/bloomEnabled
@@ -298,7 +315,13 @@ export default function App() {
     return <ErrorState message="Loading visual system..." loading />;
   }
 
-  if (!liveSnapshot && timedOut) {
+  // connecting 阶段保留 loading 提示
+  if (backendStatus === "connecting" && !liveSnapshot) {
+    return <ErrorState message="Waiting for system data..." loading />;
+  }
+
+  // 后端无响应时不进入全屏 ErrorState，让空城市 + banner 渲染
+  if (backendStatus !== "backend-unresponsive" && !liveSnapshot && timedOut) {
     return (
       <ErrorState
         message="Failed to receive system data"
@@ -308,11 +331,11 @@ export default function App() {
     );
   }
 
-  if (!liveSnapshot) {
-    return <ErrorState message="Waiting for system data..." loading />;
-  }
-
-  if (!displaySnapshot || displaySnapshot.processes.length === 0) {
+  // 空数据兜底：backend-unresponsive 时不阻塞，让用户看到空城市 + banner
+  if (
+    backendStatus !== "backend-unresponsive" &&
+    (!displaySnapshot || displaySnapshot.processes.length === 0)
+  ) {
     return (
       <ErrorState
         message="No processes found"
@@ -321,6 +344,10 @@ export default function App() {
       />
     );
   }
+
+  // backend-unresponsive 时 displaySnapshot 可能为 null，使用占位快照驱动空城市渲染
+  const renderSnapshot = displaySnapshot ?? EMPTY_SNAPSHOT;
+  const showUnresponsiveBanner = backendStatus === "backend-unresponsive";
 
   return (
     <div className="app-container">
@@ -336,9 +363,9 @@ export default function App() {
         <RoadGrid />
         <RoadFlow />
         <BlockLabel blocks={blockCenters} />
-        <FsHeatmap hotspots={displaySnapshot.fs_hotspots} theme={theme} />
+        <FsHeatmap hotspots={renderSnapshot.fs_hotspots} theme={theme} />
         <BuildingCluster
-          processes={displaySnapshot.processes}
+          processes={renderSnapshot.processes}
           positions={positions}
           theme={theme}
           selectedPid={selectedProcess?.pid ?? null}
@@ -348,12 +375,12 @@ export default function App() {
         />
 
         <PortHarbors
-          ports={displaySnapshot.listening_ports}
+          ports={renderSnapshot.listening_ports}
           positions={positions}
           theme={theme}
         />
         <BuildingHalo
-          processes={displaySnapshot.processes}
+          processes={renderSnapshot.processes}
           positions={positions}
           theme={theme}
         />
@@ -362,10 +389,15 @@ export default function App() {
       </CityScene>
 
       <div className={`app-ui-layer ${kioskMode && !showUi ? "kiosk-hidden" : ""}`}>
+        {showUnresponsiveBanner && (
+          <div className="app-backend-banner" role="alert">
+            后端无响应，正在重试...
+          </div>
+        )}
         <div className="app-header">
           <span className="app-title">Procession</span>
           <span className="app-subtitle">
-            {displaySnapshot.processes.length} processes · {displaySnapshot.cpu.total.toFixed(1)}% CPU
+            {renderSnapshot.processes.length} processes · {renderSnapshot.cpu.total.toFixed(1)}% CPU
             {!history.isLive && (
               <span className="app-history-indicator"> · Time Lens</span>
             )}
@@ -383,10 +415,10 @@ export default function App() {
             </span>
           )}
         </div>
-        {displaySnapshot ? <HudPanel snapshot={displaySnapshot} theme={theme} /> : null}
-        {displaySnapshot && utilityMode ? (
+        <HudPanel snapshot={renderSnapshot} theme={theme} />
+        {utilityMode ? (
           <UtilityMode
-            snapshot={displaySnapshot}
+            snapshot={renderSnapshot}
             positions={positions}
             theme={theme}
             onSelectProcess={handleSelectProcessFromUtility}
