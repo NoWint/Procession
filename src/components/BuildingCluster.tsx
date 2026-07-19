@@ -125,6 +125,19 @@ export default function BuildingCluster({
 
   const capacity = Math.max(1, maxBuildings * 2);
 
+  // Pre-create instanceColor attribute so ShaderMaterial "attribute vec3 instanceColor" binds.
+  useEffect(() => {
+    const mesh = meshRef.current;
+    if (!mesh) return;
+    if (!mesh.geometry.hasAttribute("instanceColor")) {
+      const arr = new Float32Array(capacity * 3);
+      const ic = new THREE.InstancedBufferAttribute(arr, 3);
+      mesh.geometry.setAttribute("instanceColor", ic);
+      mesh.instanceColor = ic;
+      ic.needsUpdate = true;
+    }
+  }, [capacity]);
+
   // ---- lifecycle effect ----
   useEffect(() => {
     const t = themeRef.current;
