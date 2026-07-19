@@ -12,7 +12,7 @@ export interface BuildingPosition {
 }
 
 export function cpuToHeight(cpu: number): number {
-  return Math.max(0.5, 0.5 + cpu * 0.08);
+  return Math.max(1, 1 + cpu * 0.21);
 }
 
 /**

@@ -340,7 +340,7 @@ export default function App() {
         autoRotate={autoRotate}
       >
         <Atmosphere theme={theme} />
-        <BloomEffect strength={0.08} radius={0.3} threshold={0.4} />
+        <BloomEffect strength={0.3} radius={0.5} threshold={0.1} />
         <CityBackground theme={theme} />
         <CityGround theme={theme} />
         <RoadGrid />

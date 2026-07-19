@@ -255,15 +255,25 @@ export default function BuildingCluster({
         onDoubleClick={handleDoubleClick}
         onPointerOver={handlePointerOver}
         onPointerOut={handlePointerOut}
+        castShadow
+        receiveShadow
         frustumCulled={false}
       >
         <boxGeometry args={[0.5, 1, 0.5]} />
-        <meshBasicMaterial toneMapped={false} />
+        <meshStandardMaterial
+          roughness={0.55}
+          metalness={0.35}
+          emissiveIntensity={0.6}
+        />
       </instancedMesh>
 
-      <instancedMesh ref={capRef} args={[undefined, undefined, parentCap]} frustumCulled={false}>
+      <instancedMesh ref={capRef} args={[undefined, undefined, parentCap]} castShadow frustumCulled={false}>
         <coneGeometry args={[0.4, 1, 4]} />
-        <meshBasicMaterial toneMapped={false} />
+        <meshStandardMaterial
+          roughness={0.4}
+          metalness={0.5}
+          emissiveIntensity={0.8}
+        />
       </instancedMesh>
 
       {positions.map((pos) => {

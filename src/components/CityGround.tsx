@@ -39,8 +39,12 @@ export default function CityGround({ theme: _theme = FALLBACK_THEME }: CityGroun
           depthWrite={false}
         />
       </lineSegments>
-      <mesh geometry={geometry} position={[0, -0.01, 0]}>
-        <meshBasicMaterial color="#303060" toneMapped={false} />
+      <mesh geometry={geometry} position={[0, -0.01, 0]} receiveShadow>
+        <meshStandardMaterial
+          color="#1a1a2e"
+          roughness={0.85}
+          metalness={0.15}
+        />
       </mesh>
     </group>
   );
