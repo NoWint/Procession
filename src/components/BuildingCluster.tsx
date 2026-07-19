@@ -43,7 +43,6 @@ export default function BuildingCluster({
   positions: propPositions,
   theme = FALLBACK_THEME,
   selectedPid = null,
-  layout: _layout = "tree",
   maxBuildings = 200,
   onClick,
   onDoubleClick,
@@ -128,7 +127,7 @@ export default function BuildingCluster({
     initialRef.current = true;
   }, [processes, positions]);
 
-  useFrame(({ clock }, delta) => {
+  useFrame((_state, delta) => {
     const mesh = meshRef.current;
     if (!mesh) return;
 
@@ -164,19 +163,11 @@ export default function BuildingCluster({
       const t = themeRef.current;
       _c.set(proc ? colorForProcess(proc, t) : entry?.color ?? t.colors.idle);
 
-      // Highlight: hover → lerp toward white; selected → stronger
-      const isHov = hoveredIdRef.current === i;
-      const isSel = selectedPidRef.current === pos.pid;
-      if (isHov || isSel) {
-        _c.lerp(_tmp.set(t.colors.pulseWhite), isSel ? 0.45 : 0.25);
-      }
+      // Boost brightness for MeshBasicMaterial (no emissive channel)
+      _c.multiplyScalar(1.5);
 
-      if (entry?.state === "born") {
-        _c.lerp(_tmp.set(t.colors.pulseWhite), (1 - entry.progress) * 0.5);
-      }
-      if (proc && proc.cpu > 50) {
-        const pulse = (Math.sin(clock.elapsedTime * 3) + 1) * 0.5;
-        _c.lerp(_tmp.set(t.colors.pulseWhite), pulse * 0.25);
+      if (selectedPidRef.current === pos.pid) {
+        _c.lerp(_tmp.set(t.colors.pulseWhite), 0.45);
       }
 
       mesh.setColorAt(idx, _c);
@@ -200,13 +191,10 @@ export default function BuildingCluster({
     if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
   });
 
-  const getProcessFromEvent = useCallback((e: ThreeEvent<MouseEvent | PointerEvent>) => {
-    const id = e.instanceId;
-    if (id === undefined || id >= positions.length) return null;
-    const pos = positions[id];
-    if (!pos) return null;
-    return processes.find((p) => p.pid === pos.pid) ?? null;
-  }, [positions, processes]);
+  const getPid = useCallback((id: number) => {
+    if (id < 0 || id >= positions.length) return null;
+    return positions[id]?.pid ?? null;
+  }, [positions]);
 
   const handlePointerOver = useCallback((e: ThreeEvent<PointerEvent>) => {
     e.stopPropagation();
@@ -217,9 +205,12 @@ export default function BuildingCluster({
       return;
     }
     hoveredIdRef.current = id;
-    const proc = getProcessFromEvent(e);
-    if (proc) onHover?.(proc);
-  }, [onHover, getProcessFromEvent]);
+    const pid = getPid(id);
+    if (pid !== null) {
+      const proc = processes.find((p) => p.pid === pid);
+      if (proc) onHover?.(proc);
+    }
+  }, [onHover, getPid, processes, positions.length]);
 
   const handlePointerOut = useCallback((e: ThreeEvent<PointerEvent>) => {
     e.stopPropagation();
@@ -230,16 +221,26 @@ export default function BuildingCluster({
   const handleClick = useCallback((e: ThreeEvent<MouseEvent>) => {
     e.stopPropagation();
     if (!onClick) return;
-    const proc = getProcessFromEvent(e);
-    if (proc) onClick(proc);
-  }, [onClick, getProcessFromEvent]);
+    const id = e.instanceId;
+    if (id === undefined) return;
+    const pid = getPid(id);
+    if (pid !== null) {
+      const proc = processes.find((p) => p.pid === pid);
+      if (proc) onClick(proc);
+    }
+  }, [onClick, getPid, processes]);
 
   const handleDoubleClick = useCallback((e: ThreeEvent<MouseEvent>) => {
     e.stopPropagation();
     if (!onDoubleClick) return;
-    const proc = getProcessFromEvent(e);
-    if (proc) onDoubleClick(proc);
-  }, [onDoubleClick, getProcessFromEvent]);
+    const id = e.instanceId;
+    if (id === undefined) return;
+    const pid = getPid(id);
+    if (pid !== null) {
+      const proc = processes.find((p) => p.pid === pid);
+      if (proc) onDoubleClick(proc);
+    }
+  }, [onDoubleClick, getPid, processes]);
 
   return (
     <group>
@@ -253,13 +254,7 @@ export default function BuildingCluster({
         frustumCulled={false}
       >
         <boxGeometry args={[0.5, 1, 0.5]} />
-        <meshStandardMaterial
-          roughness={0.6}
-          metalness={0.3}
-          emissive={theme.colors.electricCyan}
-          emissiveIntensity={0.15}
-          toneMapped={false}
-        />
+        <meshBasicMaterial toneMapped={false} />
       </instancedMesh>
 
       {positions.map((pos) => {
