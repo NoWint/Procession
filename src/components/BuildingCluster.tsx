@@ -3,10 +3,11 @@ import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
 import { Html } from "@react-three/drei";
 import type { ThreeEvent } from "@react-three/fiber";
-import type { ProcessInfo } from "../utils/types";
+import type { ProcessInfo, ProcessState } from "../utils/types";
 import { computeGridPositions, type BuildingPosition } from "../utils/layout";
 import { colorForProcess, type Theme } from "../utils/colors";
 import { FALLBACK_THEME } from "../utils/theme";
+import { createBuildingMaterial, updateBuildingMaterialTime } from "../utils/buildingShader";
 
 interface BuildingClusterProps {
   processes: ProcessInfo[];
@@ -59,6 +60,19 @@ function hashPid(pid: number): number {
   return h >>> 0;
 }
 
+function stateToNumber(state: ProcessState): number {
+  switch (state) {
+    case "Running":
+      return 0;
+    case "Sleeping":
+      return 1;
+    case "Stopped":
+      return 2;
+    case "Zombie":
+      return 3;
+  }
+}
+
 function variantForProcess(proc: ProcessInfo): CapVariant {
   if (proc.cpu > 50) {
     return hashPid(proc.pid) % 2 === 0 ? "spire" : "antenna";
@@ -107,6 +121,19 @@ export default function BuildingCluster({
   const capacity = Math.max(1, maxBuildings * 2);
   const parentCap = Math.max(1, parents.length + 10);
 
+  const buildingMaterial = useMemo(
+    () =>
+      createBuildingMaterial("#ffffff", {
+        windowColor: new THREE.Color("#ffe9b0"),
+        windowColorSleeping: new THREE.Color("#4aa8ff"),
+        windowDensity: 2.0,
+        windowSize: 0.35,
+        nightIntensity: 1.4,
+        flickerRate: 0.15,
+      }),
+    [],
+  );
+
   const capRefsByVariant: Record<CapVariant, typeof spireRef> = {
     spire: spireRef,
     dome: domeRef,
@@ -126,6 +153,18 @@ export default function BuildingCluster({
       mesh.geometry.setAttribute("instanceColor", ic);
       mesh.instanceColor = ic;
     }
+    if (!mesh.geometry.hasAttribute("aPid")) {
+      mesh.geometry.setAttribute(
+        "aPid",
+        new THREE.InstancedBufferAttribute(new Float32Array(capacity), 1),
+      );
+    }
+    if (!mesh.geometry.hasAttribute("aState")) {
+      mesh.geometry.setAttribute(
+        "aState",
+        new THREE.InstancedBufferAttribute(new Float32Array(capacity), 1),
+      );
+    }
     for (const variant of CAP_VARIANTS) {
       const cap = capRefsByVariant[variant].current;
       if (cap && !cap.geometry.hasAttribute("instanceColor")) {
@@ -138,6 +177,10 @@ export default function BuildingCluster({
 
     const ppos = positionsRef.current;
     const pprocs = processesRef.current;
+    const pidAttr = mesh.geometry.getAttribute("aPid") as THREE.InstancedBufferAttribute;
+    const stateAttr = mesh.geometry.getAttribute("aState") as THREE.InstancedBufferAttribute;
+    const pidArr = pidAttr.array as Float32Array;
+    const stateArr = stateAttr.array as Float32Array;
     let idx = 0;
     const capIdx: Record<CapVariant, number> = {
       spire: 0,
@@ -162,6 +205,8 @@ export default function BuildingCluster({
       mesh.setMatrixAt(idx, dummy.matrix);
       _c.set(colorForProcess(proc, themeRef.current));
       mesh.setColorAt(idx, _c);
+      pidArr[idx] = proc.pid;
+      stateArr[idx] = stateToNumber(proc.state);
       idx++;
 
       if (w >= 1.2) {
@@ -181,6 +226,8 @@ export default function BuildingCluster({
     mesh.count = Math.max(1, idx);
     mesh.instanceMatrix.needsUpdate = true;
     if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+    pidAttr.needsUpdate = true;
+    stateAttr.needsUpdate = true;
     for (const variant of CAP_VARIANTS) {
       const cap = capRefsByVariant[variant].current;
       if (!cap) continue;
@@ -192,9 +239,12 @@ export default function BuildingCluster({
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Per-frame: only re-write everything when a height is changing.
-  useFrame((_state, delta) => {
+  useFrame((state, delta) => {
     const mesh = meshRef.current;
     if (!mesh) return;
+
+    // Always advance the window shader time so flicker keeps animating.
+    updateBuildingMaterialTime(buildingMaterial, state.clock.elapsedTime);
 
     const ppos = positionsRef.current;
     const pprocs = processesRef.current;
@@ -229,6 +279,10 @@ export default function BuildingCluster({
       antenna: 0,
       flat: 0,
     };
+    const pidAttr = mesh.geometry.getAttribute("aPid") as THREE.InstancedBufferAttribute;
+    const stateAttr = mesh.geometry.getAttribute("aState") as THREE.InstancedBufferAttribute;
+    const pidArr = pidAttr.array as Float32Array;
+    const stateArr = stateAttr.array as Float32Array;
     for (let i = 0; i < ppos.length; i++) {
       const pos = ppos[i];
       const proc = pprocs.find((p) => p.pid === pos.pid);
@@ -244,6 +298,9 @@ export default function BuildingCluster({
 
       _c.set(colorForProcess(proc, themeRef.current));
       mesh.setColorAt(idx, _c);
+
+      pidArr[idx] = proc.pid;
+      stateArr[idx] = stateToNumber(proc.state);
 
       if (w >= 1.2) {
         const variant = variantForProcess(proc);
@@ -263,6 +320,8 @@ export default function BuildingCluster({
     mesh.count = Math.max(1, idx);
     mesh.instanceMatrix.needsUpdate = true;
     if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+    pidAttr.needsUpdate = true;
+    stateAttr.needsUpdate = true;
     for (const variant of CAP_VARIANTS) {
       const cap = capRefsByVariant[variant].current;
       if (!cap) continue;
@@ -342,11 +401,7 @@ export default function BuildingCluster({
         frustumCulled={false}
       >
         <boxGeometry args={[0.5, 1, 0.5]} />
-        <meshStandardMaterial
-          roughness={0.55}
-          metalness={0.35}
-          emissiveIntensity={0.6}
-        />
+        <primitive object={buildingMaterial} attach="material" />
       </instancedMesh>
 
       <instancedMesh ref={spireRef} args={[undefined, undefined, parentCap]} castShadow frustumCulled={false}>
