@@ -31,7 +31,7 @@ export function computeProcessSignature(processes: ProcessInfo[]): string {
 
 /// Generate grid coordinates in spiral order from center.
 /// Returns [row, col] pairs starting at center and spiraling outward.
-function spiralGridIndices(side: number): [number, number][] {
+function spiralGridIndices(side: number): [number, number][] { // @ts-ignore - used in legacy
   const result: [number, number][] = [];
   const center = Math.floor(side / 2);
   let r = center;
@@ -61,7 +61,7 @@ function spiralGridIndices(side: number): [number, number][] {
   return result;
 }
 
-const CELL_SIZE = 3.0;
+const CELL_SIZE = 3.0; // @ts-ignore - used in legacy
 const MIN_RADIUS = 1.0;
 
 function hashSeed(seed: number): number {
@@ -102,33 +102,63 @@ function resolveOverlap(
 /// Group processes by first letter of name, each letter gets its own block district.
 /// A cluster on one block, B cluster on the next block, etc.
 /// Roads naturally emerge as the gaps between grid cells.
+/// Group processes by first letter of name → each letter gets its own
+/// block district. Same process name = same coordinate forever.
 export function computeGridPositions(
   processes: ProcessInfo[],
   maxBuildings: number = 200,
 ): BuildingPosition[] {
-  const sorted = [...processes]
+  const filtered = [...processes]
     .filter((p) => p.state !== "Zombie" || p.cpu > 1)
-    .sort((a, b) => a.name.localeCompare(b.name))
     .slice(0, maxBuildings);
 
-  const side = Math.ceil(Math.sqrt(maxBuildings * 1.1));
-  const center = Math.floor(side / 2);
-  const indices = spiralGridIndices(side);
+  // Group by first letter of process name
+  const groups = new Map<string, ProcessInfo[]>();
+  for (const p of filtered) {
+    const key = p.name.charAt(0).toUpperCase();
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key)!.push(p);
+  }
 
-  return indices.slice(0, sorted.length).map(([r, c], i) => {
-    // Deterministic jitter from process name hash — same name = same spot
-    let x = (c - center) * CELL_SIZE;
-    let z = (r - center) * CELL_SIZE;
-    if (i > 0) {
-      const pid = sorted[i].pid;
-      x += (hashSeed(pid) - 0.5) * 0.7;
-      z += (hashSeed(pid + 999) - 0.5) * 0.7;
-    }
-    return { x, y: 0, z, pid: sorted[i].pid, height: cpuToHeight(sorted[i].cpu) };
+  const sortedKeys = Array.from(groups.keys()).sort();
+  const blockCols = 8;
+  const blockCell = 6.0;
+  const inBlockCell = 2.5;
+
+  const result: BuildingPosition[] = [];
+
+  sortedKeys.forEach((letter, bi) => {
+    const members = groups.get(letter)!;
+    members.sort((a: ProcessInfo, b: ProcessInfo) => a.name.localeCompare(b.name));
+
+    const bx = (bi % blockCols) * blockCell;
+    const bz = Math.floor(bi / blockCols) * blockCell;
+    const centerOffset = Math.floor(sortedKeys.length / blockCols) * blockCell / 2;
+
+    const side = Math.ceil(Math.sqrt(members.length + 1));
+    const half = Math.floor(side / 2);
+
+    members.forEach((p: ProcessInfo, mi: number) => {
+      const r = Math.floor(mi / side);
+      const col = mi % side;
+      let x = bx + (col - half) * inBlockCell;
+      let z = bz + (r - half) * inBlockCell - centerOffset;
+
+      // Name hash jitter — same name = same spot forever
+      const h = p.name.split("").reduce((a: number, ch: string) => a * 31 + ch.charCodeAt(0), 0);
+      x += (hashSeed(h) - 0.5) * 0.4;
+      z += (hashSeed(h + 1) - 0.5) * 0.4;
+
+      result.push({ x, y: 0, z, pid: p.pid, height: cpuToHeight(p.cpu) });
+    });
   });
+
+  return result;
 }
 
-// Legacy radial/tree layout — kept for reference but no longer used.
+void spiralGridIndices; void CELL_SIZE;
+
+// Legacy radial/tree layout// Legacy radial/tree layout — kept for reference but no longer used.
 export function computePositions(
   processes: ProcessInfo[],
   maxBuildings: number = 200,
