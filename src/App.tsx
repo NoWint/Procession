@@ -9,6 +9,7 @@ import CityBackground from "./components/CityBackground";
 import RoadGrid from "./components/RoadGrid";
 import RoadFlow from "./components/RoadFlow";
 import BlockLabel from "./components/BlockLabel";
+import BlockBoundary from "./components/BlockBoundary";
 import Atmosphere from "./components/Atmosphere";
 import BloomEffect from "./components/BloomEffect";
 import PortHarbors from "./components/PortHarbors";
@@ -29,7 +30,7 @@ import { useFpsMonitor } from "./hooks/useFpsMonitor";
 import { useAudioEngine } from "./hooks/useAudioEngine";
 import * as persistence from "./utils/persistence";
 import type { ProcessInfo, SystemSnapshot } from "./utils/types";
-import { computeGridPositions, computeProcessSignature } from "./utils/layout";
+import { computeGridPositions, computeProcessSignature, type BlockInfo, type BuildingPosition } from "./utils/layout";
 import { shouldIgnoreSpace } from "./utils/keyboard";
 import {
   loadTheme,
@@ -135,7 +136,7 @@ export default function App() {
   );
 
   const layoutResult = useMemo(
-    () => (displaySnapshot ? computeGridPositions(displaySnapshot.processes, maxBuildings) : { positions: [], blocks: [] }),
+    () => (displaySnapshot ? computeGridPositions(displaySnapshot.processes, maxBuildings) : { positions: [] as BuildingPosition[], blocks: [] as BlockInfo[] }),
     [processSignature, maxBuildings],
   );
   const positions = layoutResult.positions;
@@ -360,9 +361,10 @@ export default function App() {
         <BloomEffect enabled={bloomEnabled} strength={0.05} radius={0.4} threshold={0.85} />
         <CityBackground theme={theme} />
         <CityGround theme={theme} />
-        <RoadGrid />
+        <RoadGrid blocks={blockCenters} />
         <RoadFlow />
         <BlockLabel blocks={blockCenters} />
+        <BlockBoundary blocks={blockCenters} theme={theme} />
         <FsHeatmap hotspots={renderSnapshot.fs_hotspots} theme={theme} />
         <BuildingCluster
           processes={renderSnapshot.processes}

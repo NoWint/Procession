@@ -11,6 +11,27 @@ export interface BuildingPosition {
   childCount?: number;   // how many children cluster around this parent
 }
 
+export interface SubBlockInfo {
+  x: number;
+  z: number;
+  minX: number;
+  maxX: number;
+  minZ: number;
+  maxZ: number;
+}
+
+export interface BlockInfo {
+  letter: string;
+  x: number;        // 街区中心 x
+  z: number;        // 街区中心 z
+  minX: number;     // 街区边界
+  maxX: number;
+  minZ: number;
+  maxZ: number;
+  subblocks: SubBlockInfo[];
+  processCount: number;  // 街区内建筑总数（含子进程），用于 BlockLabel 副标题
+}
+
 export function cpuToHeight(cpu: number): number {
   return Math.max(1, 1 + cpu * 0.21);
 }
@@ -103,15 +124,13 @@ function resolveOverlap(
   return { x: cx, z: cz };
 }
 
-/// Group processes by first letter of name, each letter gets its own block district.
-/// A cluster on one block, B cluster on the next block, etc.
-/// Roads naturally emerge as the gaps between grid cells.
 /// Group processes by first letter of name → each letter gets its own
-/// block district. Same process name = same coordinate forever.
+/// block district. Each block is sub-divided into 1-8 "subblocks" based
+/// on root process count, with minor roads running between subblocks.
 export function computeGridPositions(
   processes: ProcessInfo[],
   maxBuildings: number = 200,
-): { positions: BuildingPosition[]; blocks: { letter: string; x: number; z: number }[] } {
+): { positions: BuildingPosition[]; blocks: BlockInfo[] } {
   const filtered = [...processes]
     .filter((p) => p.state !== "Zombie" || p.cpu > 1)
     .slice(0, maxBuildings);
@@ -138,50 +157,111 @@ export function computeGridPositions(
   const sortedKeys = Array.from(letterGroups.keys()).sort();
 
   const blockCols = 8;
-  const blockCell = 12.0;
-  const inBlockCell = 4.5;
+  const blockCell = 16.0;        // 街区间距（给主干道留空间）
+  const subGap = 1.5;            // 小区间距（支干道宽度）
+  const inSubCell = 3.0;         // 小区内 root 间距
+  const childPad = 2.0;          // 街区边界向外留白（容纳子进程环绕）
 
   const result: BuildingPosition[] = [];
-  const blockInfo: { letter: string; x: number; z: number }[] = [];
+  const blockInfo: BlockInfo[] = [];
   const placed = new Set<number>();
+
+  const centerOffset = Math.floor(sortedKeys.length / blockCols) * blockCell / 2;
 
   sortedKeys.forEach((letter, bi) => {
     const rootList = letterGroups.get(letter)!;
     rootList.sort((a, b) => a.name.localeCompare(b.name));
 
     const bx = (bi % blockCols) * blockCell;
-    const bz = Math.floor(bi / blockCols) * blockCell;
-    const centerOffset = Math.floor(sortedKeys.length / blockCols) * blockCell / 2;
+    const bz = Math.floor(bi / blockCols) * blockCell - centerOffset;
 
-    blockInfo.push({ letter, x: bx, z: bz - centerOffset });
+    // 根据街区 root 数量决定小区网格：1/2/4/8 个小区
+    const { cols, rows } = getSubblockGrid(rootList.length);
+    const totalSubs = cols * rows;
+    const perSub = Math.ceil(rootList.length / totalSubs);
+    const sideLocal = Math.max(1, Math.ceil(Math.sqrt(perSub)));
+    const subSize = sideLocal * inSubCell;
+    const subHalf = subSize / 2;
 
-    const side = Math.ceil(Math.sqrt(rootList.length + 1));
-    const half = Math.floor(side / 2);
+    // 小区网格总尺寸（用于居中布局）
+    const totalW = cols * subSize + (cols - 1) * subGap;
+    const totalD = rows * subSize + (rows - 1) * subGap;
+    const startCx = bx - totalW / 2 + subHalf;
+    const startCz = bz - totalD / 2 + subHalf;
 
-    rootList.forEach((root, ri) => {
-      const r = Math.floor(ri / side);
-      const col = ri % side;
-      let rx = bx + (col - half) * inBlockCell;
-      let rz = bz + (r - half) * inBlockCell - centerOffset;
-      const h = root.name.split("").reduce((a: number, ch: string) => a * 31 + ch.charCodeAt(0), 0);
-      rx += (hashSeed(h) - 0.5) * 0.4;
-      rz += (hashSeed(h + 1) - 0.5) * 0.4;
+    const subblocks: SubBlockInfo[] = [];
+    let rootIdx = 0;
+    let placedInBlock = 0;
 
-      placed.add(root.pid);
+    for (let sr = 0; sr < rows; sr++) {
+      for (let sc = 0; sc < cols; sc++) {
+        const subCx = startCx + sc * (subSize + subGap);
+        const subCz = startCz + sr * (subSize + subGap);
 
-      const kids = (childrenMap.get(root.pid) ?? []).filter((k) => pidMap.has(k.pid));
+        subblocks.push({
+          x: subCx,
+          z: subCz,
+          minX: subCx - subHalf,
+          maxX: subCx + subHalf,
+          minZ: subCz - subHalf,
+          maxZ: subCz + subHalf,
+        });
 
-      result.push({ x: rx, y: 0, z: rz, pid: root.pid, height: cpuToHeight(root.cpu), width: 2.0, childCount: kids.length });
+        // 取出本小区要放置的 roots
+        const subRoots: ProcessInfo[] = [];
+        while (rootIdx < rootList.length && subRoots.length < perSub) {
+          subRoots.push(rootList[rootIdx++]);
+        }
 
-      const childRadius = 1.5 + (kids.length > 4 ? 1.2 : 0.7);
-      kids.forEach((child, ci) => {
-        if (placed.has(child.pid)) return;
-        placed.add(child.pid);
-        const angle = (ci / Math.max(kids.length, 1)) * Math.PI * 2;
-        const cx = rx + Math.cos(angle) * (childRadius + hashSeed(child.pid) * 0.3);
-        const cz = rz + Math.sin(angle) * (childRadius + hashSeed(child.pid + 1) * 0.3);
-        result.push({ x: cx, y: 0, z: cz, pid: child.pid, height: cpuToHeight(child.cpu), width: 1.0, parentPid: root.pid });
-      });
+        const localSide = Math.max(1, Math.ceil(Math.sqrt(subRoots.length)));
+        const localHalf = (localSide - 1) / 2;
+
+        subRoots.forEach((root, ri) => {
+          const r = Math.floor(ri / localSide);
+          const col = ri % localSide;
+          let rx = subCx + (col - localHalf) * inSubCell;
+          let rz = subCz + (r - localHalf) * inSubCell;
+          const h = root.name.split("").reduce((a: number, ch: string) => a * 31 + ch.charCodeAt(0), 0);
+          rx += (hashSeed(h) - 0.5) * 0.4;
+          rz += (hashSeed(h + 1) - 0.5) * 0.4;
+
+          placed.add(root.pid);
+          placedInBlock++;
+
+          const kids = (childrenMap.get(root.pid) ?? []).filter((k) => pidMap.has(k.pid));
+
+          result.push({ x: rx, y: 0, z: rz, pid: root.pid, height: cpuToHeight(root.cpu), width: 2.0, childCount: kids.length });
+
+          const childRadius = 1.5 + (kids.length > 4 ? 1.2 : 0.7);
+          kids.forEach((child, ci) => {
+            if (placed.has(child.pid)) return;
+            placed.add(child.pid);
+            placedInBlock++;
+            const angle = (ci / Math.max(kids.length, 1)) * Math.PI * 2;
+            const cx = rx + Math.cos(angle) * (childRadius + hashSeed(child.pid) * 0.3);
+            const cz = rz + Math.sin(angle) * (childRadius + hashSeed(child.pid + 1) * 0.3);
+            result.push({ x: cx, y: 0, z: cz, pid: child.pid, height: cpuToHeight(child.cpu), width: 1.0, parentPid: root.pid });
+          });
+        });
+      }
+    }
+
+    // 街区边界 = 包络所有小区，外加 childPad 容纳子进程环绕
+    const blockMinX = Math.min(...subblocks.map((s) => s.minX)) - childPad;
+    const blockMaxX = Math.max(...subblocks.map((s) => s.maxX)) + childPad;
+    const blockMinZ = Math.min(...subblocks.map((s) => s.minZ)) - childPad;
+    const blockMaxZ = Math.max(...subblocks.map((s) => s.maxZ)) + childPad;
+
+    blockInfo.push({
+      letter,
+      x: bx,
+      z: bz,
+      minX: blockMinX,
+      maxX: blockMaxX,
+      minZ: blockMinZ,
+      maxZ: blockMaxZ,
+      subblocks,
+      processCount: placedInBlock,
     });
   });
 
@@ -206,6 +286,18 @@ export function computeGridPositions(
   }
 
   return { positions: result, blocks: blockInfo };
+}
+
+/// 根据街区 root 进程数量决定小区网格：
+///   1-3  → 1x1 (1 个小区)
+///   4-8  → 2x1 (2 个小区)
+///   9-15 → 2x2 (4 个小区)
+///   16+  → 4x2 (8 个小区)
+function getSubblockGrid(rootCount: number): { cols: number; rows: number } {
+  if (rootCount <= 3) return { cols: 1, rows: 1 };
+  if (rootCount <= 8) return { cols: 2, rows: 1 };
+  if (rootCount <= 15) return { cols: 2, rows: 2 };
+  return { cols: 4, rows: 2 };
 }
 
 
