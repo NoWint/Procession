@@ -315,3 +315,99 @@
   font-size: 11px;
   opacity: 0.75;
 }
+
+/* ===== 图层调试 section ===== */
+.settings-section-layers {
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding-top: 12px;
+}
+
+.settings-layers-actions {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.settings-layer-action {
+  flex: 1;
+  padding: 6px 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  color: inherit;
+  font-size: 11px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.settings-layer-action:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.settings-layers-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 320px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.settings-layer-row {
+  display: grid;
+  grid-template-columns: 1fr 80px 28px;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+}
+
+.settings-layer-row .settings-toggle-row {
+  margin: 0;
+}
+
+.settings-layer-y {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.settings-layer-y-label {
+  font-size: 10px;
+  opacity: 0.6;
+  font-family: monospace;
+}
+
+.settings-layer-y input {
+  width: 56px;
+  padding: 3px 6px;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  color: inherit;
+  font-size: 11px;
+  font-family: monospace;
+}
+
+.settings-layer-y input:focus-visible {
+  outline: 1px solid var(--proc-accent);
+  outline-offset: 1px;
+}
+
+.settings-layer-isolate {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 50%;
+  color: inherit;
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.settings-layer-isolate:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: var(--proc-accent);
+}

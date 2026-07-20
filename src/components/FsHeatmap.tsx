@@ -5,6 +5,7 @@ import type { ThreeEvent } from "@react-three/fiber";
 import type { FsHotspot } from "../utils/types";
 import { FALLBACK_THEME, type Theme } from "../utils/theme";
 import { useI18n } from "../hooks/useI18n";
+import { HEATMAP_Y } from "../utils/worldCoords";
 
 interface FsHeatmapProps {
   hotspots: FsHotspot[];
@@ -112,7 +113,7 @@ export default function FsHeatmap({
         const pulse = z.fading ? 1 : 0.85 + Math.sin(time * PULSE_SPEED + i) * 0.15;
         const scale = baseScale * (0.6 + z.intensity * 0.8) * pulse;
 
-        dummy.position.set(z.x, 0.02, z.z);
+        dummy.position.set(z.x, HEATMAP_Y, z.z);
         dummy.rotation.set(-Math.PI / 2, 0, 0);
         dummy.scale.set(scale, scale, 1);
         dummy.updateMatrix();

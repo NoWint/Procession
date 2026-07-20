@@ -5,6 +5,7 @@ import type { ProcessInfo } from "../utils/types";
 import type { BuildingPosition } from "../utils/layout";
 import { colorForProcess } from "../utils/colors";
 import { FALLBACK_THEME, type Theme } from "../utils/theme";
+import { HALO_Y } from "../utils/worldCoords";
 
 interface BuildingHaloProps {
   processes: ProcessInfo[];
@@ -13,7 +14,7 @@ interface BuildingHaloProps {
 }
 
 const dummy = new THREE.Object3D();
-const HALO_Y_OFFSET = 0.06;
+const HALO_Y_OFFSET = HALO_Y;
 const HALO_INNER = 0.45;
 const HALO_OUTER = 0.7;
 

@@ -4,7 +4,7 @@ import BuildingCluster from "./components/BuildingCluster";
 import BuildingHalo from "./components/BuildingHalo";
 import CableSystem, { computeCableData } from "./components/CableSystem";
 import CityGround from "./components/CityGround";
-import TrafficFlow from "./components/TrafficFlow";
+import Skyline from "./components/Skyline";
 import Atmosphere from "./components/Atmosphere";
 import BloomEffect from "./components/BloomEffect";
 import PortHarbors from "./components/PortHarbors";
@@ -23,6 +23,7 @@ import { useSystemHistory } from "./hooks/useSystemHistory";
 import { useFpsMonitor } from "./hooks/useFpsMonitor";
 import { useAudioEngine } from "./hooks/useAudioEngine";
 import { useI18n } from "./hooks/useI18n";
+import { useLayerConfig } from "./hooks/useLayerConfig";
 import * as persistence from "./utils/persistence";
 import type { ProcessInfo, SystemSnapshot } from "./utils/types";
 import { computeGridPositions, computeProcessSignature, type BlockInfo, type BuildingPosition } from "./utils/layout";
@@ -97,6 +98,9 @@ export default function App() {
   const [timelineOpen, setTimelineOpen] = useState(true);
   const kioskIdleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // 图层调试（layerConfig）：从 localStorage 恢复，调试配置跨会话保留
+  const { layers, setLayer, resetLayers, isolateLayer, showAllLayers } = useLayerConfig();
+
   // Quality mode override (F-702): in "auto" we delegate to useFpsMonitor;
   // "performance" forces bloom off and 60% of cap; "quality" forces bloom on
   // and the full cap. The hook itself is not modified (forbidden file).
@@ -154,11 +158,12 @@ export default function App() {
   );
 
   const layoutResult = useMemo(
-    () => (displaySnapshot ? computeGridPositions(displaySnapshot.processes, maxBuildings) : { positions: [] as BuildingPosition[], blocks: [] as BlockInfo[] }),
+    () => (displaySnapshot ? computeGridPositions(displaySnapshot.processes, maxBuildings) : { positions: [] as BuildingPosition[], blocks: [] as BlockInfo[], roads: { majorRoads: [], minorRoads: [], avoidanceZones: [] } }),
     [processSignature, maxBuildings],
   );
   const positions = layoutResult.positions;
   const blockCenters = layoutResult.blocks;
+  const roads = layoutResult.roads;
 
   const cableData = useMemo(
     () => (displaySnapshot ? computeCableData(displaySnapshot.network.connections, positions, 80) : []),
@@ -378,8 +383,8 @@ export default function App() {
         cameraTarget={cameraTarget ?? (selectedPosition ? { x: selectedPosition.x, y: selectedPosition.height, z: selectedPosition.z } : null)}
         autoRotate={autoRotate}
       >
-        <Atmosphere theme={theme} />
-        {effectiveBloom && (
+        {layers.sky.visible && <Atmosphere theme={theme} />}
+        {layers.postfx.visible && effectiveBloom && (
           <BloomEffect
             theme={theme}
             radius={0.4}
@@ -388,30 +393,36 @@ export default function App() {
             enableSMAA={false}
           />
         )}
-        <CityGround theme={theme} blocks={blockCenters} />
-        <TrafficFlow theme={theme} />
-        <FsHeatmap hotspots={renderSnapshot.fs_hotspots} theme={theme} />
-        <BuildingCluster
-          processes={renderSnapshot.processes}
-          positions={positions}
-          theme={theme}
-          selectedPid={selectedProcess?.pid ?? null}
-          maxBuildings={maxBuildings}
-          onClick={handleBuildingClick}
-          onDoubleClick={handleBuildingDoubleClick}
-        />
+        {layers.ground.visible && <CityGround theme={theme} roads={roads} />}
+        {layers.skyline.visible && <Skyline theme={theme} />}
+        {layers.heatmap.visible && <FsHeatmap hotspots={renderSnapshot.fs_hotspots} theme={theme} />}
+        {layers.buildings.visible && (
+          <BuildingCluster
+            processes={renderSnapshot.processes}
+            positions={positions}
+            theme={theme}
+            selectedPid={selectedProcess?.pid ?? null}
+            maxBuildings={maxBuildings}
+            onClick={handleBuildingClick}
+            onDoubleClick={handleBuildingDoubleClick}
+          />
+        )}
 
-        <PortHarbors
-          ports={renderSnapshot.listening_ports}
-          positions={positions}
-          theme={theme}
-        />
-        <BuildingHalo
-          processes={renderSnapshot.processes}
-          positions={positions}
-          theme={theme}
-        />
-        <CableSystem cables={cableData} theme={theme} />
+        {layers.ports.visible && (
+          <PortHarbors
+            ports={renderSnapshot.listening_ports}
+            positions={positions}
+            theme={theme}
+          />
+        )}
+        {layers.halo.visible && (
+          <BuildingHalo
+            processes={renderSnapshot.processes}
+            positions={positions}
+            theme={theme}
+          />
+        )}
+        {layers.cables.visible && <CableSystem cables={cableData} theme={theme} />}
       </CityScene>
 
       <div className={`app-ui-layer ${kioskMode && !showUi ? "kiosk-hidden" : ""}`}>
@@ -507,6 +518,11 @@ export default function App() {
           onAutoRotateChange={setAutoRotate}
           timelineOpen={timelineOpen}
           onTimelineOpenChange={setTimelineOpen}
+          layers={layers}
+          onLayerChange={setLayer}
+          onLayerIsolate={isolateLayer}
+          onLayerShowAll={showAllLayers}
+          onLayerReset={resetLayers}
         />
         <ProcessPopup
           process={selectedProcess}

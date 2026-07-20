@@ -5,14 +5,15 @@ import type { Connection } from "../utils/types";
 import type { BuildingPosition } from "../utils/layout";
 import { cableColorForProtocol } from "../utils/colors";
 import { FALLBACK_THEME, type Theme } from "../utils/theme";
+import { CABLE_Y } from "../utils/worldCoords";
 
 /**
- * 城市地下管道系统
+ * 城市地下光缆系统
  *
  * 设计逻辑（"城市"隐喻）：
- * - 管道贴地铺设（y=0.08，紧贴地面），不空中飞行
+ * - 光缆贴地铺设（y=0.04，紧贴地面，下沉到 halo 下方避免共面）
  * - L 形路径（Manhattan 路径）：先沿 X 走到目标 X，再沿 Z 走到目标 Z
- *   模拟城市管道沿道路铺设的视觉
+ *   模拟城市光缆沿道路铺设的视觉
  * - 流光脉冲：管道内有数据脉冲流动（一个亮带沿管道移动），不是整条发光
  * - 节点装饰：
  *   - 起点（建筑底部出口）：小圆盘
@@ -75,8 +76,8 @@ export interface CableData {
 // 之前 50-58 落在建筑群内会被遮挡，现在贴地走需要到地图边缘
 const EXTERNAL_RADIUS_MIN = 72;
 const EXTERNAL_RADIUS_VAR = 6;
-// 管道高度：贴地，紧贴地板上方
-const PIPE_Y = 0.08;
+// 光缆高度：贴地，紧贴地板上方（下沉到 halo 下方避免共面）
+const PIPE_Y = CABLE_Y;
 // 管道半径：细管道感（不像之前粗管）
 const PIPE_RADIUS = 0.12;
 

@@ -114,32 +114,29 @@ export type SkylineId = "skyline-silhouette";
 export const SKYLINE_IDS: SkylineId[] = ["skyline-silhouette"];
 
 /**
- * 预建道路 GLB 模型 ID（Phase G：主动/被动道路）。
+ * 预建道路 GLB 模型 ID（Phase G：进程树驱动道路系统）。
  * 与 scripts/build-assets.mjs 中的 ROADS 保持一致。
  *
- * 5 种形状（标准长度 10、宽度 4，运行时由 InstancedMesh 实例化 + scaleX 适配）：
+ * 4 种形状（标准长度 10、宽度 4，运行时由 CityGround 用 scaleX 适配）：
  *   - road-straight:       直道（沥青 + 路缘 + 中央虚线）
  *   - road-intersection-4: 十字路口（8×8 中心广场 + 4 边斑马线 + 中心标记）
  *   - road-intersection-3: T 字路口（8×8 中心广场 + 3 边斑马线 + 三角标记）
  *   - road-curve:          90° 弯道（环形扇区 + 内外缘 + 中央曲线）
- *   - road-roundabout:     环岛（外环道 + 内中心岛 + 4 入口臂 + 中心装饰）
  *
- * 运行时由 CityGround 通过 useGlbAssets() 读取几何，用于主动道路骨架的
- * straight/radial 段实例化；环道仍用 RingGeometry（曲线不便用直段缩放）。
+ * v6（2026-07-20）：废弃 road-roundabout（中心广场概念已移除），
+ * 主干道/次干道均使用 road-straight 实例化 + 旋转 + 缩放即可表达。
  */
 export type RoadId =
   | "road-straight"
   | "road-intersection-4"
   | "road-intersection-3"
-  | "road-curve"
-  | "road-roundabout";
+  | "road-curve";
 
 export const ROAD_IDS: RoadId[] = [
   "road-straight",
   "road-intersection-4",
   "road-intersection-3",
   "road-curve",
-  "road-roundabout",
 ];
 
 /** 单个变体加载后的资源：合并后的几何 + 共享材质数组 */

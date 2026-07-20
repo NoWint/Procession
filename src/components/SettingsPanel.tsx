@@ -1,6 +1,7 @@
 import ThemeSelector from "./ThemeSelector";
 import { useI18n } from "../hooks/useI18n";
 import type { Locale } from "../i18n";
+import { LAYER_LABELS, LAYER_ORDER, type LayerId } from "../utils/layerConfig";
 import "./SettingsPanel.css";
 
 /**
@@ -30,6 +31,12 @@ interface SettingsPanelProps {
   onAutoRotateChange: (value: boolean) => void;
   timelineOpen: boolean;
   onTimelineOpenChange: (value: boolean) => void;
+  // 图层调试（layerConfig）：逐层可见性 + Y 坐标控制，用于从地面到天空分层构建调试
+  layers: Record<LayerId, { visible: boolean; yLevel: number }>;
+  onLayerChange: (id: LayerId, partial: { visible?: boolean; yLevel?: number }) => void;
+  onLayerIsolate: (id: LayerId) => void;
+  onLayerShowAll: () => void;
+  onLayerReset: () => void;
 }
 
 const PROCESS_CAP_MIN = 100;
@@ -73,6 +80,11 @@ export default function SettingsPanel({
   onAutoRotateChange,
   timelineOpen,
   onTimelineOpenChange,
+  layers,
+  onLayerChange,
+  onLayerIsolate,
+  onLayerShowAll,
+  onLayerReset,
 }: SettingsPanelProps) {
   const { t, locale, setLocale } = useI18n();
 
@@ -221,6 +233,67 @@ export default function SettingsPanel({
                 {t(`settings.language.${loc}`)}
               </button>
             ))}
+          </div>
+        </section>
+
+        {/* 图层调试：逐层可见性 + Y 坐标控制，用于从地面到天空分层构建调试 */}
+        <section className="settings-section settings-section-layers">
+          <h3>{t("settings.section.layers")}</h3>
+          <p className="settings-hint">{t("settings.layers.hint")}</p>
+          <div className="settings-layers-actions">
+            <button
+              type="button"
+              className="settings-layer-action"
+              onClick={onLayerShowAll}
+            >
+              {t("settings.layers.show_all")}
+            </button>
+            <button
+              type="button"
+              className="settings-layer-action"
+              onClick={onLayerReset}
+            >
+              {t("settings.layers.reset")}
+            </button>
+          </div>
+          <div className="settings-layers-list">
+            {LAYER_ORDER.map((id) => {
+              const layer = layers[id];
+              const label = LAYER_LABELS[id];
+              return (
+                <div key={id} className="settings-layer-row">
+                  <label className="settings-toggle-row">
+                    <span className="settings-toggle-label">{label}</span>
+                    <input
+                      type="checkbox"
+                      checked={layer.visible}
+                      onChange={(e) => onLayerChange(id, { visible: e.target.checked })}
+                      aria-label={label}
+                    />
+                    <span className="settings-toggle-switch" aria-hidden="true" />
+                  </label>
+                  <label className="settings-layer-y">
+                    <span className="settings-layer-y-label">Y</span>
+                    <input
+                      type="number"
+                      step={0.01}
+                      value={layer.yLevel}
+                      onChange={(e) => onLayerChange(id, { yLevel: Number(e.target.value) })}
+                      aria-label={`${label} Y`}
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    className="settings-layer-isolate"
+                    onClick={() => onLayerIsolate(id)}
+                    aria-label={t("settings.layers.isolate")}
+                    title={t("settings.layers.isolate")}
+                  >
+                    ◎
+                  </button>
+                </div>
+              );
+            })}
           </div>
         </section>
       </div>

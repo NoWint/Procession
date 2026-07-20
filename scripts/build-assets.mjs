@@ -1027,17 +1027,18 @@ function buildRoofDecoration(deco) {
   return group;
 }
 
-// ========== 道路（Phase G：主动/被动道路 GLB） ==========
+// ========== 道路（Phase G：进程树驱动道路 GLB）==========
 //   - road-straight:       直道（长 10、宽 4，沥青 + 路缘 + 中央虚线）
-//   - road-intersection-4: 十字路口（8×8 中心广场 + 4 边斑马线 + 中心标记）
-//   - road-intersection-3: T 字路口（8×8 中心广场 + 3 边斑马线 + 三角标记）
-//   - road-curve:          90° 弯道（环形扇区 + 内外缘 + 中央曲线）
-//   - road-roundabout:     环岛（外环道 + 内中心岛 + 4 入口臂 + 中心装饰）
+//   - road-intersection-4: 十字路口（8×8 中心广场 + 4 边斑马线 + 中心标记）[备用]
+//   - road-intersection-3: T 字路口（8×8 中心广场 + 3 边斑马线 + 三角标记）[备用]
+//   - road-curve:          90° 弯道（环形扇区 + 内外缘 + 中央曲线）[备用]
 // 设计原则：
-//   - 所有几何放在 y≈0 平面（CityGround 在 ROAD_Y=0.02 偏移）
+//   - 所有几何放在 y≈0 平面（CityGround 在 ROAD_MAJOR_Y=0.015 偏移）
 //   - 使用 vertexColors（paintGeometry）让单次 mergeGeometries 保留多色分段
-//   - 标准长度 10 单位，宽度 4 单位（与 MAIN_ROAD_WIDTH 一致）
-//   - 运行时由 CityGround 通过 InstancedMesh 实例化，scaleX 适配实际长度
+//   - 标准长度 10 单位，宽度 4 单位（与 MAJOR_ROAD_WIDTH 一致）
+//   - 运行时由 CityGround 按 (length, width) 缩放 + (cx, cz) 定位 + rotY 朝向实例化
+// 历史：v6（2026-07-20）废弃 road-roundabout（中心广场概念已移除），
+//       仅保留 4 种几何供后续 TrafficFlow/CityLandmarks 重写使用。
 const ROAD_CANONICAL_LENGTH = 10;
 const ROAD_CANONICAL_WIDTH = 4;
 
@@ -1046,7 +1047,6 @@ const ROADS = [
   { id: "road-intersection-4", kind: "intersection-4" },
   { id: "road-intersection-3", kind: "intersection-3" },
   { id: "road-curve",          kind: "curve" },
-  { id: "road-roundabout",     kind: "roundabout" },
 ];
 
 // 道路用 vertexColors 材质（mergeGeometries 后保留多色分段）
@@ -1063,10 +1063,9 @@ const ROAD_COLOR_CURB    = 0x6a6a6a;     // 路缘浅灰
 const ROAD_COLOR_LANE    = 0xffeb3b;     // 中央黄线
 const ROAD_COLOR_CROSS   = 0xf5f5f5;    // 斑马线白
 const ROAD_COLOR_MARK    = 0xff5722;    // 中心标记橙
-const ROAD_COLOR_ISLAND  = 0x4a7c3a;    // 中心岛绿（草地）
 
 /**
- * 构建道路 Group（5 种形状）。
+ * 构建道路 Group（4 种形状）。
  * 所有几何都通过 paintGeometry 写入 vertex colors，mergeGeometries 合并为单一 BufferGeometry。
  * 运行时用单一 vertexColors 材质渲染（InstancedMesh 要求）。
  */
@@ -1161,33 +1160,8 @@ function buildRoad(road) {
     centerLine.rotateX(-Math.PI / 2);
     centerLine.translate(0, 0.02, 0);
     geos.push(paintGeometry(centerLine, ROAD_COLOR_LANE));
-  } else if (road.kind === "roundabout") {
-    // 外环道：RingGeometry(4, 6, 32)
-    const ringGeo = new THREE.RingGeometry(4, 6, 32, 1).toNonIndexed();
-    ringGeo.rotateX(-Math.PI / 2);
-    geos.push(paintGeometry(ringGeo, ROAD_COLOR_ASHPALT));
-    // 中心岛（CircleGeometry 半径 2）
-    const islandGeo = new THREE.CircleGeometry(2, 32).toNonIndexed();
-    islandGeo.rotateX(-Math.PI / 2);
-    islandGeo.translate(0, 0.05, 0);
-    geos.push(paintGeometry(islandGeo, ROAD_COLOR_ISLAND));
-    // 4 入口臂：北/东/南/西各一个 2×4 平面
-    const arms = [
-      { x: 0, z:  8, rot: 0 },
-      { x: 8, z:  0, rot: Math.PI / 2 },
-      { x: 0, z: -8, rot: 0 },
-      { x: -8, z: 0, rot: Math.PI / 2 },
-    ];
-    for (const a of arms) {
-      const armGeo = new THREE.PlaneGeometry(4, 4, 1, 1).toNonIndexed();
-      armGeo.rotateX(-Math.PI / 2);
-      armGeo.rotateY(a.rot);
-      armGeo.translate(a.x, 0, a.z);
-      geos.push(paintGeometry(armGeo, ROAD_COLOR_ASHPALT));
-    }
-    // 中心装饰：小方块
-    addBox(0.5, 0.5, 0.5, 0, 0.25, 0, ROAD_COLOR_MARK);
   }
+  // v6: road-roundabout 已废弃移除（中心广场概念不再使用）
 
   const merged = mergeGeometries(geos, false);
   geos.forEach((g) => g.dispose());

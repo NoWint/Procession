@@ -5,8 +5,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type React from "react";
 import CameraController from "./CameraController";
 import SkyDome from "./SkyDome";
-import CityLandmarks from "./CityLandmarks";
-import Skyline from "./Skyline";
 import { FALLBACK_THEME, type Theme } from "../utils/theme";
 
 interface CitySceneProps {
@@ -167,8 +165,6 @@ export default function CityScene({
         baseAutoRotateSpeed={0.6}
       />
       {children}
-      <CityLandmarks theme={theme} />
-      <Skyline theme={theme} />
       {/* P0-2 主题切换 spring 过渡：在 Canvas 内消费 useFrame，lerp 雾/光照到目标 */}
       <SceneThemeTransition
         theme={theme}

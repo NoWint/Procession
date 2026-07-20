@@ -6,6 +6,7 @@ import type { ListeningPort } from "../utils/types";
 import type { BuildingPosition } from "../utils/layout";
 import { FALLBACK_THEME, type Theme } from "../utils/theme";
 import { useI18n } from "../hooks/useI18n";
+import { DOCK_Y } from "../utils/worldCoords";
 
 interface PortHarborsProps {
   ports: ListeningPort[];
@@ -90,7 +91,7 @@ function buildCableGeometry(
     if (!building) continue;
 
     const start = new THREE.Vector3(building.x, building.height * 0.6, building.z);
-    const end = new THREE.Vector3(harbor.x, 0.15, harbor.z);
+    const end = new THREE.Vector3(harbor.x, DOCK_Y, harbor.z);
     const mid = new THREE.Vector3().lerpVectors(start, end, 0.5);
     mid.y = Math.max(start.y, end.y) + CABLE_ARCH_HEIGHT;
 
@@ -146,7 +147,7 @@ export default function PortHarbors({
     if (!dockMeshRef.current) return;
     const dummy = new THREE.Object3D();
     harbors.forEach((h, i) => {
-      dummy.position.set(h.x, 0.15, h.z);
+      dummy.position.set(h.x, DOCK_Y, h.z);
       dummy.scale.set(DOCK_SIZE, DOCK_SIZE * 0.5, DOCK_SIZE);
       dummy.updateMatrix();
       dockMeshRef.current!.setMatrixAt(i, dummy.matrix);
