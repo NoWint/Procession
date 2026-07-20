@@ -2,7 +2,14 @@ import { useMemo } from "react";
 import * as THREE from "three";
 import { FALLBACK_THEME, type Theme } from "../utils/theme";
 import { useGlbAssets } from "../hooks/useGlbAssets";
-import type { ProcessTreeRoadNetwork, MajorRoad, MinorRoad } from "../utils/layout";
+import type {
+  ProcessTreeRoadNetwork,
+  MajorRoad,
+  MinorRoad,
+  RoadSegment,
+  RoadCurve,
+  RoadIntersection,
+} from "../utils/layout";
 import { CITY_GEOMETRY, ROAD_MAJOR_Y, ROAD_MINOR_Y } from "../utils/worldCoords";
 
 interface CityGroundProps {
@@ -13,13 +20,14 @@ interface CityGroundProps {
 const { GROUND_PLANE_SIZE, ROAD_GLB_LENGTH, ROAD_GLB_WIDTH } = CITY_GEOMETRY;
 
 /**
- * 地面：主题色地板 + 进程树道路系统（主干道 + 次干道）。
+ * 地面：主题色地板 + 进程树道路系统（v7：连贯路网）。
  *
- * 范式（v6，2026-07-20，进程树驱动）：
- *   1. 主地板 — 主题色铺满 400×400，提供宽阔视野
- *   2. 主干道 — 每个 root 一条 road-straight GLB（含路缘 + 中央虚线）
- *      按 (length, width) 缩放，位置 (cx, cz)，朝向 rotY
- *   3. 次干道 — 连接相邻 root 主干道端点的 road-straight GLB（窄）
+ * 渲染层级：
+ *   1. 主地板 — 主题色 400×400 planeGeometry
+ *   2. 主干道 — road-straight GLB（每个 root 一条）
+ *   3. 路口 — road-intersection-3 GLB（主干道两端 T 字路口收口）
+ *   4. 次干道 L 形段 — road-straight GLB（每段直线）
+ *   5. 弯道 — road-curve GLB（L 形拐角处的 90° 弧形）
  *
  * 数据来源：App.tsx 调用 computeGridPositions(processes) 后传入 layoutResult.roads。
  * 道路几何完全由 pid 决定（稳定），不随 cpu 变化重算。
@@ -28,7 +36,11 @@ const { GROUND_PLANE_SIZE, ROAD_GLB_LENGTH, ROAD_GLB_WIDTH } = CITY_GEOMETRY;
  * 必须把 mesh.rotation.x = -π/2 才能平铺在 XZ 平面（地面）。
  * R3F 中 rotation-x 是 mesh 属性，不是 geometry 子元素属性。
  *
- * GLB 几何说明：road-straight GLB 本地 +X 是长度方向，+Z 是宽度方向。
+ * GLB 几何说明：
+ *   - road-straight: 本地 +X = 长度方向（10），+Z = 宽度方向（4）
+ *   - road-intersection-3: 8×8 中心广场 + 3 边斑马线（北/东/西），南边封口
+ *   - road-curve: 内 R=4、外 R=8 的 90° 扇区，圆心在原点，从 +X 扫到 +Z
+ *
  * 渲染时 mesh.rotation=[0, rotY, 0] 把 +X 转到道路朝向。
  */
 export default function CityGround({
@@ -37,27 +49,44 @@ export default function CityGround({
 }: CityGroundProps) {
   const { assets } = useGlbAssets();
   const straightRoadGeo = assets.roads?.["road-straight"];
+  const intersection3Geo = assets.roads?.["road-intersection-3"];
+  const curveGeo = assets.roads?.["road-curve"];
 
   const isLight = theme.mode === "light";
   const themeName = theme.name.toLowerCase();
   const isBlue = themeName.includes("blue") || themeName.includes("midnight");
 
-  // 主干道 fallback 几何：GLB 未加载时用 PlaneGeometry（已 rotateX 平铺）
+  // Fallback 几何：GLB 未加载时用 PlaneGeometry（已 rotateX 平铺）
   const fallbackMajorGeo = useMemo(() => {
     const geo = new THREE.PlaneGeometry(ROAD_GLB_LENGTH, ROAD_GLB_WIDTH, 1, 1);
     geo.rotateX(-Math.PI / 2);
     return geo;
   }, []);
 
-  // 次干道 fallback 几何：宽度更窄（2.0）
   const fallbackMinorGeo = useMemo(() => {
     const geo = new THREE.PlaneGeometry(ROAD_GLB_LENGTH, 2.0, 1, 1);
     geo.rotateX(-Math.PI / 2);
     return geo;
   }, []);
 
-  // 主干道渲染数据
-  const majorItems = useMemo<Array<{ road: MajorRoad; pos: [number, number, number]; scaleX: number; scaleZ: number }>>(() => {
+  // 路口 fallback：8×8 方形
+  const fallbackIntersectionGeo = useMemo(() => {
+    const geo = new THREE.PlaneGeometry(8, 8, 1, 1);
+    geo.rotateX(-Math.PI / 2);
+    return geo;
+  }, []);
+
+  // 弯道 fallback：用 RingGeometry 模拟 90° 弯道（内 R=4、外 R=8）
+  const fallbackCurveGeo = useMemo(() => {
+    const geo = new THREE.RingGeometry(4, 8, 24, 1, 0, Math.PI / 2);
+    geo.rotateX(-Math.PI / 2);
+    return geo;
+  }, []);
+
+  // === 主干道渲染数据 ===
+  const majorItems = useMemo<Array<{
+    road: MajorRoad; pos: [number, number, number]; scaleX: number; scaleZ: number;
+  }>>(() => {
     if (!roads) return [];
     return roads.majorRoads.map((road) => ({
       road,
@@ -67,23 +96,63 @@ export default function CityGround({
     }));
   }, [roads]);
 
-  // 次干道渲染数据
-  const minorItems = useMemo<Array<{ road: MinorRoad; pos: [number, number, number]; scaleX: number; scaleZ: number }>>(() => {
+  // === 路口渲染数据（主干道两端 T 字） ===
+  const intersectionItems = useMemo<Array<{
+    item: RoadIntersection; pos: [number, number, number];
+  }>>(() => {
     if (!roads) return [];
-    return roads.minorRoads.map((road) => ({
-      road,
-      pos: [road.midX, ROAD_MINOR_Y, road.midZ],
-      scaleX: road.length / ROAD_GLB_LENGTH,
-      scaleZ: road.width / ROAD_GLB_WIDTH,
+    return roads.intersections.map((item) => ({
+      item,
+      pos: [item.cx, ROAD_MAJOR_Y + 0.001, item.cz],  // 略高于主干道避免 z-fight
+    }));
+  }, [roads]);
+
+  // === 次干道渲染数据：所有 L 形段展开 ===
+  const minorSegmentItems = useMemo<Array<{
+    minor: MinorRoad; seg: RoadSegment; pos: [number, number, number]; scaleX: number; scaleZ: number;
+  }>>(() => {
+    if (!roads) return [];
+    const items: Array<{ minor: MinorRoad; seg: RoadSegment; pos: [number, number, number]; scaleX: number; scaleZ: number }> = [];
+    for (const minor of roads.minorRoads) {
+      for (const seg of minor.segments) {
+        items.push({
+          minor,
+          seg,
+          pos: [seg.cx, ROAD_MINOR_Y, seg.cz],
+          scaleX: seg.length / ROAD_GLB_LENGTH,
+          scaleZ: seg.width / ROAD_GLB_WIDTH,
+        });
+      }
+    }
+    return items;
+  }, [roads]);
+
+  // === 弯道渲染数据 ===
+  const curveItems = useMemo<Array<{
+    curve: RoadCurve; pos: [number, number, number];
+  }>>(() => {
+    if (!roads) return [];
+    return roads.curves.map((curve) => ({
+      curve,
+      pos: [curve.cx, ROAD_MINOR_Y + 0.001, curve.cz],
     }));
   }, [roads]);
 
   const majorColor = isLight ? "#3a3a3a" : isBlue ? "#0c1a2c" : "#1c1c1c";
   const minorColor = isLight ? "#2e2e2e" : isBlue ? "#0a1420" : "#161616";
+  const intersectionColor = isLight ? "#3a3a3a" : isBlue ? "#0c1a2c" : "#1c1c1c";
+
+  // 共享道路材质（vertexColors GLB 时使用）
+  const roadVertexMat = useMemo(() => new THREE.MeshStandardMaterial({
+    vertexColors: true,
+    roughness: 0.85,
+    metalness: 0.05,
+    side: THREE.DoubleSide,
+  }), []);
 
   return (
     <group>
-      {/* 1. 主题色地板（rotation 必须在 mesh 上，不能放在 planeGeometry 子元素上） */}
+      {/* 1. 主题色地板（rotation 必须在 mesh 上） */}
       <mesh position={[0, 0, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
         <planeGeometry args={[GROUND_PLANE_SIZE, GROUND_PLANE_SIZE]} />
         <meshStandardMaterial
@@ -93,27 +162,21 @@ export default function CityGround({
         />
       </mesh>
 
-      {/* 2a. 主干道 — road-straight GLB（含路缘 + 中央虚线） */}
+      {/* 2a. 主干道 — road-straight GLB */}
       {straightRoadGeo && majorItems.map((item, i) => (
         <mesh
           key={`major-${item.road.rootPid}-${i}`}
           geometry={straightRoadGeo}
+          material={roadVertexMat}
           position={item.pos}
           rotation={[0, item.road.rotY, 0]}
           scale={[item.scaleX, 1, item.scaleZ]}
           frustumCulled={false}
           receiveShadow
-        >
-          <meshStandardMaterial
-            vertexColors
-            roughness={0.85}
-            metalness={0.05}
-            side={THREE.DoubleSide}
-          />
-        </mesh>
+        />
       ))}
 
-      {/* 2b. 主干道 fallback：GLB 未加载时用纯色 PlaneGeometry */}
+      {/* 2b. 主干道 fallback */}
       {!straightRoadGeo && majorItems.map((item, i) => (
         <mesh
           key={`major-fb-${item.road.rootPid}-${i}`}
@@ -134,34 +197,62 @@ export default function CityGround({
         </mesh>
       ))}
 
-      {/* 3a. 次干道 — road-straight GLB（缩放更窄，宽度 2.0） */}
-      {straightRoadGeo && minorItems.map((item, i) => (
+      {/* 3a. 路口 — road-intersection-3 GLB（T 字路口收口） */}
+      {intersection3Geo && intersectionItems.map(({ item, pos }, i) => (
         <mesh
-          key={`minor-${item.road.fromRootPid}-${item.road.toRootPid}-${i}`}
-          geometry={straightRoadGeo}
-          position={item.pos}
-          rotation={[0, item.road.rotY, 0]}
-          scale={[item.scaleX, 1, item.scaleZ]}
+          key={`inter-${item.cx.toFixed(2)}-${item.cz.toFixed(2)}-${i}`}
+          geometry={intersection3Geo}
+          material={roadVertexMat}
+          position={pos}
+          rotation={[0, item.rotY, 0]}
+          // 路口 GLB 是 8×8，不需要缩放
+          frustumCulled={false}
+          receiveShadow
+        />
+      ))}
+
+      {/* 3b. 路口 fallback */}
+      {!intersection3Geo && intersectionItems.map(({ item, pos }, i) => (
+        <mesh
+          key={`inter-fb-${item.cx.toFixed(2)}-${item.cz.toFixed(2)}-${i}`}
+          geometry={fallbackIntersectionGeo}
+          position={pos}
+          rotation={[0, item.rotY, 0]}
           frustumCulled={false}
           receiveShadow
         >
           <meshStandardMaterial
-            vertexColors
+            color={intersectionColor}
+            emissive={isBlue ? theme.colors.accent : intersectionColor}
+            emissiveIntensity={isLight ? 0.0 : isBlue ? 0.08 : 0.03}
             roughness={0.85}
             metalness={0.05}
-            side={THREE.DoubleSide}
           />
         </mesh>
       ))}
 
-      {/* 3b. 次干道 fallback：GLB 未加载时用纯色 PlaneGeometry */}
-      {!straightRoadGeo && minorItems.map((item, i) => (
+      {/* 4a. 次干道 L 形段 — road-straight GLB */}
+      {straightRoadGeo && minorSegmentItems.map(({ minor, seg, pos, scaleX, scaleZ }, i) => (
         <mesh
-          key={`minor-fb-${item.road.fromRootPid}-${item.road.toRootPid}-${i}`}
+          key={`minor-${minor.fromRootPid}-${minor.toRootPid}-${i}`}
+          geometry={straightRoadGeo}
+          material={roadVertexMat}
+          position={pos}
+          rotation={[0, seg.rotY, 0]}
+          scale={[scaleX, 1, scaleZ]}
+          frustumCulled={false}
+          receiveShadow
+        />
+      ))}
+
+      {/* 4b. 次干道 fallback */}
+      {!straightRoadGeo && minorSegmentItems.map(({ minor, seg, pos, scaleX, scaleZ }, i) => (
+        <mesh
+          key={`minor-fb-${minor.fromRootPid}-${minor.toRootPid}-${i}`}
           geometry={fallbackMinorGeo}
-          position={item.pos}
-          rotation={[0, item.road.rotY, 0]}
-          scale={[item.scaleX, 1, item.scaleZ]}
+          position={pos}
+          rotation={[0, seg.rotY, 0]}
+          scale={[scaleX, 1, scaleZ]}
           frustumCulled={false}
           receiveShadow
         >
@@ -171,6 +262,43 @@ export default function CityGround({
             emissiveIntensity={isLight ? 0.0 : isBlue ? 0.06 : 0.02}
             roughness={0.85}
             metalness={0.05}
+          />
+        </mesh>
+      ))}
+
+      {/* 5a. 弯道 — road-curve GLB（L 形拐角的 90° 弧形） */}
+      {curveGeo && curveItems.map(({ curve, pos }, i) => (
+        <mesh
+          key={`curve-${curve.cx.toFixed(2)}-${curve.cz.toFixed(2)}-${i}`}
+          geometry={curveGeo}
+          material={roadVertexMat}
+          position={pos}
+          rotation={[0, curve.rotY, 0]}
+          // road-curve GLB 内 R=4、外 R=8，按 width 缩放 Z（保持长度比例）
+          // 次干道 width=2 → scaleZ = 2/4 = 0.5（更窄弯道）
+          scale={[curve.width / ROAD_GLB_WIDTH, 1, curve.width / ROAD_GLB_WIDTH]}
+          frustumCulled={false}
+          receiveShadow
+        />
+      ))}
+
+      {/* 5b. 弯道 fallback */}
+      {!curveGeo && curveItems.map(({ curve, pos }, i) => (
+        <mesh
+          key={`curve-fb-${curve.cx.toFixed(2)}-${curve.cz.toFixed(2)}-${i}`}
+          geometry={fallbackCurveGeo}
+          position={pos}
+          rotation={[0, curve.rotY, 0]}
+          frustumCulled={false}
+          receiveShadow
+        >
+          <meshStandardMaterial
+            color={minorColor}
+            emissive={isBlue ? theme.colors.accent : minorColor}
+            emissiveIntensity={isLight ? 0.0 : isBlue ? 0.06 : 0.02}
+            roughness={0.85}
+            metalness={0.05}
+            side={THREE.DoubleSide}
           />
         </mesh>
       ))}

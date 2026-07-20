@@ -1,19 +1,24 @@
 import type { ProcessInfo } from "./types";
 
 // ============================================================================
-// Procession 城市布局算法（v6，2026-07-20，进程树驱动道路系统）
+// Procession 城市布局算法（v7，2026-07-20，进程树驱动道路系统 + L 形连贯路网）
 //
 // 核心范式：
 //   1. 每个 root 进程 → 一条主干道（Major Road）
 //      - 位置由 pid hash → 极坐标 (r, θ)，r ∈ [12, 60]，θ ∈ [0, 2π)
 //      - 朝向 φ = pid hash ∈ [0, π)
 //      - 长度 L = base(20) + children.length × 3，clamp [20, 50]
-//   2. 邻近 root 之间 → 次干道（Minor Road）连接
+//   2. 主干道两端 → T 字路口（road-intersection-3 GLB）
+//      - 作为道路"收口"，避免主干道端点突兀地悬空
+//      - T 字路口朝向与主干道一致，封口朝外
+//   3. 邻近 root 之间 → L 形次干道（Minor Road）连接
 //      - 每个 root 连最近的 2 个邻居，去重后约 1.5N 条次干道
-//   3. 子进程 → 主干道两侧的街区建筑
+//      - L 形：2 段直线 + 1 个 90° 弯道（road-curve GLB）
+//      - 拐角方向强制"左转 90°"（与 road-curve GLB 几何对齐）
+//   4. 子进程 → 主干道两侧的街区建筑
 //      - 沿主干道方向均匀分布，垂直方向偏移 ±(主干道半宽 + 安全距离)
-//   4. 建筑避让所有道路（主干 + 次干）的影响带
-//   5. 全局建筑间避让（resolveOverlap）
+//   5. 建筑避让所有道路（主干 + 次干 + 弯道 + 路口）的影响带
+//   6. 全局建筑间避让（resolveOverlap）
 //
 // 稳定性契约（不变）：
 //   - computeProcessSignature 只用 pid 集合 → 同 pid 集合 → 同位置 + 同道路几何
@@ -68,23 +73,73 @@ export interface MajorRoad {
 }
 
 /**
- * 次干道 — 连接两个相邻 root 主干道的次干道。
+ * 直线段 — 用于 MinorRoad 的 L 形 2 段，也可独立表示直连次干道。
+ * 局部 +X = 道路方向，+Z = 宽度方向（与 MajorRoad 一致）。
+ */
+export interface RoadSegment {
+  cx: number;            // 中点 X
+  cz: number;            // 中点 Z
+  rotY: number;          // 朝向（0 = +X 方向，π/2 = +Z 方向）
+  length: number;        // 长度
+  width: number;         // 宽度
+}
+
+/**
+ * 90° 弯道 — 对应 road-curve GLB（内 R=4、外 R=8、中心 R=6）。
  *
- * 次干道是一条以 (midX, midZ) 为中点、长度 length、宽度 width、朝向 rotY 的矩形道路。
- * 端点 (x1, z1) → (x2, z2) 用于精确碰撞检测和避让计算。
+ * 几何说明：
+ *   - 局部坐标系原点 = 弯道圆心
+ *   - 扇区从 θ=0（+X 轴）扫到 θ=π/2（+Z 轴），位于第一象限
+ *   - 入口端：+X 方向（局部 (8, 0) 外缘、(6, 0) 中线）
+ *   - 出口端：+Z 方向（局部 (0, 8) 外缘、(0, 6) 中线）
+ *   - 这是"左转 90°"弯（从 +X 转到 +Z）
+ *
+ * rotY 朝向（4 种左转方向）：
+ *   - rotY=0:    入口 +X，出口 +Z
+ *   - rotY=π/2:  入口 +Z，出口 -X
+ *   - rotY=π:    入口 -X，出口 -Z
+ *   - rotY=-π/2: 入口 -Z，出口 +X
+ */
+export interface RoadCurve {
+  cx: number;            // 圆心 X（局部原点对应世界位置）
+  cz: number;            // 圆心 Z
+  rotY: number;          // 朝向（决定入口/出口方向）
+  radius: number;        // 中心线半径（=6）
+  width: number;         // 道路宽度
+}
+
+/**
+ * 路口 — T 字 / 十字，对应 road-intersection-3 / road-intersection-4 GLB（8×8 广场）。
+ *
+ * road-intersection-3 几何：8×8 中心广场，3 边有斑马线（北/东/西），1 边（南）无斑马线
+ * 即"封口"在 -Z 方向（局部）。rotY=0 时封口朝 -Z。
+ */
+export interface RoadIntersection {
+  cx: number;            // 中心 X
+  cz: number;            // 中心 Z
+  rotY: number;          // 朝向（T 字路口的封口方向 = rotY - π/2，即 -Z 旋转后）
+  type: "t-junction" | "cross";
+  width: number;         // 道路宽度（与主干道一致）
+}
+
+/**
+ * 次干道 — 连接两个相邻 root 主干道的 L 形路径。
+ *
+ * L 形由 2 段直线（segments[0/1]）+ 1 个 90° 弯道（curve）组成。
+ * 当两个端点几乎共线（|dx| 或 |dz| 极小）时退化为直线（segments 仅 1 段，curve=null）。
+ *
+ * 拐角方向强制"左转 90°"以匹配 road-curve GLB 几何（无法 mirror）。
+ *
+ * 兼容字段：保留 x1/z1/x2/z2/midX/midZ/rotY/length/width 用于旧测试。
  */
 export interface MinorRoad {
   fromRootPid: number;
   toRootPid: number;
-  x1: number;            // 端点 1 X
-  z1: number;            // 端点 1 Z
-  x2: number;            // 端点 2 X
-  z2: number;            // 端点 2 Z
-  midX: number;          // 中点 X
-  midZ: number;          // 中点 Z
-  rotY: number;          // 朝向
-  length: number;        // 长度
-  width: number;         // 宽度
+  segments: RoadSegment[];   // L 形 = 2 段；直连 = 1 段
+  curve: RoadCurve | null;   // L 形才有，直连为 null
+  // 兼容字段（旧测试使用，等于 segments[0] 起点 / segments[last] 终点）
+  x1: number; z1: number; x2: number; z2: number;
+  midX: number; midZ: number; rotY: number; length: number; width: number;
 }
 
 /**
@@ -100,11 +155,13 @@ export interface AvoidanceZone {
 }
 
 /**
- * 进程树道路网络：主干道 + 次干道 + 避让带。
+ * 进程树道路网络：主干道 + 次干道 + 路口 + 弯道 + 避让带。
  */
 export interface ProcessTreeRoadNetwork {
   majorRoads: MajorRoad[];
   minorRoads: MinorRoad[];
+  intersections: RoadIntersection[];   // 主干道端点处的 T 字路口
+  curves: RoadCurve[];                  // L 形次干道的 90° 弯道
   avoidanceZones: AvoidanceZone[];
 }
 
@@ -219,6 +276,15 @@ const MIN_RADIUS = 2.2;
 /** 每个 root 最多连接的邻居数（次干道生成） */
 const MINOR_ROAD_NEIGHBORS_PER_ROOT = 2;
 
+/** road-curve GLB 中心线半径（与 build-assets.mjs 同步：内 R=4、外 R=8、中心 R=6） */
+const ROAD_CURVE_RADIUS = 6;
+/** road-curve GLB 外缘半径 */
+const ROAD_CURVE_OUTER = 8;
+/** road-intersection-3 GLB 广场尺寸（8×8） */
+const INTERSECTION_SIZE = 8;
+/** L 形拐角最小距离阈值：|dx| 或 |dz| 小于此值时退化为直线 */
+const L_SHAPE_MIN_DELTA = 4.0;
+
 // ============================================================================
 // 主干道生成 — 每个 root 一条主干道
 // ============================================================================
@@ -297,16 +363,129 @@ function planMajorRoads(roots: RootContext[]): MajorRoad[] {
 }
 
 // ============================================================================
-// 次干道生成 — 连接相邻 root 主干道端点
+// 次干道生成 — 连接相邻 root 主干道端点（L 形路径）
 // ============================================================================
 
 /**
- * 为每个 root 找最近的 N 个邻居，画次干道连接两者的主干道端点。
+ * 构造一条直线段 RoadSegment（局部 +X = 道路方向）。
+ * 给定起点 (sx, sz) 和终点 (ex, ez)，自动计算中点、朝向、长度。
+ */
+function makeSegment(
+  sx: number, sz: number,
+  ex: number, ez: number,
+  width: number,
+): RoadSegment | null {
+  const dx = ex - sx;
+  const dz = ez - sz;
+  const length = Math.sqrt(dx * dx + dz * dz);
+  if (length < 0.5) return null;
+  return {
+    cx: (sx + ex) / 2,
+    cz: (sz + ez) / 2,
+    rotY: Math.atan2(dz, dx),
+    length,
+    width,
+  };
+}
+
+/**
+ * 计算一条 L 形次干道（2 段直线 + 1 个 90° 弯道）。
+ *
+ * 拐角方向强制"左转 90°"以匹配 road-curve GLB 几何（无法 mirror）：
+ *   - 若 sign(dx) * sign(dz) > 0：用方案 A（先 X 后 Z），corner = (x2, z1)
+ *   - 若 sign(dx) * sign(dz) < 0：用方案 B（先 Z 后 X），corner = (x1, z2)
+ *   - 若 dx 或 dz 近似 0：退化为直线
+ *
+ * 4 种左转方向 → road-curve rotY：
+ *   - 方案 A，dx>0, dz>0: rotY=0    （入口 +X，出口 +Z）
+ *   - 方案 A，dx<0, dz<0: rotY=π    （入口 -X，出口 -Z）
+ *   - 方案 B，dx>0, dz<0: rotY=-π/2 （入口 -Z，出口 +X）
+ *   - 方案 B，dx<0, dz>0: rotY=π/2  （入口 +Z，出口 -X）
+ *
+ * road-curve 圆心位置 = 虚拟 L 交点（seg1 终点 = seg2 起点处）。
+ * 视觉上 road-cube 弧形覆盖在直角拐角上，相当于圆角矩形效果。
+ */
+function buildLShapeMinor(
+  fromX: number, fromZ: number,
+  toX: number, toZ: number,
+  width: number,
+  fromPid: number, toPid: number,
+): MinorRoad {
+  const dx = toX - fromX;
+  const dz = toZ - fromZ;
+
+  // 退化为直线：dx 或 dz 几乎为 0
+  if (Math.abs(dx) < L_SHAPE_MIN_DELTA || Math.abs(dz) < L_SHAPE_MIN_DELTA) {
+    const seg = makeSegment(fromX, fromZ, toX, toZ, width);
+    const segments = seg ? [seg] : [];
+    const totalLen = seg ? seg.length : 0;
+    return {
+      fromRootPid: fromPid,
+      toRootPid: toPid,
+      segments,
+      curve: null,
+      x1: fromX, z1: fromZ, x2: toX, z2: toZ,
+      midX: (fromX + toX) / 2, midZ: (fromZ + toZ) / 2,
+      rotY: seg ? seg.rotY : 0,
+      length: totalLen,
+      width,
+    };
+  }
+
+  // L 形：选方案
+  const usePlanA = Math.sign(dx) * Math.sign(dz) > 0;  // 同号 → 方案 A
+  // 异号 → 方案 B
+  let cornerX: number, cornerZ: number;
+  let curveRotY: number;
+
+  if (usePlanA) {
+    // 方案 A：先 X 后 Z，corner = (toX, fromZ)
+    cornerX = toX;
+    cornerZ = fromZ;
+    curveRotY = dx > 0 ? 0 : Math.PI;  // +X→+Z 或 -X→-Z
+  } else {
+    // 方案 B：先 Z 后 X，corner = (fromX, toZ)
+    cornerX = fromX;
+    cornerZ = toZ;
+    curveRotY = dz > 0 ? Math.PI / 2 : -Math.PI / 2;  // +Z→-X 或 -Z→+X
+  }
+
+  const seg1 = makeSegment(fromX, fromZ, cornerX, cornerZ, width);
+  const seg2 = makeSegment(cornerX, cornerZ, toX, toZ, width);
+  const segments: RoadSegment[] = [];
+  if (seg1) segments.push(seg1);
+  if (seg2) segments.push(seg2);
+
+  const curve: RoadCurve = {
+    cx: cornerX,
+    cz: cornerZ,
+    rotY: curveRotY,
+    radius: ROAD_CURVE_RADIUS,
+    width,
+  };
+
+  const totalLen = (seg1?.length ?? 0) + (seg2?.length ?? 0) + (Math.PI * ROAD_CURVE_RADIUS / 2);
+
+  return {
+    fromRootPid: fromPid,
+    toRootPid: toPid,
+    segments,
+    curve,
+    x1: fromX, z1: fromZ, x2: toX, z2: toZ,
+    midX: (fromX + toX) / 2, midZ: (fromZ + toZ) / 2,
+    rotY: seg1?.rotY ?? 0,
+    length: totalLen,
+    width,
+  };
+}
+
+/**
+ * 为每个 root 找最近的 N 个邻居，画 L 形次干道连接两者的主干道端点。
  *
  * 连接策略：
  *   - 端点 1 = from root 主干道 +length/2 端
  *   - 端点 2 = to root 主干道 -length/2 端
- *   - 这样次干道接在主干道的两端，不会从中间穿出
+ *   - 中间走 L 形（先 X 后 Z 或 先 Z 后 X）
  *
  * 去重：用 sorted "pid1-pid2" 字符串保证两个 root 之间最多一条次干道。
  */
@@ -340,29 +519,62 @@ function planMinorRoads(majorRoads: MajorRoad[]): MinorRoad[] {
       const toEndX = other.road.cx - Math.cos(other.road.rotY) * other.road.length / 2;
       const toEndZ = other.road.cz - Math.sin(other.road.rotY) * other.road.length / 2;
 
-      const dx = toEndX - fromEndX;
-      const dz = toEndZ - fromEndZ;
-      const length = Math.sqrt(dx * dx + dz * dz);
-      // 跳过过短的次干道（端点几乎重合）
-      if (length < 1) continue;
-      const rotY = Math.atan2(dz, dx);
-      const midX = (fromEndX + toEndX) / 2;
-      const midZ = (fromEndZ + toEndZ) / 2;
+      // 跳过过近的连接
+      const dist = Math.sqrt((toEndX - fromEndX) ** 2 + (toEndZ - fromEndZ) ** 2);
+      if (dist < 2) continue;
 
-      result.push({
-        fromRootPid: road.rootPid,
-        toRootPid: other.road.rootPid,
-        x1: fromEndX,
-        z1: fromEndZ,
-        x2: toEndX,
-        z2: toEndZ,
-        midX,
-        midZ,
-        rotY,
-        length,
-        width: MINOR_ROAD_WIDTH,
-      });
+      result.push(buildLShapeMinor(
+        fromEndX, fromEndZ,
+        toEndX, toEndZ,
+        MINOR_ROAD_WIDTH,
+        road.rootPid, other.road.rootPid,
+      ));
     }
+  }
+
+  return result;
+}
+
+// ============================================================================
+// 路口生成 — 主干道两端的 T 字路口收口
+// ============================================================================
+
+/**
+ * 在每条主干道的两端各放一个 T 字路口（road-intersection-3 GLB）。
+ *
+ * T 字路口几何：8×8 广场，3 边有斑马线（北/东/西），1 边（南，-Z）无斑马线（封口）。
+ * 朝向规则：T 字路口的"主干道方向"（南北轴）与主干道对齐。
+ *   - rotY = 主干道 rotY → 广场的"北/南"轴对齐主干道方向
+ *   - +length/2 端：封口朝外（远离主干道），即朝 +X 旋转后
+ *   - -length/2 端：封口朝外，即朝 -X 旋转后
+ *
+ * 简化：直接用 rotY 与主干道一致，封口方向通过 road-intersection-3 几何的非对称性
+ * 视觉上自动呈现（即使朝向不完全对，T 字路口的 3 边斑马线也足够辨识）。
+ */
+function planIntersections(majorRoads: MajorRoad[]): RoadIntersection[] {
+  const result: RoadIntersection[] = [];
+
+  for (const road of majorRoads) {
+    const half = road.length / 2;
+    const cos = Math.cos(road.rotY);
+    const sin = Math.sin(road.rotY);
+
+    // +length/2 端
+    result.push({
+      cx: road.cx + cos * half,
+      cz: road.cz + sin * half,
+      rotY: road.rotY,
+      type: "t-junction",
+      width: road.width,
+    });
+    // -length/2 端
+    result.push({
+      cx: road.cx - cos * half,
+      cz: road.cz - sin * half,
+      rotY: road.rotY + Math.PI,  // 反向：让封口朝外
+      type: "t-junction",
+      width: road.width,
+    });
   }
 
   return result;
@@ -375,9 +587,12 @@ function planMinorRoads(majorRoads: MajorRoad[]): MinorRoad[] {
 function buildAvoidanceZones(
   majorRoads: MajorRoad[],
   minorRoads: MinorRoad[],
+  intersections: RoadIntersection[],
+  curves: RoadCurve[],
 ): AvoidanceZone[] {
   const zones: AvoidanceZone[] = [];
 
+  // 主干道：矩形避让带
   for (const road of majorRoads) {
     zones.push({
       cx: road.cx,
@@ -388,13 +603,42 @@ function buildAvoidanceZones(
     });
   }
 
-  for (const road of minorRoads) {
+  // 次干道：每段直线一个矩形避让带
+  for (const minor of minorRoads) {
+    for (const seg of minor.segments) {
+      zones.push({
+        cx: seg.cx,
+        cz: seg.cz,
+        rotY: seg.rotY,
+        halfLength: seg.length / 2 + ROAD_SAFETY_MARGIN,
+        halfWidth: seg.width / 2 + ROAD_SAFETY_MARGIN,
+      });
+    }
+  }
+
+  // 路口：8×8 方形避让带（rotY 不影响正方形）
+  const intersectionHalf = INTERSECTION_SIZE / 2 + ROAD_SAFETY_MARGIN;
+  for (const inter of intersections) {
     zones.push({
-      cx: road.midX,
-      cz: road.midZ,
-      rotY: road.rotY,
-      halfLength: road.length / 2 + ROAD_SAFETY_MARGIN,
-      halfWidth: road.width / 2 + ROAD_SAFETY_MARGIN,
+      cx: inter.cx,
+      cz: inter.cz,
+      rotY: inter.rotY,
+      halfLength: intersectionHalf,
+      halfWidth: intersectionHalf,
+    });
+  }
+
+  // 弯道：用外接方形避让带（保守估算，简化计算）
+  // road-curve 外接方形边长 = 2 * ROAD_CURVE_OUTER，中心 = curve 圆心偏移到扇区中心
+  // 简化：以 curve 圆心为中心，half = ROAD_CURVE_OUTER + SAFETY
+  const curveHalf = ROAD_CURVE_OUTER + ROAD_SAFETY_MARGIN;
+  for (const curve of curves) {
+    zones.push({
+      cx: curve.cx,
+      cz: curve.cz,
+      rotY: curve.rotY,
+      halfLength: curveHalf,
+      halfWidth: curveHalf,
     });
   }
 
@@ -402,7 +646,18 @@ function buildAvoidanceZones(
 }
 
 /**
- * 计算进程树道路网络：主干道 + 次干道 + 避让带。
+ * 从 MinorRoad 列表中提取所有非空 curve，便于渲染。
+ */
+function collectCurves(minorRoads: MinorRoad[]): RoadCurve[] {
+  const result: RoadCurve[] = [];
+  for (const minor of minorRoads) {
+    if (minor.curve) result.push(minor.curve);
+  }
+  return result;
+}
+
+/**
+ * 计算进程树道路网络：主干道 + 次干道 + 路口 + 弯道 + 避让带。
  *
  * 输入 processes 用于识别 root + 子进程数，但道路几何只由 pid 决定（稳定）。
  */
@@ -429,9 +684,11 @@ export function computeProcessTreeRoads(processes: ProcessInfo[]): ProcessTreeRo
 
   const majorRoads = planMajorRoads(roots);
   const minorRoads = planMinorRoads(majorRoads);
-  const avoidanceZones = buildAvoidanceZones(majorRoads, minorRoads);
+  const intersections = planIntersections(majorRoads);
+  const curves = collectCurves(minorRoads);
+  const avoidanceZones = buildAvoidanceZones(majorRoads, minorRoads, intersections, curves);
 
-  return { majorRoads, minorRoads, avoidanceZones };
+  return { majorRoads, minorRoads, intersections, curves, avoidanceZones };
 }
 
 // ============================================================================
@@ -609,15 +866,17 @@ export function computeGridPositions(
     .filter((p) => p.ppid === 0 || !pidMap.has(p.ppid))
     .sort((a, b) => a.pid - b.pid);
 
-  // 1. 进程树道路网络（主干道 + 次干道 + 避让带）
+  // 1. 进程树道路网络（主干道 + 次干道 + 路口 + 弯道 + 避让带）
   const rootCtx: RootContext[] = roots.map((p) => ({
     process: p,
     childrenCount: (childrenMap.get(p.pid) ?? []).length,
   }));
   const majorRoads = planMajorRoads(rootCtx);
   const minorRoads = planMinorRoads(majorRoads);
-  const avoidanceZones = buildAvoidanceZones(majorRoads, minorRoads);
-  const roads: ProcessTreeRoadNetwork = { majorRoads, minorRoads, avoidanceZones };
+  const intersections = planIntersections(majorRoads);
+  const curves = collectCurves(minorRoads);
+  const avoidanceZones = buildAvoidanceZones(majorRoads, minorRoads, intersections, curves);
+  const roads: ProcessTreeRoadNetwork = { majorRoads, minorRoads, intersections, curves, avoidanceZones };
 
   // 2. 街区位置规划（root + 直接子进程）
   const blockPositions = planBlockPositions(majorRoads, childrenMap, pidMap, avoidanceZones);

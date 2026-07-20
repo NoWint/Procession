@@ -158,7 +158,7 @@ export default function App() {
   );
 
   const layoutResult = useMemo(
-    () => (displaySnapshot ? computeGridPositions(displaySnapshot.processes, maxBuildings) : { positions: [] as BuildingPosition[], blocks: [] as BlockInfo[], roads: { majorRoads: [], minorRoads: [], avoidanceZones: [] } }),
+    () => (displaySnapshot ? computeGridPositions(displaySnapshot.processes, maxBuildings) : { positions: [] as BuildingPosition[], blocks: [] as BlockInfo[], roads: { majorRoads: [], minorRoads: [], intersections: [], curves: [], avoidanceZones: [] } }),
     [processSignature, maxBuildings],
   );
   const positions = layoutResult.positions;

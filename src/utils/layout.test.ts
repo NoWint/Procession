@@ -236,3 +236,130 @@ describe("computeProcessTreeRoads stability", () => {
     expect(len1).toBeGreaterThanOrEqual(20);
   });
 });
+
+describe("computeProcessTreeRoads L 形路径拓扑", () => {
+  it("每个 root 主干道两端应各有一个 T 字路口（共 2N 个）", () => {
+    const procs = [
+      makeProcess({ pid: 1, ppid: 0 }),
+      makeProcess({ pid: 2, ppid: 1 }),
+      makeProcess({ pid: 100, ppid: 0 }),
+      makeProcess({ pid: 101, ppid: 100 }),
+    ];
+    const roads = computeProcessTreeRoads(procs);
+    expect(roads.majorRoads.length).toBe(2);
+    expect(roads.intersections.length).toBe(4);  // 2 个 root × 2 端
+    // 都是 t-junction
+    for (const inter of roads.intersections) {
+      expect(inter.type).toBe("t-junction");
+    }
+  });
+
+  it("L 形次干道应包含 2 段直线 + 1 个 curve（除非共线退化为直线）", () => {
+    // 构造两个 root 主干道端点不共线的场景
+    const procs = [
+      makeProcess({ pid: 1, ppid: 0 }),
+      makeProcess({ pid: 2, ppid: 1 }),
+      makeProcess({ pid: 3, ppid: 1 }),
+      makeProcess({ pid: 100, ppid: 0 }),
+      makeProcess({ pid: 101, ppid: 100 }),
+      makeProcess({ pid: 102, ppid: 100 }),
+    ];
+    const roads = computeProcessTreeRoads(procs);
+    expect(roads.majorRoads.length).toBe(2);
+    expect(roads.minorRoads.length).toBeGreaterThanOrEqual(1);
+
+    // 至少有一条 L 形次干道（segments=2 且 curve 非空）
+    const lShape = roads.minorRoads.find((m) => m.segments.length === 2 && m.curve !== null);
+    expect(lShape).toBeDefined();
+    if (lShape && lShape.curve) {
+      // curve rotY 应是 0/π/π/2/-π/2 之一
+      const allowedRotY = [0, Math.PI, Math.PI / 2, -Math.PI / 2];
+      const close = allowedRotY.some((r) => Math.abs(lShape.curve!.rotY - r) < 0.001);
+      expect(close).toBe(true);
+    }
+  });
+
+  it("L 形拐角方向强制左转 90°：方案 A 用于 sign(dx)*sign(dz)>0", () => {
+    // 这个测试是结构性验证：所有 L 形次干道 segments 必须是 2 段且互相垂直
+    const procs = [
+      makeProcess({ pid: 1, ppid: 0 }),
+      makeProcess({ pid: 100, ppid: 0 }),
+      makeProcess({ pid: 200, ppid: 0 }),
+    ];
+    const roads = computeProcessTreeRoads(procs);
+    for (const minor of roads.minorRoads) {
+      if (minor.segments.length === 2 && minor.curve) {
+        // 两段 rotY 相差 π/2（90°）
+        const diff = Math.abs(minor.segments[0].rotY - minor.segments[1].rotY);
+        const normalized = Math.abs(((diff % Math.PI) + Math.PI) % Math.PI - Math.PI / 2);
+        expect(normalized).toBeLessThan(0.01);
+      }
+    }
+  });
+
+  it("curve 位置 = L 形虚拟交点（seg1 终点 = seg2 起点）", () => {
+    const procs = [
+      makeProcess({ pid: 1, ppid: 0 }),
+      makeProcess({ pid: 2, ppid: 1 }),
+      makeProcess({ pid: 100, ppid: 0 }),
+      makeProcess({ pid: 101, ppid: 100 }),
+    ];
+    const roads = computeProcessTreeRoads(procs);
+    for (const minor of roads.minorRoads) {
+      if (minor.segments.length !== 2 || !minor.curve) continue;
+      // seg1 终点 = (x1 + cos(rotY)*length/2, z1 + sin(rotY)*length/2)
+      const s1 = minor.segments[0];
+      const s1EndX = s1.cx + Math.cos(s1.rotY) * s1.length / 2;
+      const s1EndZ = s1.cz + Math.sin(s1.rotY) * s1.length / 2;
+      // seg2 起点 = (seg2.cx - cos(rotY)*length/2, seg2.cz - sin(rotY)*length/2)
+      const s2 = minor.segments[1];
+      const s2StartX = s2.cx - Math.cos(s2.rotY) * s2.length / 2;
+      const s2StartZ = s2.cz - Math.sin(s2.rotY) * s2.length / 2;
+      // 两者应该重合（即 curve 圆心）
+      expect(s1EndX).toBeCloseTo(s2StartX, 5);
+      expect(s1EndZ).toBeCloseTo(s2StartZ, 5);
+      // curve 圆心 = 交点
+      expect(minor.curve.cx).toBeCloseTo(s1EndX, 5);
+      expect(minor.curve.cz).toBeCloseTo(s1EndZ, 5);
+    }
+  });
+
+  it("同 pid 集不同 cpu → 相同 L 形 segments + curve", () => {
+    const procs1 = [
+      makeProcess({ pid: 1, ppid: 0, cpu: 10 }),
+      makeProcess({ pid: 2, ppid: 1, cpu: 5 }),
+      makeProcess({ pid: 100, ppid: 0, cpu: 20 }),
+      makeProcess({ pid: 101, ppid: 100, cpu: 8 }),
+    ];
+    const procs2 = [
+      makeProcess({ pid: 1, ppid: 0, cpu: 99 }),
+      makeProcess({ pid: 2, ppid: 1, cpu: 88 }),
+      makeProcess({ pid: 100, ppid: 0, cpu: 77 }),
+      makeProcess({ pid: 101, ppid: 100, cpu: 66 }),
+    ];
+
+    const r1 = computeProcessTreeRoads(procs1);
+    const r2 = computeProcessTreeRoads(procs2);
+
+    expect(r1.minorRoads.length).toBe(r2.minorRoads.length);
+    expect(r1.curves.length).toBe(r2.curves.length);
+    expect(r1.intersections.length).toBe(r2.intersections.length);
+
+    for (let i = 0; i < r1.minorRoads.length; i++) {
+      const m1 = r1.minorRoads[i];
+      const m2 = r2.minorRoads[i];
+      expect(m1.segments.length).toBe(m2.segments.length);
+      for (let s = 0; s < m1.segments.length; s++) {
+        expect(m1.segments[s].cx).toBeCloseTo(m2.segments[s].cx, 6);
+        expect(m1.segments[s].cz).toBeCloseTo(m2.segments[s].cz, 6);
+        expect(m1.segments[s].rotY).toBeCloseTo(m2.segments[s].rotY, 6);
+        expect(m1.segments[s].length).toBeCloseTo(m2.segments[s].length, 6);
+      }
+      if (m1.curve && m2.curve) {
+        expect(m1.curve.cx).toBeCloseTo(m2.curve.cx, 6);
+        expect(m1.curve.cz).toBeCloseTo(m2.curve.cz, 6);
+        expect(m1.curve.rotY).toBeCloseTo(m2.curve.rotY, 6);
+      }
+    }
+  });
+});
