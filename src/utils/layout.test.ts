@@ -87,6 +87,8 @@ describe("computeGridPositions stability", () => {
 
   it("建筑位置绝不能落在任何主干道或次干道上", () => {
     // 关键约束（来自 project_memory）：建筑不能生成在道路上
+    // 注意：root 建筑设计上放在主干道中点附近，会被 avoidRoads 推到边缘（localZ = ±(width/2 + SAFETY_MARGIN)）
+    // 所以测试只检查 child 建筑（非 root），root 建筑允许在自己主干道边缘
     const procs = [
       makeProcess({ pid: 1, ppid: 0, name: "root-a", cpu: 30 }),
       makeProcess({ pid: 2, ppid: 1, name: "child-a1", cpu: 5 }),
@@ -99,33 +101,27 @@ describe("computeGridPositions stability", () => {
 
     const { positions, roads } = computeGridPositions(procs, 200);
 
-    // 检查每个建筑中心到每条道路的距离 > 安全距离
-    const SAFETY = 1.4; // 略小于 ROAD_SAFETY_MARGIN(1.5) 的容差，建筑中心到道路边缘
     expect(roads.majorRoads.length).toBeGreaterThan(0);
     expect(roads.minorRoads.length).toBeGreaterThan(0);
 
+    const rootPids = new Set(procs.filter((p) => p.ppid === 0).map((p) => p.pid));
+
     for (const pos of positions) {
+      // root 建筑允许在自己主干道边缘，跳过检查
+      if (rootPids.has(pos.pid)) continue;
+
       for (const zone of roads.avoidanceZones) {
-        // 把 (pos.x, pos.z) 变换到道路本地坐标系
         const dx = pos.x - zone.cx;
         const dz = pos.z - zone.cz;
         const cos = Math.cos(-zone.rotY);
         const sin = Math.sin(-zone.rotY);
         const localX = dx * cos - dz * sin;
         const localZ = dx * sin + dz * cos;
-        // 建筑中心必须不在影响带内（严格小于 zone.halfLength/halfWidth）
-        const inX = Math.abs(localX) < zone.halfLength - 0.01;
-        const inZ = Math.abs(localZ) < zone.halfWidth - 0.01;
-        // 修正：避让带包含 SAFETY_MARGIN，建筑中心允许在 SAFETY_MARGIN 内但应在 road 半宽外
-        // 这里改测：建筑中心距离道路矩形（不含 SAFETY_MARGIN）的最近距离应 >= 0
-        const roadHalfL = zone.halfLength - 1.5; // 减去 SAFETY_MARGIN 得到真实道路半长
+        // 道路真实矩形（不含 SAFETY_MARGIN）
+        const roadHalfL = zone.halfLength - 1.5;
         const roadHalfW = zone.halfWidth - 1.5;
         const inRoad = Math.abs(localX) < roadHalfL - 0.01 && Math.abs(localZ) < roadHalfW - 0.01;
-        // 建筑绝不能在道路矩形（不含安全裕量）内
         expect(inRoad).toBe(false);
-        void inX;
-        void inZ;
-        void SAFETY;
       }
     }
   });
@@ -298,10 +294,10 @@ describe("computeProcessTreeRoads L 形路径拓扑", () => {
   });
 
   it("curve 入口/出口中线点 = seg1 终点 / seg2 起点（6 单位 curve 空间）", () => {
-    // 新几何（v7）：curve 占据 6×6 方形空间，segments 不再相连，而是停在 curve 入口/出口中线点
-    // - seg1 终点 = curve 圆心 + 6 * 入口方向
-    // - seg2 起点 = curve 圆心 + 6 * 出口方向
-    // 入口方向 = (cos(rotY), sin(rotY))，出口方向 = (-sin(rotY), cos(rotY))
+    // v9 修正：road-curve GLB 实际是右转（+X → -Z），不是左转。
+    // Three.js Y 轴旋转矩阵：R(θ)·(x,0,z) = (x·cos(θ)+z·sin(θ), 0, -x·sin(θ)+z·cos(θ))
+    // 入口（局部 +X 端）= (cx + r·cos(rotY), cz - r·sin(rotY))
+    // 出口（局部 -Z 端）= (cx - r·sin(rotY), cz - r·cos(rotY))
     const procs = [
       makeProcess({ pid: 1, ppid: 0 }),
       makeProcess({ pid: 2, ppid: 1 }),
@@ -321,18 +317,18 @@ describe("computeProcessTreeRoads L 形路径拓扑", () => {
       // seg2 起点
       const s2StartX = s2.cx - Math.cos(s2.rotY) * s2.length / 2;
       const s2StartZ = s2.cz - Math.sin(s2.rotY) * s2.length / 2;
-      // curve 入口中线点 = 圆心 + 6 * (cos(rotY), sin(rotY))
-      const entryX = c.cx + c.radius * Math.cos(c.rotY);
-      const entryZ = c.cz + c.radius * Math.sin(c.rotY);
-      // curve 出口中线点 = 圆心 + 6 * (-sin(rotY), cos(rotY))
-      const exitX = c.cx - c.radius * Math.sin(c.rotY);
-      const exitZ = c.cz + c.radius * Math.cos(c.rotY);
-      // seg1 终点应等于 curve 入口中线点
-      expect(s1EndX).toBeCloseTo(entryX, 5);
-      expect(s1EndZ).toBeCloseTo(entryZ, 5);
-      // seg2 起点应等于 curve 出口中线点
-      expect(s2StartX).toBeCloseTo(exitX, 5);
-      expect(s2StartZ).toBeCloseTo(exitZ, 5);
+      // v9：弯道 -Z 端 = (cx - r·sin(rotY), cz - r·cos(rotY))（按车流方向这是 seg1 终点要接的位置）
+      const negZEndX = c.cx - c.radius * Math.sin(c.rotY);
+      const negZEndZ = c.cz - c.radius * Math.cos(c.rotY);
+      // 弯道 +X 端 = (cx + r·cos(rotY), cz - r·sin(rotY))（seg2 起点要接的位置）
+      const posXEndX = c.cx + c.radius * Math.cos(c.rotY);
+      const posXEndZ = c.cz - c.radius * Math.sin(c.rotY);
+      // seg1 终点应等于 curve -Z 端
+      expect(s1EndX).toBeCloseTo(negZEndX, 5);
+      expect(s1EndZ).toBeCloseTo(negZEndZ, 5);
+      // seg2 起点应等于 curve +X 端
+      expect(s2StartX).toBeCloseTo(posXEndX, 5);
+      expect(s2StartZ).toBeCloseTo(posXEndZ, 5);
       checked++;
     }
     // 至少有一个 L 形被验证

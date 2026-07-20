@@ -274,9 +274,10 @@ export default function CityGround({
           material={roadVertexMat}
           position={pos}
           rotation={[0, curve.rotY, 0]}
-          // road-curve GLB 内 R=4、外 R=8，按 width 缩放 Z（保持长度比例）
-          // 次干道 width=2 → scaleZ = 2/4 = 0.5（更窄弯道）
-          scale={[curve.width / ROAD_GLB_WIDTH, 1, curve.width / ROAD_GLB_WIDTH]}
+          // 关键：不缩放！road-curve GLB 原始 R=4-8、中线 R=6，与算法 ROAD_CURVE_RADIUS=6 严格匹配。
+          // 若缩放（width/4=0.5），GLB 实际几何缩到 R=2-4、中线 R=3，
+          // 但算法按 R=6 算 segments 端点 → segments 与 curve 之间出现 3 单位空隙 → 视觉上不首尾相接。
+          scale={[1, 1, 1]}
           frustumCulled={false}
           receiveShadow
         />
