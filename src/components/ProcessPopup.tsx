@@ -286,7 +286,7 @@ export default function ProcessPopup({
             <div className="process-popup-row">
               <span className="process-popup-label">{t("popup.block")}</span>
               <span className="process-popup-value">
-                {t("popup.block_summary", { letter: containingBlock.letter, count: containingBlock.processCount })}
+                {t("popup.block_summary", { rootName: containingBlock.rootName, count: containingBlock.processCount })}
               </span>
             </div>
             <div className="process-popup-row">

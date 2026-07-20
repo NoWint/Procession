@@ -19,5 +19,11 @@ Thumbs.db
 dist/
 build/
 
+# Debug logs
+debug.log
+
+# Playwright temporary artifacts
+test-results/
+
 # Brainstorming mockups
 .superpowers/

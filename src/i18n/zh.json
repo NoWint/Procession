@@ -52,7 +52,7 @@
   "popup.network_connections": "网络连接",
   "popup.containing_block": "所在街区",
   "popup.block": "街区",
-  "popup.block_summary": "{letter} · 共 {count} 进程",
+  "popup.block_summary": "{rootName} · 共 {count} 进程",
   "popup.coordinate": "坐标",
   "popup.coordinate_format": "({x}, {z})",
   "popup.pid": "PID",

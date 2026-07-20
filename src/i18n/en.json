@@ -52,7 +52,7 @@
   "popup.network_connections": "Network connections",
   "popup.containing_block": "Containing block",
   "popup.block": "Block",
-  "popup.block_summary": "{letter} · {count} processes",
+  "popup.block_summary": "{rootName} · {count} processes",
   "popup.coordinate": "Coordinate",
   "popup.coordinate_format": "({x}, {z})",
   "popup.pid": "PID",

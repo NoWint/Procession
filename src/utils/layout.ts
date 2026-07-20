@@ -1,12 +1,19 @@
 import type { ProcessInfo } from "./types";
-import {
-  isSystemProcess,
-  isDatabaseProcess,
-  isBrowserProcess,
-  isEditorProcess,
-  isRuntimeProcess,
-  isCloudProcess,
-} from "./colors";
+
+// ============================================================================
+// Procession 城市布局算法
+//
+// 核心范式（v2，2026-07-20）：
+//   1. 主动道路骨架先行 — 固定几何（十字/内外环/放射），不依赖进程数
+//   2. 街区按父子拓扑划分 — 每个 root + 其 children = 一个独立街区
+//   3. 建筑避让主动道路 — 距离 < 安全距离则沿垂直方向推开
+//   4. 建筑间留足安全距离 — 全局 resolveOverlap
+//   5. 被动道路由 CityGround 渲染 — 填充街区与街区、建筑与建筑之间的空隙
+//
+// 稳定性契约（不变）：
+//   - computeProcessSignature 只用 pid 集合 → 同 pid 集合 → 同位置
+//   - cpu 变化通过 useFrame 缓动 height 体现，不触发 positions 重算
+// ============================================================================
 
 export interface BuildingPosition {
   x: number;
@@ -19,46 +26,75 @@ export interface BuildingPosition {
   childCount?: number;
 }
 
-export interface SubBlockInfo {
-  x: number;
-  z: number;
-  minX: number;
-  maxX: number;
-  minZ: number;
-  maxZ: number;
-}
-
+// 街区 = 一个 root + 其子进程组（不再按进程类型分组）
 export interface BlockInfo {
-  letter: string;        // 保留字段名兼容，现在存的是 typeKey
-  typeKey: string;      // system/browser/editor/database/cloud/runtime/user
-  typeName: string;     // 中文显示名（系统服务/浏览器/编辑器...）
+  rootPid: number;             // 街区所属的 root 进程 pid
+  rootName: string;            // root 进程名（用于显示）
+  typeKey: string;             // 兼容字段（保留用于着色）
+  typeName: string;           // 显示名
   x: number;
   z: number;
   minX: number;
   maxX: number;
   minZ: number;
   maxZ: number;
-  subblocks: SubBlockInfo[];
+  radius: number;              // 街区半径（包络所有子进程）
   processCount: number;
 }
 
-/**
- * 进程类型分组：替代之前的首字母分组。
- * 类型分组有空间逻辑：相同类型的进程聚集在同一街区，
- * 用户能预测"系统进程在西北、浏览器在东南"等空间关系。
- *
- * 类型→街区位置的映射是固定的（不随运行进程变化），
- * 这样用户能在脑中建立"城市地图"。
- */
-const TYPE_GROUP_ORDER = [
-  { key: "system",   name: "系统服务" },
-  { key: "database", name: "数据库" },
-  { key: "browser",  name: "浏览器" },
-  { key: "editor",   name: "编辑器" },
-  { key: "runtime",  name: "运行时" },
-  { key: "cloud",    name: "云服务" },
-  { key: "user",     name: "用户进程" },
-] as const;
+// 主动道路骨架（固定，不依赖进程）
+export interface RoadSegment {
+  type: "straight" | "ring" | "radial";
+  // 直道用：中心 (x,z)，长度 length，方向 rotY（绕 Y）
+  // 环道用：中心 (x,z)=(0,0)，半径 radius
+  // 放射道用：起始 (x,z)，长度 length，方向 rotY
+  x: number;
+  z: number;
+  rotY: number;
+  length: number;
+  width: number;
+  radius?: number;             // ring 用
+}
+
+export interface RoadNetwork {
+  segments: RoadSegment[];
+  // 用于建筑避让的简化表示：每段道路的"影响带"（AABB 形式）
+  avoidanceZones: Array<{
+    type: "strip" | "ring";
+    // strip：以 (x,z) 为中心，rotY 为方向，半长 halfLength，半宽 halfWidth
+    cx: number;
+    cz: number;
+    rotY: number;
+    halfLength: number;
+    halfWidth: number;
+    // ring：以 (0,0) 为中心，半径 ringRadius，环宽 ringWidth
+    ringRadius?: number;
+    ringWidth?: number;
+  }>;
+}
+
+// ============================================================================
+// 进程分类（保留兼容字段，用于建筑着色，不再用于街区分组）
+// ============================================================================
+
+import {
+  isSystemProcess,
+  isDatabaseProcess,
+  isBrowserProcess,
+  isEditorProcess,
+  isRuntimeProcess,
+  isCloudProcess,
+} from "./colors";
+
+const TYPE_GROUP_INFO: Record<string, { name: string }> = {
+  system:   { name: "系统服务" },
+  database: { name: "数据库" },
+  browser:  { name: "浏览器" },
+  editor:   { name: "编辑器" },
+  runtime:  { name: "运行时" },
+  cloud:    { name: "云服务" },
+  user:     { name: "用户进程" },
+};
 
 export function classifyProcess(p: ProcessInfo): string {
   if (isDatabaseProcess(p)) return "database";
@@ -71,28 +107,19 @@ export function classifyProcess(p: ProcessInfo): string {
 }
 
 export function getTypeGroupInfo(typeKey: string): { key: string; name: string } {
-  return TYPE_GROUP_ORDER.find((g) => g.key === typeKey) ?? TYPE_GROUP_ORDER[TYPE_GROUP_ORDER.length - 1];
+  const info = TYPE_GROUP_INFO[typeKey] ?? TYPE_GROUP_INFO.user;
+  return { key: typeKey, name: info.name };
 }
 
 export function cpuToHeight(cpu: number): number {
   return Math.max(1, 1 + cpu * 0.21);
 }
 
-/**
- * Returns a cheap signature of the process list that changes only when the
- * process topology (pid/ppid/name) changes — NOT on cpu fluctuations,
- * NOT on processes.length (which fluctuates when transient processes appear/disappear).
- *
- * 关键设计：
- *   - 不包含 cpu（cpu 每秒波动）
- *   - 不包含 processes.length（进程数微变会触发重算）
- *   - 只用 pid 集合的稳定哈希（顺序无关，避免 list 顺序影响）
- *
- * 这样签名只在 pid 集合变化时变，cpu/进程数微变都不会触发 positions 重算。
- * cpu 变化由 useFrame 差分更新 height。
- */
+// ============================================================================
+// 位置签名 — 只用 pid 集合（顺序无关），保证 cpu 变化不影响 positions
+// ============================================================================
+
 export function computeProcessSignature(processes: ProcessInfo[]): string {
-  // 用 Set 去重 + 排序，保证顺序无关
   const pids = Array.from(new Set(processes.map((p) => p.pid))).sort((a, b) => a - b);
   let h = 0;
   for (const pid of pids) {
@@ -101,45 +128,9 @@ export function computeProcessSignature(processes: ProcessInfo[]): string {
   return `${pids.length}:${h}`;
 }
 
-/// Generate grid coordinates in spiral order from center.
-/// Returns [row, col] pairs starting at center and spiraling outward.
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function spiralGridIndices(side: number): [number, number][] {
-  const result: [number, number][] = [];
-  const center = Math.floor(side / 2);
-  let r = center;
-  let c = center;
-  result.push([r, c]);
-  let step = 1;
-  while (result.length < side * side) {
-    for (let i = 0; i < step && result.length < side * side; i++) {
-      c++;
-      if (c >= 0 && c < side && r >= 0 && r < side) result.push([r, c]);
-    }
-    for (let i = 0; i < step && result.length < side * side; i++) {
-      r++;
-      if (c >= 0 && c < side && r >= 0 && r < side) result.push([r, c]);
-    }
-    step++;
-    for (let i = 0; i < step && result.length < side * side; i++) {
-      c--;
-      if (c >= 0 && c < side && r >= 0 && r < side) result.push([r, c]);
-    }
-    for (let i = 0; i < step && result.length < side * side; i++) {
-      r--;
-      if (c >= 0 && c < side && r >= 0 && r < side) result.push([r, c]);
-    }
-    step++;
-  }
-  return result;
-}
-
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const CELL_SIZE = 3.0;
-// MIN_RADIUS 用于 resolveOverlap：两个建筑中心最小间距
-// 最大变体 building-system baseWidth=1.8，半径 0.9；加上 0.6 边距 = 1.5
-// 但 childRadius 已给 root-children 留空间，这里主要防 root 间穿模
-const MIN_RADIUS = 2.2;
+// ============================================================================
+// 哈希辅助 — 用于 pid-based 抖动（不用 name）
+// ============================================================================
 
 function hashSeed(seed: number): number {
   let h = seed | 0;
@@ -151,10 +142,206 @@ function hashSeed(seed: number): number {
   return (h >>> 0) / 4294967296;
 }
 
+// ============================================================================
+// 主动道路骨架（固定，不依赖进程数）
+// ============================================================================
+
+// 安全距离：建筑中心到道路边缘的最小距离
+const ROAD_SAFETY_MARGIN = 1.5;
+
+// 城市半径（地板半边长）
+const CITY_RADIUS = 80;
+
+// 主干道宽（双向 4 车道）
+const MAIN_ROAD_WIDTH = 4.0;
+// 环道宽
+const RING_ROAD_WIDTH = 3.0;
+// 放射干道宽
+const RADIAL_ROAD_WIDTH = 2.5;
+
+// 内环半径
+const INNER_RING_R = 32;
+// 外环半径
+const OUTER_RING_R = 64;
+
+// 放射干道数量（每 45° 一条）
+const RADIAL_COUNT = 8;
+// 放射干道起始半径（避开中心十字路口）
+const RADIAL_START_R = 8;
+// 放射干道终止半径（不超过城市）
+const RADIAL_END_R = 70;
+
 /**
- * 解决冲突：把 (x,z) 推离所有 placed 中距离过近的建筑。
- * 最多迭代 30 次，每次推离 MIN_RADIUS - dist 的距离。
+ * 生成固定主动道路骨架。
+ * 不依赖进程数，城市拓扑始终稳定。
+ *
+ * 骨架构成：
+ *   - 2 条主干道：沿 X 轴 + Z 轴穿过中心
+ *   - 2 条环道：内环 (r=32) + 外环 (r=64)
+ *   - 8 条放射干道：从 r=8 到 r=70，每 45° 一条
  */
+export function computeRoadNetwork(): RoadNetwork {
+  const segments: RoadSegment[] = [];
+  const avoidanceZones: RoadNetwork["avoidanceZones"] = [];
+
+  // 1. 十字主干道（横向，沿 X 轴方向，z=0）
+  segments.push({
+    type: "straight",
+    x: 0, z: 0, rotY: 0,
+    length: CITY_RADIUS * 2 - 4,
+    width: MAIN_ROAD_WIDTH,
+  });
+  avoidanceZones.push({
+    type: "strip",
+    cx: 0, cz: 0, rotY: 0,
+    halfLength: CITY_RADIUS - 2,
+    halfWidth: MAIN_ROAD_WIDTH / 2 + ROAD_SAFETY_MARGIN,
+  });
+
+  // 2. 十字主干道（纵向，沿 Z 轴方向，x=0）
+  segments.push({
+    type: "straight",
+    x: 0, z: 0, rotY: Math.PI / 2,
+    length: CITY_RADIUS * 2 - 4,
+    width: MAIN_ROAD_WIDTH,
+  });
+  avoidanceZones.push({
+    type: "strip",
+    cx: 0, cz: 0, rotY: Math.PI / 2,
+    halfLength: CITY_RADIUS - 2,
+    halfWidth: MAIN_ROAD_WIDTH / 2 + ROAD_SAFETY_MARGIN,
+  });
+
+  // 3. 内环（r=32）
+  segments.push({
+    type: "ring",
+    x: 0, z: 0, rotY: 0,
+    length: 0, width: RING_ROAD_WIDTH,
+    radius: INNER_RING_R,
+  });
+  avoidanceZones.push({
+    type: "ring",
+    cx: 0, cz: 0, rotY: 0,
+    halfLength: 0, halfWidth: 0,
+    ringRadius: INNER_RING_R,
+    ringWidth: RING_ROAD_WIDTH + ROAD_SAFETY_MARGIN * 2,
+  });
+
+  // 4. 外环（r=64）
+  segments.push({
+    type: "ring",
+    x: 0, z: 0, rotY: 0,
+    length: 0, width: RING_ROAD_WIDTH,
+    radius: OUTER_RING_R,
+  });
+  avoidanceZones.push({
+    type: "ring",
+    cx: 0, cz: 0, rotY: 0,
+    halfLength: 0, halfWidth: 0,
+    ringRadius: OUTER_RING_R,
+    ringWidth: RING_ROAD_WIDTH + ROAD_SAFETY_MARGIN * 2,
+  });
+
+  // 5. 8 条放射干道（从 r=RADIAL_START_R 到 r=RADIAL_END_R）
+  for (let i = 0; i < RADIAL_COUNT; i++) {
+    const angle = (i / RADIAL_COUNT) * Math.PI * 2;
+    // 起点在 r=RADIAL_START_R 处，沿 angle 方向延伸到 r=RADIAL_END_R
+    const startX = Math.cos(angle) * RADIAL_START_R;
+    const startZ = Math.sin(angle) * RADIAL_START_R;
+    const length = RADIAL_END_R - RADIAL_START_R;
+    segments.push({
+      type: "radial",
+      x: startX, z: startZ,
+      rotY: angle,
+      length,
+      width: RADIAL_ROAD_WIDTH,
+    });
+    // 放射道的避让带：中心在起点+方向*length/2
+    const midX = Math.cos(angle) * (RADIAL_START_R + length / 2);
+    const midZ = Math.sin(angle) * (RADIAL_START_R + length / 2);
+    avoidanceZones.push({
+      type: "strip",
+      cx: midX, cz: midZ, rotY: angle,
+      halfLength: length / 2,
+      halfWidth: RADIAL_ROAD_WIDTH / 2 + ROAD_SAFETY_MARGIN,
+    });
+  }
+
+  return { segments, avoidanceZones };
+}
+
+// ============================================================================
+// 道路避让 — 把 (x,z) 推离所有主动道路
+// ============================================================================
+
+function avoidRoads(
+  x: number,
+  z: number,
+  network: RoadNetwork,
+): { x: number; z: number } {
+  let cx = x;
+  let cz = z;
+
+  for (const zone of network.avoidanceZones) {
+    if (zone.type === "strip") {
+      // 把 (x,z) 变换到道路本地坐标系
+      const dx = cx - zone.cx;
+      const dz = cz - zone.cz;
+      const cos = Math.cos(-zone.rotY);
+      const sin = Math.sin(-zone.rotY);
+      const localX = dx * cos - dz * sin;
+      const localZ = dx * sin + dz * cos;
+      // 在本地坐标里判断是否在影响带内
+      if (
+        Math.abs(localX) < zone.halfLength &&
+        Math.abs(localZ) < zone.halfWidth
+      ) {
+        // 推开：选择 X 或 Z 方向中较小的推开量
+        const pushX = zone.halfLength - Math.abs(localX);
+        const pushZ = zone.halfWidth - Math.abs(localZ);
+        let newLocalX = localX;
+        let newLocalZ = localZ;
+        if (pushZ < pushX) {
+          // 沿 Z 方向推开
+          newLocalZ = localZ >= 0 ? zone.halfWidth : -zone.halfWidth;
+        } else {
+          // 沿 X 方向推开（直道不会发生，但保留）
+          newLocalX = localX >= 0 ? zone.halfLength : -zone.halfLength;
+        }
+        // 变换回世界坐标
+        const cos2 = Math.cos(zone.rotY);
+        const sin2 = Math.sin(zone.rotY);
+        cx = zone.cx + newLocalX * cos2 - newLocalZ * sin2;
+        cz = zone.cz + newLocalX * sin2 + newLocalZ * cos2;
+      }
+    } else if (zone.type === "ring" && zone.ringRadius != null && zone.ringWidth != null) {
+      const dx = cx;
+      const dz = cz;
+      const dist = Math.sqrt(dx * dx + dz * dz);
+      const innerR = zone.ringRadius - zone.ringWidth / 2;
+      const outerR = zone.ringRadius + zone.ringWidth / 2;
+      if (dist > innerR && dist < outerR && dist > 0.001) {
+        // 推到最近的环边
+        const toInner = dist - innerR;
+        const toOuter = outerR - dist;
+        const targetR = toInner < toOuter ? innerR : outerR;
+        const scale = targetR / dist;
+        cx = dx * scale;
+        cz = dz * scale;
+      }
+    }
+  }
+
+  return { x: cx, z: cz };
+}
+
+// ============================================================================
+// 街区间避让 — 两个建筑中心最小间距
+// ============================================================================
+
+// 街区/建筑间最小距离（半径之和，加上安全间隙）
+const MIN_RADIUS = 2.2;
+
 function resolveOverlap(
   x: number,
   z: number,
@@ -180,9 +367,82 @@ function resolveOverlap(
   return { x: cx, z: cz };
 }
 
-/// Group processes by first letter of name → each letter gets its own
-/// block district. Each block is sub-divided into 1-8 "subblocks" based
-/// on root process count, with minor roads running between subblocks.
+// ============================================================================
+// 街区位置规划 — 每个 root 独立街区，分布在 8 个扇区内
+// ============================================================================
+
+// 城市分区：8 个扇区，每个扇区中心在 r=SECTOR_RADIUS 处
+// SECTOR_RADIUS 已为被动道路 + 安全区预留间距（街区半径 + BLOCK_GAP ≈ 8 单位）
+const SECTOR_RADIUS = 22;        // 内圈街区半径
+const SECTOR_RADIUS_OUTER = 48; // 外圈街区半径
+
+/**
+ * 为 root family 列表规划街区位置。
+ * 每个 root 对应一个街区，街区位置由扇区分布 + 螺旋偏移决定。
+ *
+ * 策略：
+ *   - 第 0 个 root → 中心街区 (r=12, 在 X+ 方向避开十字路口)
+ *   - 第 1-8 个 root → 内圈扇区（r=SECTOR_RADIUS，每 45° 一个）
+ *   - 第 9-16 个 root → 外圈扇区（r=SECTOR_RADIUS_OUTER）
+ *   - 第 17+ 个 root → 更远螺旋分布
+ *
+ * 位置由 root 在 sortedRoots 中的索引决定，但 sortedRoots 按 pid 排序保证稳定。
+ */
+function planBlockCenters(
+  sortedRoots: ProcessInfo[],
+  network: RoadNetwork,
+): Map<number, { x: number; z: number }> {
+  const result = new Map<number, { x: number; z: number }>();
+
+  sortedRoots.forEach((root, idx) => {
+    let bx: number;
+    let bz: number;
+
+    if (idx === 0) {
+      // 第一个 root 放在中心街区（X+ 方向，避开十字路口）
+      // 十字路口占 x∈[-2,2], z∈[-2,2]，街区中心在 (10, 8) 避开
+      bx = 12;
+      bz = 10;
+    } else if (idx <= 8) {
+      // 内圈 8 个扇区，每 45° 一个，起始角度 45°（避开十字路口）
+      const sectorIdx = idx - 1;
+      const angle = (sectorIdx / 8) * Math.PI * 2 + Math.PI / 8;
+      bx = Math.cos(angle) * SECTOR_RADIUS;
+      bz = Math.sin(angle) * SECTOR_RADIUS;
+    } else if (idx <= 16) {
+      // 外圈 8 个扇区，错开内圈
+      const sectorIdx = idx - 9;
+      const angle = (sectorIdx / 8) * Math.PI * 2 + Math.PI / 8 + Math.PI / 16;
+      bx = Math.cos(angle) * SECTOR_RADIUS_OUTER;
+      bz = Math.sin(angle) * SECTOR_RADIUS_OUTER;
+    } else {
+      // 更远：螺旋分布到 r=68 处
+      const outer = idx - 17;
+      const angle = (outer / 6) * Math.PI * 2;
+      const radius = 60 + outer * 1.5;
+      bx = Math.cos(angle) * radius;
+      bz = Math.sin(angle) * radius;
+    }
+
+    // 用 pid 哈希做微抖动（避免完全规整的网格感）
+    bx += (hashSeed(root.pid) - 0.5) * 1.2;
+    bz += (hashSeed(root.pid + 1) - 0.5) * 1.2;
+
+    // 避让主动道路（街区中心本身不能在道路上）
+    const avoided = avoidRoads(bx, bz, network);
+    bx = avoided.x;
+    bz = avoided.z;
+
+    result.set(root.pid, { x: bx, z: bz });
+  });
+
+  return result;
+}
+
+// ============================================================================
+// 主入口：computeGridPositions
+// ============================================================================
+
 export function computeGridPositions(
   processes: ProcessInfo[],
   maxBuildings: number = 200,
@@ -201,154 +461,91 @@ export function computeGridPositions(
     list.push(p);
     childrenMap.set(p.ppid, list);
   }
-  // 用 pid 稳定排序：pid 在进程生命周期内不变，避免 1Hz 推送中顺序漂移
+  // 子进程按 pid 排序（绝对稳定）
   for (const list of childrenMap.values()) list.sort((a, b) => a.pid - b.pid);
 
   const roots = filtered.filter((p) => p.ppid <= 1 || !pidMap.has(p.ppid));
+  // roots 按 pid 排序（不再按类型分组）
+  const sortedRoots = [...roots].sort((a, b) => a.pid - b.pid);
 
-  // 按进程类型分组（替代首字母分组）：相同类型聚集在同一街区，可建立空间地图
-  const typeGroups = new Map<string, ProcessInfo[]>();
-  for (const r of roots) {
-    const typeKey = classifyProcess(r);
-    if (!typeGroups.has(typeKey)) typeGroups.set(typeKey, []);
-    typeGroups.get(typeKey)!.push(r);
-  }
-  // rootList 按 pid 排序（绝对稳定），不按 name（name 可能因路径不同而排序变化）
-  for (const list of typeGroups.values()) list.sort((a, b) => a.pid - b.pid);
-  // 固定顺序：system → database → browser → editor → runtime → cloud → user
-  const sortedKeys = TYPE_GROUP_ORDER
-    .map((g) => g.key)
-    .filter((k) => typeGroups.has(k));
+  // 1. 主动道路骨架（固定）
+  const network = computeRoadNetwork();
 
-  const blockCols = 8;
-  const blockCell = 16.0;        // 街区间距（给主干道留空间）
-  const subGap = 1.5;            // 小区间距（支干道宽度）
-  const inSubCell = 3.8;         // 小区内 root 间距（加大：system 变体 1.8 宽 + 边距）
-  const childPad = 2.0;          // 街区边界向外留白（容纳子进程环绕）
+  // 2. 街区位置规划
+  const blockCenters = planBlockCenters(sortedRoots, network);
 
   const result: BuildingPosition[] = [];
   const blockInfo: BlockInfo[] = [];
   const placed = new Set<number>();
 
-  // 街区网格在两个方向都居中：之前 bx 从 0 开始向 +x 延伸（最大 112），
-  // 但地板是 ±80 居中，导致建筑全部偏到 +x 侧，-x 侧空荡。
-  // 现在根据实际街区数计算 cols/rows，让街区中心在原点。
-  const totalBlocks = sortedKeys.length;
-  const gridCols = Math.max(1, Math.min(totalBlocks, blockCols));
-  const gridRows = Math.max(1, Math.ceil(totalBlocks / gridCols));
-  const totalWidth = (gridCols - 1) * blockCell;
-  const totalDepth = (gridRows - 1) * blockCell;
-  const startX = -totalWidth / 2;
-  const startZ = -totalDepth / 2;
+  // 3. 每个 root + 子进程 = 一个街区
+  sortedRoots.forEach((root) => {
+    const center = blockCenters.get(root.pid)!;
+    let bx = center.x;
+    let bz = center.z;
 
-  sortedKeys.forEach((typeKey, bi) => {
-    const rootList = typeGroups.get(typeKey)!;
-    rootList.sort((a, b) => a.name.localeCompare(b.name));
+    const kids = (childrenMap.get(root.pid) ?? []).filter((k) => pidMap.has(k.pid));
+    // 街区半径 = 容纳所有子进程的最小半径
+    const childRadius = 2.4 + (kids.length > 4 ? 1.2 : 0.7);
+    const blockRadius = childRadius + 1.5; // 给子进程外围留安全区
 
-    const bx = startX + (bi % gridCols) * blockCell;
-    const bz = startZ + Math.floor(bi / gridCols) * blockCell;
+    // root 位置：再次避让道路（街区中心已避让，但 root 落在中心，仍要保险）
+    const rootAvoided = avoidRoads(bx, bz, network);
+    bx = rootAvoided.x;
+    bz = rootAvoided.z;
 
-    // 根据街区 root 数量决定小区网格：1/2/4/8 个小区
-    const { cols, rows } = getSubblockGrid(rootList.length);
-    const totalSubs = cols * rows;
-    const perSub = Math.ceil(rootList.length / totalSubs);
-    const sideLocal = Math.max(1, Math.ceil(Math.sqrt(perSub)));
-    const subSize = sideLocal * inSubCell;
-    const subHalf = subSize / 2;
+    result.push({
+      x: bx, y: 0, z: bz,
+      pid: root.pid,
+      height: cpuToHeight(root.cpu),
+      width: 2.0,
+      childCount: kids.length,
+    });
+    placed.add(root.pid);
 
-    // 小区网格总尺寸（用于居中布局）
-    const totalW = cols * subSize + (cols - 1) * subGap;
-    const totalD = rows * subSize + (rows - 1) * subGap;
-    const startCx = bx - totalW / 2 + subHalf;
-    const startCz = bz - totalD / 2 + subHalf;
+    // 子进程环绕 root（保持原有角度逻辑，但 pid-based 抖动）
+    kids.forEach((child, ci) => {
+      if (placed.has(child.pid)) return;
+      placed.add(child.pid);
 
-    const subblocks: SubBlockInfo[] = [];
-    let rootIdx = 0;
-    let placedInBlock = 0;
+      const angle = (ci / Math.max(kids.length, 1)) * Math.PI * 2;
+      let cx = bx + Math.cos(angle) * (childRadius + hashSeed(child.pid) * 0.3);
+      let cz = bz + Math.sin(angle) * (childRadius + hashSeed(child.pid + 1) * 0.3);
 
-    for (let sr = 0; sr < rows; sr++) {
-      for (let sc = 0; sc < cols; sc++) {
-        const subCx = startCx + sc * (subSize + subGap);
-        const subCz = startCz + sr * (subSize + subGap);
+      // 子进程避让主动道路
+      const childAvoided = avoidRoads(cx, cz, network);
+      cx = childAvoided.x;
+      cz = childAvoided.z;
 
-        subblocks.push({
-          x: subCx,
-          z: subCz,
-          minX: subCx - subHalf,
-          maxX: subCx + subHalf,
-          minZ: subCz - subHalf,
-          maxZ: subCz + subHalf,
-        });
+      result.push({
+        x: cx, y: 0, z: cz,
+        pid: child.pid,
+        height: cpuToHeight(child.cpu),
+        width: 1.0,
+        parentPid: root.pid,
+      });
+    });
 
-        // 取出本小区要放置的 roots
-        const subRoots: ProcessInfo[] = [];
-        while (rootIdx < rootList.length && subRoots.length < perSub) {
-          subRoots.push(rootList[rootIdx++]);
-        }
-
-        const localSide = Math.max(1, Math.ceil(Math.sqrt(subRoots.length)));
-        const localHalf = (localSide - 1) / 2;
-
-        // 关键修复：root 位置由 pid 哈希决定，而非 ri 索引
-        // 这样即使 rootList 增减导致 ri 变化，相同 pid 的 root 仍然在相同位置。
-        // 排序保证同一 pid 在网格中的 (row, col) 稳定。
-        const subRootsSorted = [...subRoots].sort((a, b) => a.pid - b.pid);
-        subRootsSorted.forEach((root, ri) => {
-          const r = Math.floor(ri / localSide);
-          const col = ri % localSide;
-          let rx = subCx + (col - localHalf) * inSubCell;
-          let rz = subCz + (r - localHalf) * inSubCell;
-          // 用 pid 哈希做微抖动（之前用 name，name 可能因路径变化）
-          rx += (hashSeed(root.pid) - 0.5) * 0.4;
-          rz += (hashSeed(root.pid + 1) - 0.5) * 0.4;
-
-          placed.add(root.pid);
-          placedInBlock++;
-
-          const kids = (childrenMap.get(root.pid) ?? []).filter((k) => pidMap.has(k.pid));
-
-          result.push({ x: rx, y: 0, z: rz, pid: root.pid, height: cpuToHeight(root.cpu), width: 2.0, childCount: kids.length });
-
-          // 子进程位置：用 pid 哈希做角度，避免 ci 索引依赖
-          // kids 已按 pid 排序（childrenMap 处理），ci 稳定
-          const childRadius = 2.4 + (kids.length > 4 ? 1.2 : 0.7);
-          kids.forEach((child, ci) => {
-            if (placed.has(child.pid)) return;
-            placed.add(child.pid);
-            placedInBlock++;
-            // ci 由 kids.length 决定，但 child.pid 已排序，相同 pid 的 child 角度稳定
-            const angle = (ci / Math.max(kids.length, 1)) * Math.PI * 2;
-            const cx = rx + Math.cos(angle) * (childRadius + hashSeed(child.pid) * 0.3);
-            const cz = rz + Math.sin(angle) * (childRadius + hashSeed(child.pid + 1) * 0.3);
-            result.push({ x: cx, y: 0, z: cz, pid: child.pid, height: cpuToHeight(child.cpu), width: 1.0, parentPid: root.pid });
-          });
-        });
-      }
-    }
-
-    // 街区边界 = 包络所有小区，外加 childPad 容纳子进程环绕
-    const blockMinX = Math.min(...subblocks.map((s) => s.minX)) - childPad;
-    const blockMaxX = Math.max(...subblocks.map((s) => s.maxX)) + childPad;
-    const blockMinZ = Math.min(...subblocks.map((s) => s.minZ)) - childPad;
-    const blockMaxZ = Math.max(...subblocks.map((s) => s.maxZ)) + childPad;
-
+    // 街区信息
+    const typeKey = classifyProcess(root);
     const typeInfo = getTypeGroupInfo(typeKey);
     blockInfo.push({
-      letter: typeKey,        // 兼容字段，存 typeKey
+      rootPid: root.pid,
+      rootName: root.name,
       typeKey,
       typeName: typeInfo.name,
       x: bx,
       z: bz,
-      minX: blockMinX,
-      maxX: blockMaxX,
-      minZ: blockMinZ,
-      maxZ: blockMaxZ,
-      subblocks,
-      processCount: placedInBlock,
+      minX: bx - blockRadius,
+      maxX: bx + blockRadius,
+      minZ: bz - blockRadius,
+      maxZ: bz + blockRadius,
+      radius: blockRadius,
+      processCount: 1 + kids.length,
     });
   });
 
-  // Remaining processes (deep grandchildren or orphans)
+  // 4. 剩余进程（深度孙辈或孤儿）— 紧贴父进程或环绕城市边缘
   for (const p of filtered) {
     if (placed.has(p.pid)) continue;
     const parent = pidMap.get(p.ppid);
@@ -356,31 +553,60 @@ export function computeGridPositions(
       const parentPos = result.find((r) => r.pid === parent.pid);
       if (parentPos) {
         const angle = hashSeed(p.pid) * Math.PI * 2;
-        const cr = 0.8 + hashSeed(p.pid + 2) * 0.4;
-        result.push({ x: parentPos.x + Math.cos(angle) * cr, y: 0, z: parentPos.z + Math.sin(angle) * cr, pid: p.pid, height: cpuToHeight(p.cpu), width: 1.0, parentPid: parent.pid });
+        const cr = 1.0 + hashSeed(p.pid + 2) * 0.6;
+        let cx = parentPos.x + Math.cos(angle) * cr;
+        let cz = parentPos.z + Math.sin(angle) * cr;
+        const avoided = avoidRoads(cx, cz, network);
+        cx = avoided.x;
+        cz = avoided.z;
+        result.push({
+          x: cx, y: 0, z: cz,
+          pid: p.pid,
+          height: cpuToHeight(p.cpu),
+          width: 1.0,
+          parentPid: parent.pid,
+        });
         placed.add(p.pid);
         continue;
       }
     }
+    // 孤儿进程：环绕城市边缘
     const angle = hashSeed(p.pid) * Math.PI * 2;
-    const radius = 8 + hashSeed(p.pid + 3) * 3;
-    result.push({ x: Math.cos(angle) * radius, y: 0, z: Math.sin(angle) * radius, pid: p.pid, height: cpuToHeight(p.cpu), width: 1.0 });
+    const radius = 70 + hashSeed(p.pid + 3) * 4;
+    let cx = Math.cos(angle) * radius;
+    let cz = Math.sin(angle) * radius;
+    const avoided = avoidRoads(cx, cz, network);
+    cx = avoided.x;
+    cz = avoided.z;
+    result.push({
+      x: cx, y: 0, z: cz,
+      pid: p.pid,
+      height: cpuToHeight(p.cpu),
+      width: 1.0,
+    });
     placed.add(p.pid);
   }
 
-  // === 全局冲突检测：解决跨街区/孤儿/边界穿模 ===
-  // 之前 resolveOverlap 只在 computeTreePositions 用，computeGridPositions 没调用，导致穿模。
-  // 这里在所有位置确定后做一轮全局分离，迭代直到无冲突或达上限。
+  // 5. 全局建筑间避让 + 道路避让（迭代 3 轮）
   const placedMap = new Map<number, BuildingPosition>();
   for (const pos of result) placedMap.set(pos.pid, pos);
   for (let pass = 0; pass < 3; pass++) {
     let moved = false;
     for (const pos of result) {
-      const before = { x: pos.x, z: pos.z };
-      const after = resolveOverlap(pos.x, pos.z, placedMap);
-      if (after.x !== before.x || after.z !== before.z) {
-        pos.x = after.x;
-        pos.z = after.z;
+      // 建筑间避让
+      const before1 = { x: pos.x, z: pos.z };
+      const after1 = resolveOverlap(pos.x, pos.z, placedMap);
+      pos.x = after1.x;
+      pos.z = after1.z;
+      // 道路避让（建筑绝不能在道路上）
+      const before2 = { x: pos.x, z: pos.z };
+      const after2 = avoidRoads(pos.x, pos.z, network);
+      pos.x = after2.x;
+      pos.z = after2.z;
+      if (
+        before1.x !== pos.x || before1.z !== pos.z ||
+        before2.x !== pos.x || before2.z !== pos.z
+      ) {
         placedMap.set(pos.pid, pos);
         moved = true;
       }
@@ -391,23 +617,10 @@ export function computeGridPositions(
   return { positions: result, blocks: blockInfo };
 }
 
-/// 根据街区 root 进程数量决定小区网格：
-///   1-3  → 1x1 (1 个小区)
-///   4-8  → 2x1 (2 个小区)
-///   9-15 → 2x2 (4 个小区)
-///   16+  → 4x2 (8 个小区)
-function getSubblockGrid(rootCount: number): { cols: number; rows: number } {
-  if (rootCount <= 3) return { cols: 1, rows: 1 };
-  if (rootCount <= 8) return { cols: 2, rows: 1 };
-  if (rootCount <= 15) return { cols: 2, rows: 2 };
-  return { cols: 4, rows: 2 };
-}
+// ============================================================================
+// 兼容旧 API：保留 computePositions / computeTreePositions（不再使用）
+// ============================================================================
 
-
-// computeGridPositions now returns { positions, blocks }
-void spiralGridIndices; void CELL_SIZE;
-
-// Legacy radial/tree layout// Legacy radial/tree layout — kept for reference but no longer used.
 export function computePositions(
   processes: ProcessInfo[],
   maxBuildings: number = 200,
@@ -466,7 +679,6 @@ export function computeTreePositions(
       parentPid: p.ppid,
     };
     positions.push(pos);
-    // legacy — removed variable ref
   });
 
   const queue = roots.map((p) => p.pid);
@@ -505,7 +717,6 @@ export function computeTreePositions(
     let z = Math.sin(angle) * radius;
     ({ x, z } = resolveOverlap(x, z, placed));
     positions.push({ x, y: 0, z, pid: p.pid, height: cpuToHeight(p.cpu), parentPid: p.ppid });
-    // legacy — removed variable ref
   }
 
   return positions;

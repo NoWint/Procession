@@ -73,8 +73,8 @@ describe("translate", () => {
       translate("en", "app.subtitle.process_count", { count: 42, cpu: "12.3" }),
     ).toBe("42 processes · 12.3% CPU");
     expect(
-      translate("zh", "popup.block_summary", { letter: "A", count: 7 }),
-    ).toBe("A · 共 7 进程");
+      translate("zh", "popup.block_summary", { rootName: "Code.exe", count: 7 }),
+    ).toBe("Code.exe · 共 7 进程");
   });
 
   it("returns the key itself when no translation exists", () => {

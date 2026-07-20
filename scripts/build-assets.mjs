@@ -1027,6 +1027,177 @@ function buildRoofDecoration(deco) {
   return group;
 }
 
+// ========== 道路（Phase G：主动/被动道路 GLB） ==========
+//   - road-straight:       直道（长 10、宽 4，沥青 + 路缘 + 中央虚线）
+//   - road-intersection-4: 十字路口（8×8 中心广场 + 4 边斑马线 + 中心标记）
+//   - road-intersection-3: T 字路口（8×8 中心广场 + 3 边斑马线 + 三角标记）
+//   - road-curve:          90° 弯道（环形扇区 + 内外缘 + 中央曲线）
+//   - road-roundabout:     环岛（外环道 + 内中心岛 + 4 入口臂 + 中心装饰）
+// 设计原则：
+//   - 所有几何放在 y≈0 平面（CityGround 在 ROAD_Y=0.02 偏移）
+//   - 使用 vertexColors（paintGeometry）让单次 mergeGeometries 保留多色分段
+//   - 标准长度 10 单位，宽度 4 单位（与 MAIN_ROAD_WIDTH 一致）
+//   - 运行时由 CityGround 通过 InstancedMesh 实例化，scaleX 适配实际长度
+const ROAD_CANONICAL_LENGTH = 10;
+const ROAD_CANONICAL_WIDTH = 4;
+
+const ROADS = [
+  { id: "road-straight",       kind: "straight" },
+  { id: "road-intersection-4", kind: "intersection-4" },
+  { id: "road-intersection-3", kind: "intersection-3" },
+  { id: "road-curve",          kind: "curve" },
+  { id: "road-roundabout",     kind: "roundabout" },
+];
+
+// 道路用 vertexColors 材质（mergeGeometries 后保留多色分段）
+const roadVertexColorMat = new THREE.MeshStandardMaterial({
+  vertexColors: true,
+  roughness: 0.85,
+  metalness: 0.05,
+  side: THREE.DoubleSide,
+});
+
+// 路面配色
+const ROAD_COLOR_ASHPALT = 0x2a2a2a;     // 沥青深灰
+const ROAD_COLOR_CURB    = 0x6a6a6a;     // 路缘浅灰
+const ROAD_COLOR_LANE    = 0xffeb3b;     // 中央黄线
+const ROAD_COLOR_CROSS   = 0xf5f5f5;    // 斑马线白
+const ROAD_COLOR_MARK    = 0xff5722;    // 中心标记橙
+const ROAD_COLOR_ISLAND  = 0x4a7c3a;    // 中心岛绿（草地）
+
+/**
+ * 构建道路 Group（5 种形状）。
+ * 所有几何都通过 paintGeometry 写入 vertex colors，mergeGeometries 合并为单一 BufferGeometry。
+ * 运行时用单一 vertexColors 材质渲染（InstancedMesh 要求）。
+ */
+function buildRoad(road) {
+  const group = new THREE.Group();
+  group.name = road.id;
+  const geos = [];
+
+  const addPlane = (w, d, x, z, color) => {
+    const g = new THREE.PlaneGeometry(w, d, 1, 1).toNonIndexed();
+    g.rotateX(-Math.PI / 2);
+    g.translate(x, 0, z);
+    geos.push(paintGeometry(g, color));
+  };
+  const addBox = (w, h, d, x, y, z, color) => {
+    const g = new THREE.BoxGeometry(w, h, d).toNonIndexed();
+    g.translate(x, y, z);
+    geos.push(paintGeometry(g, color));
+  };
+
+  if (road.kind === "straight") {
+    // 沥青路面（10×4 平面，平铺在 y=0）
+    addPlane(ROAD_CANONICAL_LENGTH, ROAD_CANONICAL_WIDTH, 0, 0, ROAD_COLOR_ASHPALT);
+    // 左右路缘（长 10，高 0.1，宽 0.15）
+    addBox(ROAD_CANONICAL_LENGTH, 0.1, 0.15, 0, 0.05, -ROAD_CANONICAL_WIDTH / 2, ROAD_COLOR_CURB);
+    addBox(ROAD_CANONICAL_LENGTH, 0.1, 0.15, 0, 0.05,  ROAD_CANONICAL_WIDTH / 2, ROAD_COLOR_CURB);
+    // 中央虚线：5 段短黄线，沿 X 方向分布在 x=-4,-2,0,2,4
+    for (let i = 0; i < 5; i++) {
+      const x = -4 + i * 2;
+      addBox(0.6, 0.02, 0.12, x, 0.02, 0, ROAD_COLOR_LANE);
+    }
+  } else if (road.kind === "intersection-4") {
+    // 中心 8×8 广场
+    addPlane(8, 8, 0, 0, ROAD_COLOR_ASHPALT);
+    // 4 边斑马线（每边 4 条短白线，长 3、宽 0.4）
+    const sides = [
+      { cx: 0, cz:  4.5, rot: 0 },         // 北
+      { cx: 0, cz: -4.5, rot: 0 },         // 南
+      { cx:  4.5, cz: 0, rot: Math.PI / 2 }, // 东
+      { cx: -4.5, cz: 0, rot: Math.PI / 2 }, // 西
+    ];
+    for (const s of sides) {
+      for (let i = 0; i < 4; i++) {
+        const offset = -1.5 + i * 1.0;
+        const x = s.cx + (s.rot === 0 ? offset : 0);
+        const z = s.cz + (s.rot === 0 ? 0 : offset);
+        addBox(0.4, 0.02, 3, x, 0.02, z, ROAD_COLOR_CROSS);
+      }
+    }
+    // 中心橙色标记
+    addBox(1, 0.02, 1, 0, 0.02, 0, ROAD_COLOR_MARK);
+  } else if (road.kind === "intersection-3") {
+    // T 字：中心 8×8 广场
+    addPlane(8, 8, 0, 0, ROAD_COLOR_ASHPALT);
+    // 3 边斑马线（北/东/西，南边无）
+    const sides = [
+      { cx: 0,  cz:  4.5, rot: 0 },
+      { cx:  4.5, cz: 0, rot: Math.PI / 2 },
+      { cx: -4.5, cz: 0, rot: Math.PI / 2 },
+    ];
+    for (const s of sides) {
+      for (let i = 0; i < 4; i++) {
+        const offset = -1.5 + i * 1.0;
+        const x = s.cx + (s.rot === 0 ? offset : 0);
+        const z = s.cz + (s.rot === 0 ? 0 : offset);
+        addBox(0.4, 0.02, 3, x, 0.02, z, ROAD_COLOR_CROSS);
+      }
+    }
+    // 中心三角标记（用 3 个 Box 拼成简易三角）
+    addBox(0.6, 0.02, 0.6,  0,    0.02,  0.35, ROAD_COLOR_MARK);
+    addBox(0.6, 0.02, 0.6, -0.35, 0.02, -0.17, ROAD_COLOR_MARK);
+    addBox(0.6, 0.02, 0.6,  0.35, 0.02, -0.17, ROAD_COLOR_MARK);
+  } else if (road.kind === "curve") {
+    // 90° 弯道：环形扇区，内 R=4、外 R=8、宽 4
+    const innerR = 4;
+    const outerR = 8;
+    const ringGeo = new THREE.RingGeometry(innerR, outerR, 32, 1, 0, Math.PI / 2).toNonIndexed();
+    ringGeo.rotateX(-Math.PI / 2);
+    geos.push(paintGeometry(ringGeo, ROAD_COLOR_ASHPALT));
+    // 内缘（小环段，半径 innerR，宽度 0.15）
+    const innerCurb = new THREE.RingGeometry(innerR - 0.15, innerR, 32, 1, 0, Math.PI / 2).toNonIndexed();
+    innerCurb.rotateX(-Math.PI / 2);
+    innerCurb.translate(0, 0.05, 0);
+    geos.push(paintGeometry(innerCurb, ROAD_COLOR_CURB));
+    // 外缘
+    const outerCurb = new THREE.RingGeometry(outerR, outerR + 0.15, 32, 1, 0, Math.PI / 2).toNonIndexed();
+    outerCurb.rotateX(-Math.PI / 2);
+    outerCurb.translate(0, 0.05, 0);
+    geos.push(paintGeometry(outerCurb, ROAD_COLOR_CURB));
+    // 中央曲线（半径 6，宽度 0.2）
+    const centerLine = new THREE.RingGeometry(5.9, 6.1, 32, 1, 0, Math.PI / 2).toNonIndexed();
+    centerLine.rotateX(-Math.PI / 2);
+    centerLine.translate(0, 0.02, 0);
+    geos.push(paintGeometry(centerLine, ROAD_COLOR_LANE));
+  } else if (road.kind === "roundabout") {
+    // 外环道：RingGeometry(4, 6, 32)
+    const ringGeo = new THREE.RingGeometry(4, 6, 32, 1).toNonIndexed();
+    ringGeo.rotateX(-Math.PI / 2);
+    geos.push(paintGeometry(ringGeo, ROAD_COLOR_ASHPALT));
+    // 中心岛（CircleGeometry 半径 2）
+    const islandGeo = new THREE.CircleGeometry(2, 32).toNonIndexed();
+    islandGeo.rotateX(-Math.PI / 2);
+    islandGeo.translate(0, 0.05, 0);
+    geos.push(paintGeometry(islandGeo, ROAD_COLOR_ISLAND));
+    // 4 入口臂：北/东/南/西各一个 2×4 平面
+    const arms = [
+      { x: 0, z:  8, rot: 0 },
+      { x: 8, z:  0, rot: Math.PI / 2 },
+      { x: 0, z: -8, rot: 0 },
+      { x: -8, z: 0, rot: Math.PI / 2 },
+    ];
+    for (const a of arms) {
+      const armGeo = new THREE.PlaneGeometry(4, 4, 1, 1).toNonIndexed();
+      armGeo.rotateX(-Math.PI / 2);
+      armGeo.rotateY(a.rot);
+      armGeo.translate(a.x, 0, a.z);
+      geos.push(paintGeometry(armGeo, ROAD_COLOR_ASHPALT));
+    }
+    // 中心装饰：小方块
+    addBox(0.5, 0.5, 0.5, 0, 0.25, 0, ROAD_COLOR_MARK);
+  }
+
+  const merged = mergeGeometries(geos, false);
+  geos.forEach((g) => g.dispose());
+
+  const mesh = new THREE.Mesh(merged, roadVertexColorMat);
+  mesh.name = `${road.id}-body`;
+  group.add(mesh);
+  return group;
+}
+
 // ========== 导出 ==========
 function exportGlb(group, variantId) {
   return new Promise((resolve, reject) => {
@@ -1182,6 +1353,30 @@ async function main() {
     console.log(`    ${deco.id}: ~${Math.floor(triCount)} triangles`);
 
     // 清理本地合并几何（装饰材质由全局持有，dispose 仅清理 geometry）
+    group.traverse((obj) => {
+      if (obj.isMesh) {
+        obj.geometry?.dispose();
+      }
+    });
+  }
+
+  // === 道路（Phase G：主动/被动道路 GLB） ===
+  for (const road of ROADS) {
+    const group = buildRoad(road);
+
+    let triCount = 0;
+    group.traverse((obj) => {
+      if (obj.isMesh && obj.geometry) {
+        const g = obj.geometry;
+        if (g.index) triCount += g.index.count / 3;
+        else if (g.attributes.position) triCount += g.attributes.position.count / 3;
+      }
+    });
+
+    await exportGlb(group, road.id);
+    console.log(`    ${road.id}: ~${Math.floor(triCount)} triangles`);
+
+    // 清理本地合并几何（道路 vertexColors 材质由全局持有，dispose 仅清理 geometry）
     group.traverse((obj) => {
       if (obj.isMesh) {
         obj.geometry?.dispose();

@@ -3,7 +3,12 @@ import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
 import { FALLBACK_THEME, type Theme } from "../utils/theme";
 import { blockTypeColor } from "../utils/colors";
-import type { BlockInfo } from "../utils/layout";
+import { useGlbAssets } from "../hooks/useGlbAssets";
+import {
+  computeRoadNetwork,
+  type BlockInfo,
+  type RoadNetwork,
+} from "../utils/layout";
 
 interface CityGroundProps {
   theme?: Theme;
@@ -11,129 +16,203 @@ interface CityGroundProps {
 }
 
 const GROUND_SIZE = 160;
-const BLOCK_STEP = 16;        // 街区边长（与 layout.ts blockCell 一致）
-const ROAD_WIDTH = 2.5;        // 主干道宽度（加宽：之前 1.5 比建筑还窄）
 const ROAD_Y = 0.02;
 const BLOCK_BORDER_Y = 0.015;
-const GRID_HALF = GROUND_SIZE / 2;
 
 /**
- * 地面：主题色地板 + 真正的城市道路网 + 按类型着色的街区边界。
+ * 地面：主题色地板 + 主动道路骨架 + 被动道路填充 + 街区边界 + 中心环岛装饰。
  *
- * 设计逻辑（emil-design-eng "craft" + apple "familiarity"）：
- *   1. 主地板：主题色铺满，作为视觉基底
- *   2. 主干道：宽 2.5 单位的深沥青色带状平面（不发光），让发光建筑成为视觉焦点
- *   3. 车道线：主干道中央双黄线 + 边缘白线（真实的道路语言）
- *   4. 街区边界：按类型着色的方框（蓝=系统、紫=数据库、橙=浏览器...）
- *   5. 街区中心标识：每个街区中心一个小圆盘（类型色），传递"这里是什么街区"
+ * 范式（v2，2026-07-20）：
+ *   1. 主动道路 — 固定骨架（十字/内外环/放射），由 computeRoadNetwork 提供
+ *   2. 被动道路 — 街区与街区、街区与建筑之间的小路，自动连接
+ *   3. 主地板 — 主题色铺满
+ *   4. 街区边界 — 按 root 类型着色（typeKey，用于建筑着色，不再用于分组）
+ *   5. 中心装饰 — road-roundabout GLB（Phase G）放置在 (0, 0) 作为城市中心环岛
  *
- * 移除元素（emil-design-eng "decide what not to build"）：
- *   - 81 个路口发光点（与路灯冗余，CityLandmarks 已有 120 个路灯）
- *   - 中心广场 3 层同心圆（与中央塔冗余，CityLandmarks 已有 landmark-central-tower）
- *   - 远端外环装饰圈（与 CableSystem 远端终点冲突）
+ * 主动道路用几何体直接渲染（高效覆盖大尺度路面）：
+ *   - straight: PlaneGeometry(length, width)
+ *   - ring:     RingGeometry(innerR, outerR, 64)
+ *   - radial:   PlaneGeometry(length, width) + rotY
  *
- * 主题差异化（apple "craft"）：
- *   - light：日间混凝土，道路深灰
- *   - dark：夜城感，道路微微反光
- *   - midnight-blue：数据海感，道路 accent 色微弱 emissive
+ * 道路 GLB 资产（Phase G，由 useGlbAssets 加载）：
+ *   - road-straight / road-intersection-4 / road-intersection-3 / road-curve / road-roundabout
+ *   - 当前布局使用 road-roundabout 作为中心装饰；其他 4 个 GLB 已加载到 assets.roads
+ *     供未来布局扩展（如显式放置 T 字/十字/弯道节点）时使用
+ *
+ * 被动道路用 LineSegments 渲染（细线，街区中心↔最近邻街区中心）：
+ *   - 在两个街区中心之间画一条小路
+ *   - 在街区内 root 位置画一个 1 单位的小圆（街区中心广场）
  */
 export default function CityGround({ theme = FALLBACK_THEME, blocks = [] }: CityGroundProps) {
   const groundMatRef = useRef<THREE.MeshStandardMaterial>(null);
   const roadMatRef = useRef<THREE.MeshStandardMaterial>(null);
+  const radialMatRef = useRef<THREE.MeshStandardMaterial>(null);
+  const ringMatRef = useRef<THREE.MeshStandardMaterial>(null);
+  const passiveMatRef = useRef<THREE.LineBasicMaterial>(null);
   const laneMatRef = useRef<THREE.LineBasicMaterial>(null);
-
-  const roadInstRef = useRef<THREE.InstancedMesh>(null);
   const borderInstRef = useRef<THREE.InstancedMesh>(null);
   const centerInstRef = useRef<THREE.InstancedMesh>(null);
+
+  // === 道路 GLB 资产（Phase G） ===
+  // road-roundabout 用作中心装饰；其他 4 个 GLB 已加载供未来布局扩展使用
+  const { assets } = useGlbAssets();
+  const roundaboutGeo = assets.roads?.["road-roundabout"];
 
   const isLight = theme.mode === "light";
   const themeName = theme.name.toLowerCase();
   const isBlue = themeName.includes("blue") || themeName.includes("midnight");
 
-  // 主题性格强度
   const accentIntensity = isLight ? 0.35 : isBlue ? 1.6 : 0.9;
-  // 道路色：深沥青，不发光（让发光建筑成为视觉焦点）
   const roadColor = isLight ? "#3a3a3a" : isBlue ? "#0a1424" : "#1a1a1a";
   const roadEmissive = isLight ? 0.0 : isBlue ? 0.15 : 0.05;
-  // 车道线色：主题感知（light 黄白、dark 白、blue accent）
+  const radialRoadColor = isLight ? "#2e2e2e" : isBlue ? "#0a1a2c" : "#151515";
+  const ringRoadColor = isLight ? "#323232" : isBlue ? "#0c1a2c" : "#1c1c1c";
   const laneColor = isLight ? "#f5e060" : isBlue ? theme.colors.accent : "#ffffff";
+  const passiveLaneColor = isLight ? "#b0b0b0" : isBlue ? "#5a7cb0" : "#666666";
 
-  // === 1. 主地板 ===
-  const groundGeometry = useMemo(() => {
-    const geo = new THREE.PlaneGeometry(GROUND_SIZE, GROUND_SIZE);
+  // === 1. 主动道路骨架 ===
+  const network: RoadNetwork = useMemo(() => computeRoadNetwork(), []);
+
+  // 把 segments 分成三类：straight / radial / ring，每类一个 InstancedMesh
+  const straightSegs = useMemo(() => network.segments.filter((s) => s.type === "straight"), [network]);
+  const radialSegs = useMemo(() => network.segments.filter((s) => s.type === "radial"), [network]);
+  const ringSegs = useMemo(() => network.segments.filter((s) => s.type === "ring"), [network]);
+
+  // straight 直道几何：最长那条
+  const straightGeo = useMemo(() => {
+    const maxLen = Math.max(...straightSegs.map((s) => s.length), 1);
+    const width = straightSegs[0]?.width ?? 4;
+    const geo = new THREE.PlaneGeometry(maxLen, width);
     geo.rotateX(-Math.PI / 2);
     return geo;
-  }, []);
+  }, [straightSegs]);
 
-  // === 2. 主干道带状平面 ===
-  const roadGeometry = useMemo(() => {
-    const geo = new THREE.PlaneGeometry(ROAD_WIDTH, GROUND_SIZE);
+  const straightInst = useMemo(() => {
+    const maxLen = Math.max(...straightSegs.map((s) => s.length), 1);
+    return straightSegs.map((s) => ({
+      pos: [s.x, ROAD_Y, s.z] as [number, number, number],
+      rotY: s.rotY,
+      scaleX: s.length / maxLen,
+    }));
+  }, [straightSegs]);
+
+  // radial 放射道几何
+  const radialGeo = useMemo(() => {
+    const maxLen = Math.max(...radialSegs.map((s) => s.length), 1);
+    const width = radialSegs[0]?.width ?? 2.5;
+    const geo = new THREE.PlaneGeometry(maxLen, width);
     geo.rotateX(-Math.PI / 2);
     return geo;
-  }, []);
+  }, [radialSegs]);
 
-  const roadInstances = useMemo(() => {
-    const items: { pos: [number, number, number]; rotY: number }[] = [];
-    for (let i = 0; i <= 10; i++) {
-      const z = -GRID_HALF + i * BLOCK_STEP;
-      items.push({ pos: [0, ROAD_Y, z], rotY: 0 });
-    }
-    for (let i = 0; i <= 10; i++) {
-      const x = -GRID_HALF + i * BLOCK_STEP;
-      items.push({ pos: [x, ROAD_Y, 0], rotY: Math.PI / 2 });
-    }
-    return items;
-  }, []);
+  const radialInst = useMemo(() => {
+    const maxLen = Math.max(...radialSegs.map((s) => s.length), 1);
+    return radialSegs.map((s) => {
+      // 中心在 (startX + cos*length/2, startZ + sin*length/2)
+      const midX = s.x + Math.cos(s.rotY) * s.length / 2;
+      const midZ = s.z + Math.sin(s.rotY) * s.length / 2;
+      return {
+        pos: [midX, ROAD_Y, midZ] as [number, number, number],
+        rotY: s.rotY,
+        scaleX: s.length / maxLen,
+      };
+    });
+  }, [radialSegs]);
 
-  // === 3. 车道线（中央双黄线 + 边缘白线） ===
-  // 用 LineSegments 实现，每条道路 1 条中央线
+  // ring 环道几何
+  const ringGeo = useMemo(() => {
+    // 用 RingGeometry(innerR, outerR, 64) 画一个环形带
+    const seg = ringSegs[0];
+    if (!seg || seg.radius == null) return new THREE.RingGeometry(1, 2, 32);
+    const innerR = seg.radius - seg.width / 2;
+    const outerR = seg.radius + seg.width / 2;
+    const geo = new THREE.RingGeometry(innerR, outerR, 96);
+    geo.rotateX(-Math.PI / 2);
+    return geo;
+  }, [ringSegs]);
+
+  const ringInstances = useMemo(() => {
+    return ringSegs.map((s) => ({
+      pos: [s.x, ROAD_Y, s.z] as [number, number, number],
+      rotY: 0,
+    }));
+  }, [ringSegs]);
+
+  // === 2. 车道中央线（十字主干道 + 环道） ===
   const laneGeo = useMemo(() => {
     const lines: number[] = [];
-    const halfRoad = ROAD_WIDTH / 2;
-    // 横向道路的中央线（沿 X 方向，z = -GRID_HALF + i*BLOCK_STEP）
-    for (let i = 0; i <= 10; i++) {
-      const z = -GRID_HALF + i * BLOCK_STEP;
-      lines.push(-GRID_HALF, 0.03, z, GRID_HALF, 0.03, z);
-    }
-    // 纵向道路的中央线（沿 Z 方向，x = -GRID_HALF + i*BLOCK_STEP）
-    for (let i = 0; i <= 10; i++) {
-      const x = -GRID_HALF + i * BLOCK_STEP;
-      lines.push(x, 0.03, -GRID_HALF, x, 0.03, GRID_HALF);
-    }
-    void halfRoad;  // 暂存避免未使用警告（边缘线后续可加）
+    // 横向主干道中央线（沿 X 方向，z=0，全长）
+    lines.push(-GROUND_SIZE/2 + 2, 0.04, 0, GROUND_SIZE/2 - 2, 0.04, 0);
+    // 纵向主干道中央线（沿 Z 方向，x=0）
+    lines.push(0, 0.04, -GROUND_SIZE/2 + 2, 0, 0.04, GROUND_SIZE/2 - 2);
+
     const geo = new THREE.BufferGeometry();
     geo.setAttribute("position", new THREE.Float32BufferAttribute(lines, 3));
     return geo;
   }, []);
 
-  // === 4. 街区边界 ===
-  // 边框宽度从 0.2 加宽到 0.6，让俯视可见
-  // 每个街区按类型着色（BlockInfo.typeKey → blockTypeColor）
+  // === 3. 被动道路 — 街区与街区之间的小路（LineSegments） ===
+  // 策略：连接每个街区中心到其最近的 2 个街区中心（最小生成树近似）
+  const passiveLanes = useMemo(() => {
+    if (blocks.length < 2) return [];
+    const segs: Array<{ x1: number; z1: number; x2: number; z2: number }> = [];
+    // 为每个街区找最近的 2 个邻居（避免完全图，控制小路数量）
+    for (let i = 0; i < blocks.length; i++) {
+      const a = blocks[i];
+      const dists: Array<{ idx: number; d: number }> = [];
+      for (let j = 0; j < blocks.length; j++) {
+        if (i === j) continue;
+        const b = blocks[j];
+        const dx = a.x - b.x;
+        const dz = a.z - b.z;
+        dists.push({ idx: j, d: Math.sqrt(dx*dx + dz*dz) });
+      }
+      dists.sort((x, y) => x.d - y.d);
+      // 取最近 2 个
+      for (let k = 0; k < Math.min(2, dists.length); k++) {
+        const b = blocks[dists[k].idx];
+        // 去重（i<j 才加）
+        if (i < dists[k].idx) {
+          segs.push({ x1: a.x, z1: a.z, x2: b.x, z2: b.z });
+        }
+      }
+    }
+    return segs;
+  }, [blocks]);
+
+  const passiveLaneGeo = useMemo(() => {
+    const lines: number[] = [];
+    for (const seg of passiveLanes) {
+      lines.push(seg.x1, 0.04, seg.z1, seg.x2, 0.04, seg.z2);
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute("position", new THREE.Float32BufferAttribute(lines, 3));
+    return geo;
+  }, [passiveLanes]);
+
+  // === 4. 街区边界（按 typeKey 着色） ===
   const borderEdgeGeo = useMemo(() => {
-    return new THREE.BoxGeometry(BLOCK_STEP - 2, 0.08, 0.6);
+    return new THREE.BoxGeometry(2, 0.08, 0.6);
   }, []);
 
-  // 街区边界实例：使用 blocks prop 而非全网格扫描
-  // 每个 BlockInfo 有 minX/maxX/minZ/maxZ，画 4 条边
   const borderInstances = useMemo(() => {
     if (blocks.length === 0) return [];
     return blocks.flatMap((b) => {
       const color = new THREE.Color(blockTypeColor(b.typeKey));
-      const midX = (b.minX + b.maxX) / 2;
-      const midZ = (b.minZ + b.maxZ) / 2;
+      const r = b.radius;
+      // 用 4 条边构成一个正方形边界
       return [
-        { pos: [midX, BLOCK_BORDER_Y, b.maxZ] as [number, number, number], rotY: 0, color },
-        { pos: [midX, BLOCK_BORDER_Y, b.minZ] as [number, number, number], rotY: 0, color },
-        { pos: [b.maxX, BLOCK_BORDER_Y, midZ] as [number, number, number], rotY: Math.PI / 2, color },
-        { pos: [b.minX, BLOCK_BORDER_Y, midZ] as [number, number, number], rotY: Math.PI / 2, color },
+        { pos: [b.x, BLOCK_BORDER_Y, b.z + r] as [number, number, number], rotY: 0, color, scaleX: r * 2 },
+        { pos: [b.x, BLOCK_BORDER_Y, b.z - r] as [number, number, number], rotY: 0, color, scaleX: r * 2 },
+        { pos: [b.x + r, BLOCK_BORDER_Y, b.z] as [number, number, number], rotY: Math.PI / 2, color, scaleX: r * 2 },
+        { pos: [b.x - r, BLOCK_BORDER_Y, b.z] as [number, number, number], rotY: Math.PI / 2, color, scaleX: r * 2 },
       ];
-    }).slice(0, 256);  // 限制最大数量避免性能问题
+    }).slice(0, 256);
   }, [blocks]);
 
-  // === 5. 街区中心标识 ===
-  // 每个街区中心一个小圆盘（类型色），让用户一眼识别"这里是什么类型"
+  // === 5. 街区中心标识（root 类型色圆盘） ===
   const centerDiskGeo = useMemo(() => {
-    const geo = new THREE.CircleGeometry(0.8, 24);  // 半径 0.8，比路口圆盘小
+    const geo = new THREE.CircleGeometry(0.8, 24);
     geo.rotateX(-Math.PI / 2);
     return geo;
   }, []);
@@ -147,24 +226,13 @@ export default function CityGround({ theme = FALLBACK_THEME, blocks = [] }: City
 
   // === 设置 InstancedMesh 的 matrix 和颜色 ===
   useEffect(() => {
-    if (!roadInstRef.current) return;
-    const dummy = new THREE.Object3D();
-    roadInstances.forEach((item, i) => {
-      dummy.position.set(...item.pos);
-      dummy.rotation.set(0, item.rotY, 0);
-      dummy.updateMatrix();
-      roadInstRef.current!.setMatrixAt(i, dummy.matrix);
-    });
-    roadInstRef.current.instanceMatrix.needsUpdate = true;
-  }, [roadInstances]);
-
-  useEffect(() => {
     if (!borderInstRef.current) return;
     const dummy = new THREE.Object3D();
     const color = new THREE.Color();
     borderInstances.forEach((item, i) => {
       dummy.position.set(...item.pos);
       dummy.rotation.set(0, item.rotY, 0);
+      dummy.scale.set(item.scaleX ?? 1, 1, 1);
       dummy.updateMatrix();
       borderInstRef.current!.setMatrixAt(i, dummy.matrix);
       borderInstRef.current!.setColorAt(i, color.copy(item.color));
@@ -191,7 +259,50 @@ export default function CityGround({ theme = FALLBACK_THEME, blocks = [] }: City
     }
   }, [centerInstances]);
 
-  // === 呼吸动画（仅地板微弱呼吸） ===
+  // 设置 straight 主干道 instance matrix（带 scale）
+  const straightInstRef = useRef<THREE.InstancedMesh>(null);
+  const radialInstRef = useRef<THREE.InstancedMesh>(null);
+  const ringInstRef = useRef<THREE.InstancedMesh>(null);
+
+  useEffect(() => {
+    if (!straightInstRef.current) return;
+    const dummy = new THREE.Object3D();
+    straightInst.forEach((item, i) => {
+      dummy.position.set(...item.pos);
+      dummy.rotation.set(0, item.rotY, 0);
+      dummy.scale.set(item.scaleX, 1, 1);
+      dummy.updateMatrix();
+      straightInstRef.current!.setMatrixAt(i, dummy.matrix);
+    });
+    straightInstRef.current.instanceMatrix.needsUpdate = true;
+  }, [straightInst]);
+
+  useEffect(() => {
+    if (!radialInstRef.current) return;
+    const dummy = new THREE.Object3D();
+    radialInst.forEach((item, i) => {
+      dummy.position.set(...item.pos);
+      dummy.rotation.set(0, item.rotY, 0);
+      dummy.scale.set(item.scaleX, 1, 1);
+      dummy.updateMatrix();
+      radialInstRef.current!.setMatrixAt(i, dummy.matrix);
+    });
+    radialInstRef.current.instanceMatrix.needsUpdate = true;
+  }, [radialInst]);
+
+  useEffect(() => {
+    if (!ringInstRef.current) return;
+    const dummy = new THREE.Object3D();
+    ringInstances.forEach((item, i) => {
+      dummy.position.set(...item.pos);
+      dummy.rotation.set(0, item.rotY, 0);
+      dummy.updateMatrix();
+      ringInstRef.current!.setMatrixAt(i, dummy.matrix);
+    });
+    ringInstRef.current.instanceMatrix.needsUpdate = true;
+  }, [ringInstances]);
+
+  // === 呼吸动画 ===
   useFrame((state) => {
     const t = state.clock.elapsedTime;
     if (groundMatRef.current) {
@@ -200,12 +311,19 @@ export default function CityGround({ theme = FALLBACK_THEME, blocks = [] }: City
     if (roadMatRef.current) {
       roadMatRef.current.emissiveIntensity = roadEmissive * (0.9 + Math.sin(t * 0.4) * 0.1);
     }
+    if (radialMatRef.current) {
+      radialMatRef.current.emissiveIntensity = roadEmissive * 0.7 * (0.9 + Math.sin(t * 0.5) * 0.1);
+    }
+    if (ringMatRef.current) {
+      ringMatRef.current.emissiveIntensity = roadEmissive * 0.85 * (0.9 + Math.sin(t * 0.3) * 0.1);
+    }
   });
 
   return (
     <group>
-      {/* 1. 主题色矩形地板 */}
-      <mesh geometry={groundGeometry} position={[0, 0, 0]} receiveShadow>
+      {/* 1. 主题色地板 */}
+      <mesh position={[0, 0, 0]} receiveShadow>
+        <planeGeometry args={[GROUND_SIZE, GROUND_SIZE]} rotation-x={-Math.PI / 2} />
         <meshStandardMaterial
           ref={groundMatRef}
           color={theme.colors.ground}
@@ -216,23 +334,81 @@ export default function CityGround({ theme = FALLBACK_THEME, blocks = [] }: City
         />
       </mesh>
 
-      {/* 2. 主干道带状平面（深沥青色，不发光，让发光建筑成为视觉焦点） */}
-      <instancedMesh
-        ref={roadInstRef}
-        args={[roadGeometry, undefined as unknown as THREE.Material, roadInstances.length]}
-        frustumCulled={false}
-      >
-        <meshStandardMaterial
-          ref={roadMatRef}
-          color={roadColor}
-          emissive={isBlue ? theme.colors.accent : roadColor}
-          emissiveIntensity={roadEmissive}
-          roughness={0.85}
-          metalness={0.05}
-        />
-      </instancedMesh>
+      {/* 2a. 主干道（十字交叉的两条） */}
+      {straightInst.length > 0 && (
+        <instancedMesh
+          ref={straightInstRef}
+          args={[straightGeo, undefined as unknown as THREE.Material, straightInst.length]}
+          frustumCulled={false}
+        >
+          <meshStandardMaterial
+            ref={roadMatRef}
+            color={roadColor}
+            emissive={isBlue ? theme.colors.accent : roadColor}
+            emissiveIntensity={roadEmissive}
+            roughness={0.85}
+            metalness={0.05}
+          />
+        </instancedMesh>
+      )}
 
-      {/* 3. 车道线（中央双黄线，真实的道路语言） */}
+      {/* 2b. 环道（内外环） */}
+      {ringInstances.length > 0 && (
+        <instancedMesh
+          ref={ringInstRef}
+          args={[ringGeo, undefined as unknown as THREE.Material, ringInstances.length]}
+          frustumCulled={false}
+        >
+          <meshStandardMaterial
+            ref={ringMatRef}
+            color={ringRoadColor}
+            emissive={isBlue ? theme.colors.accent : ringRoadColor}
+            emissiveIntensity={roadEmissive * 0.85}
+            roughness={0.85}
+            metalness={0.05}
+          />
+        </instancedMesh>
+      )}
+
+      {/* 2c. 放射干道 */}
+      {radialInst.length > 0 && (
+        <instancedMesh
+          ref={radialInstRef}
+          args={[radialGeo, undefined as unknown as THREE.Material, radialInst.length]}
+          frustumCulled={false}
+        >
+          <meshStandardMaterial
+            ref={radialMatRef}
+            color={radialRoadColor}
+            emissive={isBlue ? theme.colors.accent : radialRoadColor}
+            emissiveIntensity={roadEmissive * 0.7}
+            roughness={0.85}
+            metalness={0.05}
+          />
+        </instancedMesh>
+      )}
+
+      {/* 2d. 中心环岛装饰（Phase G：road-roundabout GLB） */}
+      {/* 放置在十字主干道交汇处 (0, 0)，作为城市中心地标 */}
+      {roundaboutGeo && (
+        <mesh
+          geometry={roundaboutGeo}
+          position={[0, ROAD_Y, 0]}
+          frustumCulled={false}
+          castShadow
+          receiveShadow
+        >
+          <meshStandardMaterial
+            vertexColors
+            roughness={0.85}
+            metalness={0.05}
+            side={THREE.DoubleSide}
+            emissiveIntensity={accentIntensity * 0.3}
+          />
+        </mesh>
+      )}
+
+      {/* 3a. 主干道中央双黄线 */}
       <lineSegments geometry={laneGeo} frustumCulled={false}>
         <lineBasicMaterial
           ref={laneMatRef}
@@ -243,7 +419,20 @@ export default function CityGround({ theme = FALLBACK_THEME, blocks = [] }: City
         />
       </lineSegments>
 
-      {/* 4. 街区边界（按类型着色，边框宽 0.6 让俯视可见） */}
+      {/* 3b. 被动道路 — 街区与街区之间的小路 */}
+      {passiveLaneGeo.attributes.position && (
+        <lineSegments geometry={passiveLaneGeo} frustumCulled={false}>
+          <lineBasicMaterial
+            ref={passiveMatRef}
+            color={passiveLaneColor}
+            transparent
+            opacity={0.45}
+            depthWrite={false}
+        />
+        </lineSegments>
+      )}
+
+      {/* 4. 街区边界（按 typeKey 着色） */}
       {borderInstances.length > 0 && (
         <instancedMesh
           ref={borderInstRef}
@@ -261,7 +450,7 @@ export default function CityGround({ theme = FALLBACK_THEME, blocks = [] }: City
         </instancedMesh>
       )}
 
-      {/* 5. 街区中心标识（类型色圆盘） */}
+      {/* 5. 街区中心标识（root 类型色圆盘） */}
       {centerInstances.length > 0 && (
         <instancedMesh
           ref={centerInstRef}

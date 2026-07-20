@@ -113,6 +113,35 @@ export type SkylineId = "skyline-silhouette";
 
 export const SKYLINE_IDS: SkylineId[] = ["skyline-silhouette"];
 
+/**
+ * 预建道路 GLB 模型 ID（Phase G：主动/被动道路）。
+ * 与 scripts/build-assets.mjs 中的 ROADS 保持一致。
+ *
+ * 5 种形状（标准长度 10、宽度 4，运行时由 InstancedMesh 实例化 + scaleX 适配）：
+ *   - road-straight:       直道（沥青 + 路缘 + 中央虚线）
+ *   - road-intersection-4: 十字路口（8×8 中心广场 + 4 边斑马线 + 中心标记）
+ *   - road-intersection-3: T 字路口（8×8 中心广场 + 3 边斑马线 + 三角标记）
+ *   - road-curve:          90° 弯道（环形扇区 + 内外缘 + 中央曲线）
+ *   - road-roundabout:     环岛（外环道 + 内中心岛 + 4 入口臂 + 中心装饰）
+ *
+ * 运行时由 CityGround 通过 useGlbAssets() 读取几何，用于主动道路骨架的
+ * straight/radial 段实例化；环道仍用 RingGeometry（曲线不便用直段缩放）。
+ */
+export type RoadId =
+  | "road-straight"
+  | "road-intersection-4"
+  | "road-intersection-3"
+  | "road-curve"
+  | "road-roundabout";
+
+export const ROAD_IDS: RoadId[] = [
+  "road-straight",
+  "road-intersection-4",
+  "road-intersection-3",
+  "road-curve",
+  "road-roundabout",
+];
+
 /** 单个变体加载后的资源：合并后的几何 + 共享材质数组 */
 export interface VariantAsset {
   /** 从 GLB Scene 提取所有 Mesh 的几何，merge 成单一 BufferGeometry（用于 InstancedMesh） */
@@ -146,6 +175,12 @@ export type AssetMap = Partial<Record<BuildingVariantId, VariantAsset>> & {
    * 主题动态生成（onBeforeCompile 注入 accent emissive + 主题剪影色）。
    */
   skyline?: Partial<Record<SkylineId, THREE.BufferGeometry>>;
+  /**
+   * 道路几何映射（Phase G：主动/被动道路）。
+   * 仅存合并后的 BufferGeometry，材质由 CityGround 根据
+   * 主题动态生成（vertexColors 保留沥青/路缘/黄线/斑马线/中心标记多色分段）。
+   */
+  roads?: Partial<Record<RoadId, THREE.BufferGeometry>>;
 };
 
 export interface UseGlbAssetsResult {
@@ -154,7 +189,7 @@ export interface UseGlbAssetsResult {
   /** 是否全部加载完毕（含失败） */
   loaded: boolean;
   /** 加载失败的变体 ID（用于回退到 box 占位） */
-  failed: Set<BuildingVariantId | VehicleId | LandmarkId | RoofDecorationId | SkylineId>;
+  failed: Set<BuildingVariantId | VehicleId | LandmarkId | RoofDecorationId | SkylineId | RoadId>;
 }
 
 /**
@@ -172,7 +207,7 @@ export interface UseGlbAssetsResult {
  */
 export function useGlbAssets(): UseGlbAssetsResult {
   const [assets, setAssets] = useState<AssetMap>({});
-  const [failed, setFailed] = useState<Set<BuildingVariantId | VehicleId | LandmarkId | RoofDecorationId | SkylineId>>(new Set());
+  const [failed, setFailed] = useState<Set<BuildingVariantId | VehicleId | LandmarkId | RoofDecorationId | SkylineId | RoadId>>(new Set());
 
   useEffect(() => {
     let cancelled = false;
@@ -470,12 +505,69 @@ export function useGlbAssets(): UseGlbAssetsResult {
       );
     }
 
+    // === 道路加载（Phase G：仅合并几何，材质由 CityGround 主题动态生成） ===
+    for (const id of ROAD_IDS) {
+      const url = `/models/${id}.glb`;
+      loader.load(
+        url,
+        (gltf) => {
+          if (cancelled) return;
+
+          const geometries: THREE.BufferGeometry[] = [];
+          gltf.scene.updateMatrixWorld(true);
+          gltf.scene.traverse((obj) => {
+            const mesh = obj as THREE.Mesh;
+            if (mesh.isMesh && mesh.geometry) {
+              const cloned = mesh.geometry.clone();
+              cloned.applyMatrix4(mesh.matrixWorld);
+              geometries.push(cloned);
+            }
+          });
+
+          let merged: THREE.BufferGeometry;
+          if (geometries.length === 0) {
+            merged = new THREE.BufferGeometry();
+          } else if (geometries.length === 1) {
+            merged = geometries[0];
+          } else {
+            try {
+              merged = mergeGeometries(geometries, false) ?? geometries[0];
+            } catch (err) {
+              console.warn(`[useGlbAssets] mergeGeometries failed for ${id}, fallback to first:`, err);
+              merged = geometries[0];
+            }
+            geometries.forEach((g) => {
+              if (g !== merged) g.dispose();
+            });
+          }
+
+          setAssets((prev) => ({
+            ...prev,
+            roads: {
+              ...(prev.roads ?? {}),
+              [id]: merged,
+            },
+          }));
+        },
+        undefined,
+        (err) => {
+          if (cancelled) return;
+          console.warn(`[useGlbAssets] Failed to load ${url}:`, err);
+          setFailed((prev) => {
+            const next = new Set(prev);
+            next.add(id);
+            return next;
+          });
+        },
+      );
+    }
+
     return () => {
       cancelled = true;
     };
   }, []);
 
-  // loaded 判定：所有建筑变体 + 所有车辆变体 + 所有地标 + 所有屋顶装饰 + 所有远景剪影都已加载或失败
+  // loaded 判定：所有建筑变体 + 所有车辆变体 + 所有地标 + 所有屋顶装饰 + 所有远景剪影 + 所有道路都已加载或失败
   const buildingsLoaded = BUILDING_VARIANT_IDS.every(
     (id) => assets[id] !== undefined || failed.has(id),
   );
@@ -491,7 +583,10 @@ export function useGlbAssets(): UseGlbAssetsResult {
   const skylineLoaded = SKYLINE_IDS.every(
     (id) => (assets.skyline?.[id] !== undefined) || failed.has(id),
   );
-  const loaded = buildingsLoaded && vehiclesLoaded && landmarksLoaded && roofDecorationsLoaded && skylineLoaded;
+  const roadsLoaded = ROAD_IDS.every(
+    (id) => (assets.roads?.[id] !== undefined) || failed.has(id),
+  );
+  const loaded = buildingsLoaded && vehiclesLoaded && landmarksLoaded && roofDecorationsLoaded && skylineLoaded && roadsLoaded;
 
   return { assets, loaded, failed };
 }
