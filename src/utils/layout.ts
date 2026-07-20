@@ -115,7 +115,7 @@ export interface RoadCurve {
   cx: number;            // 圆心 X（局部原点对应世界位置）
   cz: number;            // 圆心 Z
   rotY: number;          // 朝向（决定弯道两端方向）
-  radius: number;        // 中心线半径（=6）
+  radius: number;        // 端点距离 = 外缘半径（=8）。seg1/seg2 端点 = 弯道外缘，避免直线段穿入弯道内部。
   width: number;         // 道路宽度
 }
 
@@ -287,14 +287,13 @@ const MIN_RADIUS = 2.2;
 /** 每个 root 最多连接的邻居数（次干道生成） */
 const MINOR_ROAD_NEIGHBORS_PER_ROOT = 2;
 
-/** road-curve GLB 中心线半径（与 build-assets.mjs 同步：内 R=4、外 R=8、中心 R=6） */
-const ROAD_CURVE_RADIUS = 6;
-/** road-curve GLB 外缘半径 */
+/** road-curve GLB 外缘半径（端点位置 = 外缘，避免直线段"穿入"弯道内部）。
+ *  GLB 几何（与 build-assets.mjs 同步）：内 R=4、外 R=8、中心 R=6，端面沿外缘。 */
 const ROAD_CURVE_OUTER = 8;
 /** road-intersection-3 GLB 广场尺寸（8×8） */
 const INTERSECTION_SIZE = 8;
-/** road-curve 退化为直线时的最小长边阈值（curve 占据 6 单位 + 0.5 裕量） */
-const CURVE_CLEARANCE = ROAD_CURVE_RADIUS + 0.5;
+/** road-curve 退化为直线时的最小长边阈值（外缘 + 0.5 裕量） */
+const CURVE_CLEARANCE = ROAD_CURVE_OUTER + 0.5;
 
 // ============================================================================
 // 主干道生成 — 每个 root 一条主干道
@@ -402,27 +401,25 @@ function makeSegment(
 /**
  * 计算一条 L 形次干道（2 段直线 + 1 个 90° 弯道）。
  *
+ * 端点接到弯道外缘（优化 B）：
+ *   - v9 端点 = 弯道中线 (R=6)：直线段"穿入"弯道内部 2 单位，端面外半 (R=6→8) 裸露 → 视觉突兀
+ *   - 优化 B 端点 = 弯道外缘 (R=8)：直线段完全覆盖弯道端面 (R=4→8)，弯道在内部自然展开 → 无突兀感
+ *
  * road-curve GLB 实际几何（关键修正 v9）：
  *   - build-assets.mjs: `RingGeometry(4, 8, 32, 1, 0, π/2).rotateX(-π/2)`
- *   - RingGeometry 在 XY 平面从 +X 扫到 +Y，rotateX(-π/2) 把 +Y 转到 -Z
- *   - 实际几何：圆心在原点，扇区从 +X 扫到 -Z（右转 90°，俯视顺时针）
- *   - 入口端中线点 (6, 0, 0)（局部，+X 方向）
- *   - 出口端中线点 (0, 0, -6)（局部，-Z 方向）
- *   - curve 占据 6×6 方形空间（圆心到入口/出口中线点都是 6 单位）
+ *   - 圆心 (0, 0, 0)，扇区从 +X 端 (8, 0, 0) 扫到 -Z 端 (0, 0, -8)（外缘 r=8）
+ *   - 入口端（+X 外缘）= (8, 0, 0)，入口中线 = (6, 0, 0)
+ *   - 出口端（-Z 外缘）= (0, 0, -8)，出口中线 = (0, 0, -6)
  *
- * 4 象限方案（基于 dx=toX-fromX, dz=toZ-fromZ 符号）：
- *   - A1: dx>0, dz>0（东北）→ 先 +X 后 +Z
- *     · 圆心 (cx_c, cz_c) = (toX, fromZ)
- *     · 弯道 +X 端世界位置 = (cx_c+6, cz_c) = (toX+6, fromZ) — seg1 终点
- *     · 弯道 +Z 端世界位置 = (cx_c, cz_c+6) = (toX, fromZ+6) — seg2 起点
- *     · 需要 rotY 使弯道两端朝 +X 和 +Z → rotY=-π/2（验证：R(-π/2)·(1,0,0)=(0,1)，R(-π/2)·(0,0,-1)=(1,0) ✓）
- *     · seg1: (fromX, fromZ) → (toX+6, fromZ)，沿 +X，长度 dx+6
- *     · seg2: (toX, fromZ+6) → (toX, toZ)，沿 +Z，长度 dz-6  （要求 dz>6）
- *   - A2: dx<0, dz<0（西南）→ 先 -X 后 -Z，rotY=π/2（圆心 (toX, fromZ)）
- *   - B1: dx<0, dz>0（西北）→ 先 +Z 后 -X，rotY=π（圆心 (fromX, toZ)）
- *   - B2: dx>0, dz<0（东南）→ 先 -Z 后 +X，rotY=0（圆心 (fromX, toZ)）
+ * 4 象限方案（基于 dx=toX-fromX, dz=toZ-fromZ 符号；端点 = 外缘 R=8）：
+ *   - A1: dx>0, dz>0（东北）→ 圆心 (toX, fromZ)，rotY=-π/2
+ *     · seg1End (-Z端外缘) = 圆心 + R(-π/2)·(0, 0, -8) = 圆心 + (8, 0, 0) = (toX+8, fromZ)
+ *     · seg2Start (+X端外缘) = 圆心 + R(-π/2)·(8, 0, 0) = 圆心 + (0, 0, 8) = (toX, fromZ+8)
+ *   - A2: dx<0, dz<0（西南）→ 圆心 (toX, fromZ)，rotY=π/2（端点对称）
+ *   - B1: dx<0, dz>0（西北）→ 圆心 (fromX, toZ)，rotY=π（端点对称）
+ *   - B2: dx>0, dz<0（东南）→ 圆心 (fromX, toZ)，rotY=0（端点对称）
  *
- * 退化条件：对应方向所需的"长边"长度不足 CURVE_CLEARANCE(=6.5) → 退化为直线（segments 1 段，curve=null）。
+ * 退化条件：对应方向的"长边"长度 < CURVE_CLEARANCE(=8.5) → 退化为直线（segments 1 段，curve=null）。
  */
 function buildLShapeMinor(
   fromX: number, fromZ: number,
@@ -440,37 +437,37 @@ function buildLShapeMinor(
   let validLShape = true;
 
   if (dx > 0 && dz > 0) {
-    // A1: 先 +X 后 +Z，要求 dz > 6
+    // A1: 先 +X 后 +Z，要求 dz > 8（seg2 长度 = dz - 8 > 0）
     if (dz < CURVE_CLEARANCE) { validLShape = false; }
-    // rotY=-π/2 时弯道两端朝 +X 和 +Z（验证：R(-π/2)·(1,0,0)=(0,1)=+Z，R(-π/2)·(0,0,-1)=(1,0)=+X）
+    // rotY=-π/2：弯道 -Z 端外缘 = 圆心 + (8, 0, 0) = (toX+8, fromZ)，+X 端外缘 = 圆心 + (0, 0, 8) = (toX, fromZ+8)
     curveRotY = -Math.PI / 2;
     cx_c = toX; cz_c = fromZ;
-    seg1EndX = cx_c + ROAD_CURVE_RADIUS; seg1EndZ = cz_c;       // 弯道 +X 端
-    seg2StartX = cx_c; seg2StartZ = cz_c + ROAD_CURVE_RADIUS;    // 弯道 +Z 端
+    seg1EndX = cx_c + ROAD_CURVE_OUTER; seg1EndZ = cz_c;          // 弯道 -Z 端外缘
+    seg2StartX = cx_c; seg2StartZ = cz_c + ROAD_CURVE_OUTER;       // 弯道 +X 端外缘
   } else if (dx < 0 && dz < 0) {
-    // A2: 先 -X 后 -Z，要求 -dz > 6
+    // A2: 先 -X 后 -Z，要求 -dz > 8
     if (-dz < CURVE_CLEARANCE) { validLShape = false; }
-    // rotY=π/2 时弯道两端朝 -Z 和 -X（验证：R(π/2)·(1,0,0)=(0,-1)=-Z，R(π/2)·(0,0,-1)=(-1,0)=-X）
+    // rotY=π/2：弯道 -Z 端外缘 = 圆心 + (-8, 0, 0) = (toX-8, fromZ)，+X 端外缘 = 圆心 + (0, 0, -8) = (toX, fromZ-8)
     curveRotY = Math.PI / 2;
     cx_c = toX; cz_c = fromZ;
-    seg1EndX = cx_c - ROAD_CURVE_RADIUS; seg1EndZ = cz_c;        // 弯道 -X 端
-    seg2StartX = cx_c; seg2StartZ = cz_c - ROAD_CURVE_RADIUS;    // 弯道 -Z 端
+    seg1EndX = cx_c - ROAD_CURVE_OUTER; seg1EndZ = cz_c;          // 弯道 -Z 端外缘
+    seg2StartX = cx_c; seg2StartZ = cz_c - ROAD_CURVE_OUTER;       // 弯道 +X 端外缘
   } else if (dx < 0 && dz > 0) {
-    // B1: 先 +Z 后 -X，要求 -dx > 6
+    // B1: 先 +Z 后 -X，要求 -dx > 8
     if (-dx < CURVE_CLEARANCE) { validLShape = false; }
-    // rotY=π 时弯道两端朝 -X 和 +Z（验证：R(π)·(1,0,0)=(-1,0)=-X，R(π)·(0,0,-1)=(0,1)=+Z）
+    // rotY=π：弯道 -Z 端外缘 = 圆心 + (0, 0, 8) = (fromX, toZ+8)，+X 端外缘 = 圆心 + (-8, 0, 0) = (fromX-8, toZ)
     curveRotY = Math.PI;
     cx_c = fromX; cz_c = toZ;
-    seg1EndX = cx_c; seg1EndZ = cz_c + ROAD_CURVE_RADIUS;       // 弯道 +Z 端
-    seg2StartX = cx_c - ROAD_CURVE_RADIUS; seg2StartZ = cz_c;    // 弯道 -X 端
+    seg1EndX = cx_c; seg1EndZ = cz_c + ROAD_CURVE_OUTER;          // 弯道 -Z 端外缘
+    seg2StartX = cx_c - ROAD_CURVE_OUTER; seg2StartZ = cz_c;       // 弯道 +X 端外缘
   } else if (dx > 0 && dz < 0) {
-    // B2: 先 -Z 后 +X，要求 dx > 6
+    // B2: 先 -Z 后 +X，要求 dx > 8
     if (dx < CURVE_CLEARANCE) { validLShape = false; }
-    // rotY=0 时弯道两端朝 +X 和 -Z（验证：R(0)·(1,0,0)=(1,0)=+X，R(0)·(0,0,-1)=(0,-1)=-Z）
+    // rotY=0：弯道 -Z 端外缘 = 圆心 + (0, 0, -8) = (fromX, toZ-8)，+X 端外缘 = 圆心 + (8, 0, 0) = (fromX+8, toZ)
     curveRotY = 0;
     cx_c = fromX; cz_c = toZ;
-    seg1EndX = cx_c; seg1EndZ = cz_c - ROAD_CURVE_RADIUS;        // 弯道 -Z 端
-    seg2StartX = cx_c + ROAD_CURVE_RADIUS; seg2StartZ = cz_c;    // 弯道 +X 端
+    seg1EndX = cx_c; seg1EndZ = cz_c - ROAD_CURVE_OUTER;          // 弯道 -Z 端外缘
+    seg2StartX = cx_c + ROAD_CURVE_OUTER; seg2StartZ = cz_c;       // 弯道 +X 端外缘
   } else {
     // dx 或 dz 为 0
     validLShape = false;
@@ -506,11 +503,11 @@ function buildLShapeMinor(
     cx: cx_c,
     cz: cz_c,
     rotY: curveRotY,
-    radius: ROAD_CURVE_RADIUS,
+    radius: ROAD_CURVE_OUTER,
     width,
   };
 
-  const totalLen = (seg1?.length ?? 0) + (seg2?.length ?? 0) + (Math.PI * ROAD_CURVE_RADIUS / 2);
+  const totalLen = (seg1?.length ?? 0) + (seg2?.length ?? 0) + (Math.PI * ROAD_CURVE_OUTER / 2);
 
   return {
     fromRootPid: fromPid,
