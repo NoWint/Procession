@@ -23,6 +23,13 @@ interface SettingsPanelProps {
   onQualityModeChange: (mode: QualityMode) => void;
   currentThemeUrl: string;
   onThemeChange: (url: string) => void;
+  // 主题入口收敛（P0-1）：把 ThemeEditor 入口挪进 SettingsPanel
+  onOpenThemeEditor: () => void;
+  // 顶部按钮收敛（P1-3）：环绕 / 时光棱镜 toggle 挪进 SettingsPanel
+  autoRotate: boolean;
+  onAutoRotateChange: (value: boolean) => void;
+  timelineOpen: boolean;
+  onTimelineOpenChange: (value: boolean) => void;
 }
 
 const PROCESS_CAP_MIN = 100;
@@ -61,6 +68,11 @@ export default function SettingsPanel({
   onQualityModeChange,
   currentThemeUrl,
   onThemeChange,
+  onOpenThemeEditor,
+  autoRotate,
+  onAutoRotateChange,
+  timelineOpen,
+  onTimelineOpenChange,
 }: SettingsPanelProps) {
   const { t, locale, setLocale } = useI18n();
 
@@ -93,6 +105,44 @@ export default function SettingsPanel({
             <span className="settings-field-label">{t("settings.appearance.theme")}</span>
             <ThemeSelector currentUrl={currentThemeUrl} onChange={onThemeChange} />
           </label>
+          {/* 主题入口收敛（P0-1）：原顶部"编辑信号"按钮挪入此处 */}
+          <button
+            type="button"
+            className="settings-edit-signal"
+            onClick={onOpenThemeEditor}
+          >
+            {t("settings.appearance.edit_signal")}
+          </button>
+        </section>
+
+        {/* P1-3 顶部按钮收敛：原顶部的"环绕"和"时光棱镜"按钮挪入此 section */}
+        <section className="settings-section">
+          <h3>{t("settings.section.view")}</h3>
+          <p className="settings-hint">{t("settings.view.hint")}</p>
+
+          <label className="settings-toggle-row">
+            <span className="settings-toggle-label">{t("settings.view.orbit")}</span>
+            <input
+              type="checkbox"
+              checked={autoRotate}
+              onChange={(e) => onAutoRotateChange(e.target.checked)}
+              aria-label={t("settings.view.orbit")}
+            />
+            <span className="settings-toggle-switch" aria-hidden="true" />
+          </label>
+          <p className="settings-hint settings-hint-inline">{t("settings.view.orbit_hint")}</p>
+
+          <label className="settings-toggle-row">
+            <span className="settings-toggle-label">{t("settings.view.time_lens")}</span>
+            <input
+              type="checkbox"
+              checked={timelineOpen}
+              onChange={(e) => onTimelineOpenChange(e.target.checked)}
+              aria-label={t("settings.view.time_lens")}
+            />
+            <span className="settings-toggle-switch" aria-hidden="true" />
+          </label>
+          <p className="settings-hint settings-hint-inline">{t("settings.view.time_lens_hint")}</p>
         </section>
 
         <section className="settings-section">

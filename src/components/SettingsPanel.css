@@ -209,3 +209,109 @@
 .settings-field .theme-selector {
   min-width: 180px;
 }
+
+/* 主题入口收敛（P0-1）：原顶部"编辑信号"按钮挪入 Appearance section */
+.settings-edit-signal {
+  margin-top: 12px;
+  width: 100%;
+  background: var(--proc-surface-elevated);
+  color: var(--proc-text);
+  border: 1px solid var(--proc-border);
+  border-radius: var(--proc-radius-md);
+  padding: 9px 12px;
+  font-family: var(--proc-font-body);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+}
+
+.settings-edit-signal:hover {
+  background: var(--proc-accent);
+  color: var(--proc-bg);
+  border-color: var(--proc-accent);
+}
+
+.settings-edit-signal:active {
+  transform: scale(0.98);
+}
+
+.settings-edit-signal:focus-visible {
+  outline: 2px solid var(--proc-accent);
+  outline-offset: 2px;
+}
+
+/* P1-3 顶部按钮收敛：视图 section 的 toggle 开关样式 */
+.settings-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 14px;
+  margin-bottom: 4px;
+  cursor: pointer;
+  position: relative;
+}
+
+.settings-toggle-label {
+  font-family: var(--proc-font-body);
+  font-size: 13px;
+  color: var(--proc-text);
+  flex: 1;
+}
+
+.settings-toggle-row input[type="checkbox"] {
+  /* 真实 checkbox 隐藏，用自定义开关视觉 */
+  opacity: 0;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  cursor: pointer;
+}
+
+.settings-toggle-switch {
+  width: 38px;
+  height: 22px;
+  border-radius: 11px;
+  background: var(--proc-bg);
+  border: 1px solid var(--proc-border);
+  position: relative;
+  transition: background 0.18s ease, border-color 0.18s ease;
+  flex-shrink: 0;
+}
+
+.settings-toggle-switch::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--proc-text-muted);
+  transition: transform 0.18s ease, background 0.18s ease;
+}
+
+.settings-toggle-row input:checked + .settings-toggle-switch {
+  background: var(--proc-accent);
+  border-color: var(--proc-accent);
+}
+
+.settings-toggle-row input:checked + .settings-toggle-switch::after {
+  transform: translateX(16px);
+  background: var(--proc-bg);
+}
+
+.settings-toggle-row input:focus-visible + .settings-toggle-switch {
+  outline: 2px solid var(--proc-accent);
+  outline-offset: 2px;
+}
+
+.settings-hint-inline {
+  margin: 0 0 4px;
+  font-size: 11px;
+  opacity: 0.75;
+}

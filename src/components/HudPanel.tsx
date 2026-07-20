@@ -5,6 +5,13 @@ import { useI18n } from "../hooks/useI18n";
 interface HudPanelProps {
   snapshot: SystemSnapshot;
   theme?: Theme;
+  /**
+   * P2-5 FpsCounter 合并进 HudPanel：
+   * fps 由 App 通过 useFpsMonitor 单实例获取后传入，避免重复订阅。
+   * quality 用于决定是否触发红色警告样式（非 high 视为低帧）。
+   */
+  fps?: number;
+  quality?: "high" | "med" | "low";
 }
 
 function alertClass(value: number, warning: number, critical: number): string {
@@ -13,7 +20,7 @@ function alertClass(value: number, warning: number, critical: number): string {
   return "";
 }
 
-export default function HudPanel({ snapshot, theme = FALLBACK_THEME }: HudPanelProps) {
+export default function HudPanel({ snapshot, theme = FALLBACK_THEME, fps, quality }: HudPanelProps) {
   const { t } = useI18n();
   const cpu = snapshot.cpu.total;
   const cpuText = cpu.toFixed(1);
@@ -27,6 +34,8 @@ export default function HudPanel({ snapshot, theme = FALLBACK_THEME }: HudPanelP
 
   const cpuClass = alertClass(cpu, 70, 90);
   const memClass = alertClass(memPct, 80, 95);
+  // 沿用旧 UI：非 high 档位即视为"低帧"，触发红色警告样式
+  const fpsLow = quality != null && quality !== "high";
 
   return (
     <div className="hud-panel" style={{ "--proc-accent-local": theme.colors.accent } as React.CSSProperties}>
@@ -48,6 +57,13 @@ export default function HudPanel({ snapshot, theme = FALLBACK_THEME }: HudPanelP
         <span className="hud-label">{t("hud.proc")}</span>
         <span className="hud-value">{procs}</span>
       </div>
+      {/* P2-5 FpsCounter 合并进 HudPanel：作为最后一个 row，与其它指标共占同一行 */}
+      {fps != null && (
+        <div className={`hud-row hud-fps ${fpsLow ? "hud-fps-low" : ""}`}>
+          <span className="hud-label">{t("fps.label")}</span>
+          <span className="hud-value">{fps}</span>
+        </div>
+      )}
     </div>
   );
 }

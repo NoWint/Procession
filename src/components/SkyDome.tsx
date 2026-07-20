@@ -158,25 +158,45 @@ export default function SkyDome({ theme = FALLBACK_THEME }: SkyDomeProps) {
     [],
   );
 
-  // theme 变化时只更新 uniforms，不重建 material
+  // P0-2 主题切换 spring 过渡：目标值独立存储，useFrame 中 lerp 到目标
+  // 时间常数 ≈ 0.25s（damping 1.0, response 0.25 — Apple critically damped 默认）
+  const targetRef = useRef({
+    topColor: new THREE.Color(theme.colors.background),
+    horizonColor: new THREE.Color(theme.colors.coldBlue),
+    groundColor: new THREE.Color("#000000"),
+    horizonGlow: 0.1,
+    cloudColor: new THREE.Color(cloudTheme.color),
+    cloudOpacity: cloudTheme.opacity,
+  });
+
+  // theme 变化时只更新 target，由 useFrame 平滑过渡到目标（materialize 而非硬切）
   useEffect(() => {
-    material.uniforms.uTopColor.value.set(theme.colors.background);
-    material.uniforms.uHorizonColor.value.set(theme.colors.coldBlue);
-    material.uniforms.uGroundColor.value.set("#000000");
-    material.uniforms.uHorizonGlow.value = 0.1;
-    material.uniforms.uCloudColor.value.set(cloudTheme.color);
-    material.uniforms.uCloudOpacity.value = cloudTheme.opacity;
+    targetRef.current.topColor.set(theme.colors.background);
+    targetRef.current.horizonColor.set(theme.colors.coldBlue);
+    targetRef.current.groundColor.set("#000000");
+    targetRef.current.horizonGlow = 0.1;
+    targetRef.current.cloudColor.set(cloudTheme.color);
+    targetRef.current.cloudOpacity = cloudTheme.opacity;
   }, [
     theme.colors.background,
     theme.colors.coldBlue,
     cloudTheme,
-    material,
   ]);
 
-  useFrame((state) => {
-    if (materialRef.current) {
-      materialRef.current.uniforms.uTime.value = state.clock.elapsedTime;
-    }
+  useFrame((state, delta) => {
+    const mat = materialRef.current;
+    if (!mat) return;
+    const u = mat.uniforms;
+    const t = targetRef.current;
+    // 指数衰减 lerp，帧率无关：k = 1 - exp(-delta / tau)，tau=0.25s
+    const k = 1 - Math.exp(-delta / 0.25);
+    (u.uTopColor.value as THREE.Color).lerp(t.topColor, k);
+    (u.uHorizonColor.value as THREE.Color).lerp(t.horizonColor, k);
+    (u.uGroundColor.value as THREE.Color).lerp(t.groundColor, k);
+    u.uHorizonGlow.value = THREE.MathUtils.lerp(u.uHorizonGlow.value, t.horizonGlow, k);
+    (u.uCloudColor.value as THREE.Color).lerp(t.cloudColor, k);
+    u.uCloudOpacity.value = THREE.MathUtils.lerp(u.uCloudOpacity.value, t.cloudOpacity, k);
+    u.uTime.value = state.clock.elapsedTime;
   });
 
   return (

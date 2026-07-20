@@ -7,6 +7,14 @@ interface CameraControllerProps {
   duration?: number;
   offsetDistance?: number; // 相机距离目标的偏移距离
   offsetY?: number; // 相机在 Y 方向的抬高
+  /**
+   * P1-4 自动旋转中断性：
+   * 用户拖动时把 autoRotateSpeed 平滑衰减到 0（避免与拖动方向冲突的"brick wall"），
+   * 松开后若 autoRotate 仍为 true，则从 0 平滑升回 baseAutoRotateSpeed。
+   * Spring tau=0.4s（Apple critically damped, response 0.4 — 与官方"Move/reposition"一致）。
+   */
+  autoRotate?: boolean;
+  baseAutoRotateSpeed?: number;
 }
 
 export default function CameraController({
@@ -14,6 +22,8 @@ export default function CameraController({
   duration = 0.8,
   offsetDistance = 18,
   offsetY = 8,
+  autoRotate = false,
+  baseAutoRotateSpeed = 0.6,
 }: CameraControllerProps) {
   const { camera, controls } = useThree();
   const startPos = useRef(new THREE.Vector3());
@@ -23,6 +33,10 @@ export default function CameraController({
   const tmpDir = useRef(new THREE.Vector3());
   const startTime = useRef<number | null>(null);
   const isFlying = useRef(false);
+
+  // P1-4 自动旋转中断性状态
+  const isDraggingRef = useRef(false);
+  const targetAutoRotateSpeedRef = useRef(autoRotate ? baseAutoRotateSpeed : 0);
 
   useEffect(() => {
     if (!target) {
@@ -70,7 +84,51 @@ export default function CameraController({
     };
   }, [target, camera, controls, offsetDistance, offsetY]);
 
-  useFrame(() => {
+  // P1-4 监听 OrbitControls 的 start/end 事件，拖动时降速到 0
+  useEffect(() => {
+    const c = controls as any;
+    if (!c) return;
+
+    const onStart = () => {
+      isDraggingRef.current = true;
+      // 用户开始拖动 → 立即把目标速度降到 0（避免与拖动方向冲突）
+      targetAutoRotateSpeedRef.current = 0;
+    };
+    const onEnd = () => {
+      isDraggingRef.current = false;
+      // 拖动结束：autoRotate 仍开启则升回基础速度，否则保持 0
+      targetAutoRotateSpeedRef.current = autoRotate ? baseAutoRotateSpeed : 0;
+    };
+    c.addEventListener("start", onStart);
+    c.addEventListener("end", onEnd);
+    return () => {
+      c.removeEventListener("start", onStart);
+      c.removeEventListener("end", onEnd);
+    };
+  }, [controls, autoRotate, baseAutoRotateSpeed]);
+
+  // P1-4 autoRotate prop 变化时同步 controls.autoRotate 与目标速度
+  useEffect(() => {
+    const c = controls as any;
+    if (c) c.autoRotate = autoRotate;
+    // 仅在非拖动状态更新 target（拖动中由 onEnd 决定）
+    if (!isDraggingRef.current) {
+      targetAutoRotateSpeedRef.current = autoRotate ? baseAutoRotateSpeed : 0;
+    }
+  }, [autoRotate, baseAutoRotateSpeed, controls]);
+
+  useFrame((_state, delta) => {
+    // P1-4 平滑过渡 autoRotateSpeed 到 target（tau=0.4s，帧率无关）
+    const c = controls as any;
+    if (c && typeof c.autoRotateSpeed === "number" && delta > 0) {
+      const k = 1 - Math.exp(-delta / 0.4);
+      c.autoRotateSpeed = THREE.MathUtils.lerp(
+        c.autoRotateSpeed,
+        targetAutoRotateSpeedRef.current,
+        k,
+      );
+    }
+
     if (!isFlying.current || !target) return;
 
     if (startTime.current === null) {

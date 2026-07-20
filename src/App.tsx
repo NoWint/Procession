@@ -17,7 +17,6 @@ import ThemeEditor from "./components/ThemeEditor";
 import SettingsPanel, { type QualityMode } from "./components/SettingsPanel";
 import ScreensaverMode from "./components/ScreensaverMode";
 import ScreenshotButton from "./components/ScreenshotButton";
-import FpsCounter from "./components/FpsCounter";
 import TimelineConsole from "./components/TimelineConsole";
 import { useSystemData } from "./hooks/useSystemData";
 import { useSystemHistory } from "./hooks/useSystemHistory";
@@ -76,7 +75,8 @@ export default function App() {
   const [processCap, setProcessCap] = useState(DEFAULT_PROCESS_CAP);
   const [qualityMode, setQualityMode] = useState<QualityMode>("auto");
   // 自适应质量：FPS 状态机已下沉到 hook 内部，App 只消费 buildingCount/bloomEnabled
-  const { buildingCount, bloomEnabled } = useFpsMonitor({
+  // P2-5 FpsCounter 合并进 HudPanel：fps/quality 也由本单实例提供，避免双重订阅
+  const { buildingCount, bloomEnabled, fps, quality } = useFpsMonitor({
     sampleSize: 30,
     maxBuildings: processCap,
   });
@@ -381,7 +381,7 @@ export default function App() {
         <Atmosphere theme={theme} />
         {effectiveBloom && (
           <BloomEffect
-            strength={0.05}
+            theme={theme}
             radius={0.4}
             threshold={0.85}
             enableVignette={false}
@@ -444,7 +444,7 @@ export default function App() {
             </span>
           )}
         </div>
-        <HudPanel snapshot={renderSnapshot} theme={theme} />
+        <HudPanel snapshot={renderSnapshot} theme={theme} fps={fps} quality={quality} />
         {utilityMode ? (
           <UtilityMode
             snapshot={renderSnapshot}
@@ -454,24 +454,7 @@ export default function App() {
           />
         ) : null}
         <div className="app-controls">
-          <button className="app-theme-toggle" onClick={handleOpenThemeEditor}>
-            {t("app.button.edit_signal")}
-          </button>
-          <button
-            className="app-theme-toggle"
-            onClick={() => setAutoRotate((prev) => !prev)}
-            aria-pressed={autoRotate}
-          >
-            {autoRotate ? t("app.button.stop_orbit") : t("app.button.orbit")}
-          </button>
-          <button
-            className={`app-theme-toggle ${timelineOpen ? "app-toggle-active" : ""}`}
-            onClick={() => setTimelineOpen((prev) => !prev)}
-            aria-pressed={timelineOpen}
-            title={t("app.button.time_lens_title")}
-          >
-            {t("app.button.time_lens")}
-          </button>
+          {/* P1-3 顶部按钮收敛：环绕 / 时光棱镜 toggle 已挪入 SettingsPanel View section */}
           <button
             className={`app-settings-toggle ${settingsOpen ? "app-toggle-active" : ""}`}
             onClick={() => setSettingsOpen((prev) => !prev)}
@@ -483,7 +466,6 @@ export default function App() {
           </button>
           <ScreenshotButton />
         </div>
-        <FpsCounter />
         {timelineOpen && (
           <TimelineConsole
             history={history.history}
@@ -520,6 +502,11 @@ export default function App() {
           onQualityModeChange={setQualityMode}
           currentThemeUrl={currentThemeUrl}
           onThemeChange={handleThemeChange}
+          onOpenThemeEditor={handleOpenThemeEditor}
+          autoRotate={autoRotate}
+          onAutoRotateChange={setAutoRotate}
+          timelineOpen={timelineOpen}
+          onTimelineOpenChange={setTimelineOpen}
         />
         <ProcessPopup
           process={selectedProcess}

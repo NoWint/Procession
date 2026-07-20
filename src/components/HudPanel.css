@@ -43,3 +43,30 @@
 .hud-value.hud-critical {
   color: #ff6b6b;
 }
+
+/* P2-5 FpsCounter 合并进 HudPanel：低帧警告样式（沿用旧 .fps-counter.fps-low 视觉） */
+.hud-fps {
+  border-left: 1px solid var(--proc-border);
+  padding-left: 16px;
+  margin-left: 4px;
+}
+
+.hud-fps-low .hud-value {
+  color: #ff6b6b;
+}
+
+.hud-fps-low {
+  position: relative;
+}
+
+.hud-fps-low::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 16px;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 107, 107, 0.1);
+  border-radius: var(--proc-radius-sm);
+  pointer-events: none;
+}
