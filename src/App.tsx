@@ -13,7 +13,6 @@ import ProcessPopup from "./components/ProcessPopup";
 import ErrorState from "./components/ErrorState";
 import HudPanel from "./components/HudPanel";
 import UtilityMode from "./components/UtilityMode";
-import ThemeSelector from "./components/ThemeSelector";
 import ThemeEditor from "./components/ThemeEditor";
 import SettingsPanel, { type QualityMode } from "./components/SettingsPanel";
 import ScreensaverMode from "./components/ScreensaverMode";
@@ -455,7 +454,6 @@ export default function App() {
           />
         ) : null}
         <div className="app-controls">
-          <ThemeSelector currentUrl={currentThemeUrl} onChange={handleThemeChange} />
           <button className="app-theme-toggle" onClick={handleOpenThemeEditor}>
             {t("app.button.edit_signal")}
           </button>

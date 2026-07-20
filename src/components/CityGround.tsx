@@ -19,43 +19,38 @@ const GROUND_SIZE = 160;
 const ROAD_Y = 0.02;
 const BLOCK_BORDER_Y = 0.015;
 
+// road-straight GLB 的标准尺寸（与 build-assets.mjs ROAD_CANONICAL_* 一致）
+const ROAD_GLB_LENGTH = 10;
+const ROAD_GLB_WIDTH = 4;
+
 /**
- * 地面：主题色地板 + 主动道路骨架 + 被动道路填充 + 街区边界 + 中心环岛装饰。
+ * 地面：主题色地板 + 主动道路骨架 + 被动道路填充 + 街区边界 + 路口装饰。
  *
- * 范式（v2，2026-07-20）：
- *   1. 主动道路 — 固定骨架（十字/内外环/放射），由 computeRoadNetwork 提供
- *   2. 被动道路 — 街区与街区、街区与建筑之间的小路，自动连接
- *   3. 主地板 — 主题色铺满
- *   4. 街区边界 — 按 root 类型着色（typeKey，用于建筑着色，不再用于分组）
- *   5. 中心装饰 — road-roundabout GLB（Phase G）放置在 (0, 0) 作为城市中心环岛
+ * 范式（v3，2026-07-20）：
+ *   1. 主地板 — 主题色铺满（mesh.rotation 修正为 -π/2，平铺在 XZ 平面）
+ *   2. 主动道路 — 用 road-straight GLB 铺装直道（含十字主干道 + 放射干道），
+ *      每条道路一个独立 mesh，按 length/width 缩放，带路缘 + 中央虚线
+ *   3. 环道 — 用 RingGeometry 渲染，内外环各自独立 mesh（不同半径）
+ *   4. 路口装饰 — road-intersection-4 GLB 放在十字路口 (0, 0)
+ *   5. 中心环岛 — road-roundabout GLB 备选（如已加载且路口装饰未占用）
+ *   6. 被动道路 — LineSegments，街区中心↔最近邻街区中心
+ *   7. 街区边界 — InstancedMesh，按 typeKey 着色
  *
- * 主动道路用几何体直接渲染（高效覆盖大尺度路面）：
- *   - straight: PlaneGeometry(length, width)
- *   - ring:     RingGeometry(innerR, outerR, 64)
- *   - radial:   PlaneGeometry(length, width) + rotY
- *
- * 道路 GLB 资产（Phase G，由 useGlbAssets 加载）：
- *   - road-straight / road-intersection-4 / road-intersection-3 / road-curve / road-roundabout
- *   - 当前布局使用 road-roundabout 作为中心装饰；其他 4 个 GLB 已加载到 assets.roads
- *     供未来布局扩展（如显式放置 T 字/十字/弯道节点）时使用
- *
- * 被动道路用 LineSegments 渲染（细线，街区中心↔最近邻街区中心）：
- *   - 在两个街区中心之间画一条小路
- *   - 在街区内 root 位置画一个 1 单位的小圆（街区中心广场）
+ * 旋转修正：planeGeometry/RingGeometry 默认在 XY 平面（立面），
+ * 必须把 mesh.rotation.x = -π/2 才能平铺在 XZ 平面（地面）。
+ * R3F 中 rotation-x 是 mesh 属性，不是 geometry 子元素属性。
  */
 export default function CityGround({ theme = FALLBACK_THEME, blocks = [] }: CityGroundProps) {
   const groundMatRef = useRef<THREE.MeshStandardMaterial>(null);
-  const roadMatRef = useRef<THREE.MeshStandardMaterial>(null);
-  const radialMatRef = useRef<THREE.MeshStandardMaterial>(null);
-  const ringMatRef = useRef<THREE.MeshStandardMaterial>(null);
   const passiveMatRef = useRef<THREE.LineBasicMaterial>(null);
   const laneMatRef = useRef<THREE.LineBasicMaterial>(null);
   const borderInstRef = useRef<THREE.InstancedMesh>(null);
   const centerInstRef = useRef<THREE.InstancedMesh>(null);
 
   // === 道路 GLB 资产（Phase G） ===
-  // road-roundabout 用作中心装饰；其他 4 个 GLB 已加载供未来布局扩展使用
   const { assets } = useGlbAssets();
+  const straightRoadGeo = assets.roads?.["road-straight"];
+  const intersection4Geo = assets.roads?.["road-intersection-4"];
   const roundaboutGeo = assets.roads?.["road-roundabout"];
 
   const isLight = theme.mode === "light";
@@ -63,9 +58,6 @@ export default function CityGround({ theme = FALLBACK_THEME, blocks = [] }: City
   const isBlue = themeName.includes("blue") || themeName.includes("midnight");
 
   const accentIntensity = isLight ? 0.35 : isBlue ? 1.6 : 0.9;
-  const roadColor = isLight ? "#3a3a3a" : isBlue ? "#0a1424" : "#1a1a1a";
-  const roadEmissive = isLight ? 0.0 : isBlue ? 0.15 : 0.05;
-  const radialRoadColor = isLight ? "#2e2e2e" : isBlue ? "#0a1a2c" : "#151515";
   const ringRoadColor = isLight ? "#323232" : isBlue ? "#0c1a2c" : "#1c1c1c";
   const laneColor = isLight ? "#f5e060" : isBlue ? theme.colors.accent : "#ffffff";
   const passiveLaneColor = isLight ? "#b0b0b0" : isBlue ? "#5a7cb0" : "#666666";
@@ -73,72 +65,64 @@ export default function CityGround({ theme = FALLBACK_THEME, blocks = [] }: City
   // === 1. 主动道路骨架 ===
   const network: RoadNetwork = useMemo(() => computeRoadNetwork(), []);
 
-  // 把 segments 分成三类：straight / radial / ring，每类一个 InstancedMesh
+  // 把 segments 分成三类：straight / radial / ring
   const straightSegs = useMemo(() => network.segments.filter((s) => s.type === "straight"), [network]);
   const radialSegs = useMemo(() => network.segments.filter((s) => s.type === "radial"), [network]);
   const ringSegs = useMemo(() => network.segments.filter((s) => s.type === "ring"), [network]);
 
-  // straight 直道几何：最长那条
-  const straightGeo = useMemo(() => {
-    const maxLen = Math.max(...straightSegs.map((s) => s.length), 1);
-    const width = straightSegs[0]?.width ?? 4;
-    const geo = new THREE.PlaneGeometry(maxLen, width);
-    geo.rotateX(-Math.PI / 2);
-    return geo;
+  // === 直道渲染数据：用 road-straight GLB ===
+  // 每个 segment 计算位置、方向、缩放（GLB 标准尺寸 10×4，缩放到实际 length×width）
+  // GLB 本地 +X 是长度方向，+Z 是宽度方向，所以 rotY 绕 Y 旋转把 X 转到道路方向
+  // 位置取 segment 中心（直道：s.x/s.z 即中心；放射道：起点 + 方向 * length/2）
+  const straightItems = useMemo(() => {
+    return straightSegs.map((s) => {
+      const midX = s.x;
+      const midZ = s.z;
+      return {
+        pos: [midX, ROAD_Y, midZ] as [number, number, number],
+        rotY: s.rotY,
+        scaleX: s.length / ROAD_GLB_LENGTH,
+        scaleZ: s.width / ROAD_GLB_WIDTH,
+      };
+    });
   }, [straightSegs]);
 
-  const straightInst = useMemo(() => {
-    const maxLen = Math.max(...straightSegs.map((s) => s.length), 1);
-    return straightSegs.map((s) => ({
-      pos: [s.x, ROAD_Y, s.z] as [number, number, number],
-      rotY: s.rotY,
-      scaleX: s.length / maxLen,
-    }));
-  }, [straightSegs]);
-
-  // radial 放射道几何
-  const radialGeo = useMemo(() => {
-    const maxLen = Math.max(...radialSegs.map((s) => s.length), 1);
-    const width = radialSegs[0]?.width ?? 2.5;
-    const geo = new THREE.PlaneGeometry(maxLen, width);
-    geo.rotateX(-Math.PI / 2);
-    return geo;
-  }, [radialSegs]);
-
-  const radialInst = useMemo(() => {
-    const maxLen = Math.max(...radialSegs.map((s) => s.length), 1);
+  const radialItems = useMemo(() => {
     return radialSegs.map((s) => {
-      // 中心在 (startX + cos*length/2, startZ + sin*length/2)
+      // 放射道起点 (s.x, s.z) + 方向 * length/2 = 中心
       const midX = s.x + Math.cos(s.rotY) * s.length / 2;
       const midZ = s.z + Math.sin(s.rotY) * s.length / 2;
       return {
         pos: [midX, ROAD_Y, midZ] as [number, number, number],
         rotY: s.rotY,
-        scaleX: s.length / maxLen,
+        scaleX: s.length / ROAD_GLB_LENGTH,
+        scaleZ: s.width / ROAD_GLB_WIDTH,
       };
     });
   }, [radialSegs]);
 
-  // ring 环道几何
-  const ringGeo = useMemo(() => {
-    // 用 RingGeometry(innerR, outerR, 64) 画一个环形带
-    const seg = ringSegs[0];
-    if (!seg || seg.radius == null) return new THREE.RingGeometry(1, 2, 32);
-    const innerR = seg.radius - seg.width / 2;
-    const outerR = seg.radius + seg.width / 2;
-    const geo = new THREE.RingGeometry(innerR, outerR, 96);
+  // 直道几何 fallback：GLB 未加载时用 PlaneGeometry
+  const fallbackStraightGeo = useMemo(() => {
+    const geo = new THREE.PlaneGeometry(ROAD_GLB_LENGTH, ROAD_GLB_WIDTH, 1, 1);
     geo.rotateX(-Math.PI / 2);
     return geo;
+  }, []);
+
+  // === 环道渲染数据：每环独立 mesh（不同半径不能用同一 InstancedMesh） ===
+  const ringGeometries = useMemo(() => {
+    const results: Array<{ geo: THREE.BufferGeometry; key: string }> = [];
+    for (const s of ringSegs) {
+      if (s.radius == null) continue;
+      const innerR = s.radius - s.width / 2;
+      const outerR = s.radius + s.width / 2;
+      const geo = new THREE.RingGeometry(innerR, outerR, 96);
+      geo.rotateX(-Math.PI / 2);
+      results.push({ geo, key: `ring-${s.radius}` });
+    }
+    return results;
   }, [ringSegs]);
 
-  const ringInstances = useMemo(() => {
-    return ringSegs.map((s) => ({
-      pos: [s.x, ROAD_Y, s.z] as [number, number, number],
-      rotY: 0,
-    }));
-  }, [ringSegs]);
-
-  // === 2. 车道中央线（十字主干道 + 环道） ===
+  // === 2. 车道中央线（十字主干道） ===
   const laneGeo = useMemo(() => {
     const lines: number[] = [];
     // 横向主干道中央线（沿 X 方向，z=0，全长）
@@ -152,11 +136,9 @@ export default function CityGround({ theme = FALLBACK_THEME, blocks = [] }: City
   }, []);
 
   // === 3. 被动道路 — 街区与街区之间的小路（LineSegments） ===
-  // 策略：连接每个街区中心到其最近的 2 个街区中心（最小生成树近似）
   const passiveLanes = useMemo(() => {
     if (blocks.length < 2) return [];
     const segs: Array<{ x1: number; z1: number; x2: number; z2: number }> = [];
-    // 为每个街区找最近的 2 个邻居（避免完全图，控制小路数量）
     for (let i = 0; i < blocks.length; i++) {
       const a = blocks[i];
       const dists: Array<{ idx: number; d: number }> = [];
@@ -168,10 +150,8 @@ export default function CityGround({ theme = FALLBACK_THEME, blocks = [] }: City
         dists.push({ idx: j, d: Math.sqrt(dx*dx + dz*dz) });
       }
       dists.sort((x, y) => x.d - y.d);
-      // 取最近 2 个
       for (let k = 0; k < Math.min(2, dists.length); k++) {
         const b = blocks[dists[k].idx];
-        // 去重（i<j 才加）
         if (i < dists[k].idx) {
           segs.push({ x1: a.x, z1: a.z, x2: b.x, z2: b.z });
         }
@@ -200,7 +180,6 @@ export default function CityGround({ theme = FALLBACK_THEME, blocks = [] }: City
     return blocks.flatMap((b) => {
       const color = new THREE.Color(blockTypeColor(b.typeKey));
       const r = b.radius;
-      // 用 4 条边构成一个正方形边界
       return [
         { pos: [b.x, BLOCK_BORDER_Y, b.z + r] as [number, number, number], rotY: 0, color, scaleX: r * 2 },
         { pos: [b.x, BLOCK_BORDER_Y, b.z - r] as [number, number, number], rotY: 0, color, scaleX: r * 2 },
@@ -259,71 +238,19 @@ export default function CityGround({ theme = FALLBACK_THEME, blocks = [] }: City
     }
   }, [centerInstances]);
 
-  // 设置 straight 主干道 instance matrix（带 scale）
-  const straightInstRef = useRef<THREE.InstancedMesh>(null);
-  const radialInstRef = useRef<THREE.InstancedMesh>(null);
-  const ringInstRef = useRef<THREE.InstancedMesh>(null);
-
-  useEffect(() => {
-    if (!straightInstRef.current) return;
-    const dummy = new THREE.Object3D();
-    straightInst.forEach((item, i) => {
-      dummy.position.set(...item.pos);
-      dummy.rotation.set(0, item.rotY, 0);
-      dummy.scale.set(item.scaleX, 1, 1);
-      dummy.updateMatrix();
-      straightInstRef.current!.setMatrixAt(i, dummy.matrix);
-    });
-    straightInstRef.current.instanceMatrix.needsUpdate = true;
-  }, [straightInst]);
-
-  useEffect(() => {
-    if (!radialInstRef.current) return;
-    const dummy = new THREE.Object3D();
-    radialInst.forEach((item, i) => {
-      dummy.position.set(...item.pos);
-      dummy.rotation.set(0, item.rotY, 0);
-      dummy.scale.set(item.scaleX, 1, 1);
-      dummy.updateMatrix();
-      radialInstRef.current!.setMatrixAt(i, dummy.matrix);
-    });
-    radialInstRef.current.instanceMatrix.needsUpdate = true;
-  }, [radialInst]);
-
-  useEffect(() => {
-    if (!ringInstRef.current) return;
-    const dummy = new THREE.Object3D();
-    ringInstances.forEach((item, i) => {
-      dummy.position.set(...item.pos);
-      dummy.rotation.set(0, item.rotY, 0);
-      dummy.updateMatrix();
-      ringInstRef.current!.setMatrixAt(i, dummy.matrix);
-    });
-    ringInstRef.current.instanceMatrix.needsUpdate = true;
-  }, [ringInstances]);
-
-  // === 呼吸动画 ===
+  // === 呼吸动画（地面微弱发光） ===
   useFrame((state) => {
     const t = state.clock.elapsedTime;
     if (groundMatRef.current) {
       groundMatRef.current.emissiveIntensity = 0.05 + Math.sin(t * 0.5) * 0.02;
     }
-    if (roadMatRef.current) {
-      roadMatRef.current.emissiveIntensity = roadEmissive * (0.9 + Math.sin(t * 0.4) * 0.1);
-    }
-    if (radialMatRef.current) {
-      radialMatRef.current.emissiveIntensity = roadEmissive * 0.7 * (0.9 + Math.sin(t * 0.5) * 0.1);
-    }
-    if (ringMatRef.current) {
-      ringMatRef.current.emissiveIntensity = roadEmissive * 0.85 * (0.9 + Math.sin(t * 0.3) * 0.1);
-    }
   });
 
   return (
     <group>
-      {/* 1. 主题色地板 */}
-      <mesh position={[0, 0, 0]} receiveShadow>
-        <planeGeometry args={[GROUND_SIZE, GROUND_SIZE]} rotation-x={-Math.PI / 2} />
+      {/* 1. 主题色地板（rotation 在 mesh 上，不能放 planeGeometry 子元素） */}
+      <mesh position={[0, 0, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+        <planeGeometry args={[GROUND_SIZE, GROUND_SIZE]} />
         <meshStandardMaterial
           ref={groundMatRef}
           color={theme.colors.ground}
@@ -334,63 +261,131 @@ export default function CityGround({ theme = FALLBACK_THEME, blocks = [] }: City
         />
       </mesh>
 
-      {/* 2a. 主干道（十字交叉的两条） */}
-      {straightInst.length > 0 && (
-        <instancedMesh
-          ref={straightInstRef}
-          args={[straightGeo, undefined as unknown as THREE.Material, straightInst.length]}
-          frustumCulled={false}
-        >
-          <meshStandardMaterial
-            ref={roadMatRef}
-            color={roadColor}
-            emissive={isBlue ? theme.colors.accent : roadColor}
-            emissiveIntensity={roadEmissive}
-            roughness={0.85}
-            metalness={0.05}
-          />
-        </instancedMesh>
+      {/* 2a. 主动道路 — 直道（road-straight GLB，含路缘 + 中央虚线） */}
+      {/* 十字主干道（2 条）+ 放射干道（8 条），每条独立 mesh 按 length/width 缩放 */}
+      {straightRoadGeo && (
+        <group>
+          {straightItems.map((item, i) => (
+            <mesh
+              key={`straight-${i}`}
+              geometry={straightRoadGeo}
+              position={item.pos}
+              rotation={[0, item.rotY, 0]}
+              scale={[item.scaleX, 1, item.scaleZ]}
+              frustumCulled={false}
+            >
+              <meshStandardMaterial
+                vertexColors
+                roughness={0.85}
+                metalness={0.05}
+                side={THREE.DoubleSide}
+                emissiveIntensity={accentIntensity * 0.2}
+              />
+            </mesh>
+          ))}
+          {radialItems.map((item, i) => (
+            <mesh
+              key={`radial-${i}`}
+              geometry={straightRoadGeo}
+              position={item.pos}
+              rotation={[0, item.rotY, 0]}
+              scale={[item.scaleX, 1, item.scaleZ]}
+              frustumCulled={false}
+            >
+              <meshStandardMaterial
+                vertexColors
+                roughness={0.85}
+                metalness={0.05}
+                side={THREE.DoubleSide}
+                emissiveIntensity={accentIntensity * 0.2}
+              />
+            </mesh>
+          ))}
+        </group>
       )}
 
-      {/* 2b. 环道（内外环） */}
-      {ringInstances.length > 0 && (
-        <instancedMesh
-          ref={ringInstRef}
-          args={[ringGeo, undefined as unknown as THREE.Material, ringInstances.length]}
+      {/* 2b. 直道 fallback：GLB 未加载时用纯色 PlaneGeometry（不含路缘/虚线） */}
+      {!straightRoadGeo && (
+        <group>
+          {straightItems.map((item, i) => (
+            <mesh
+              key={`straight-fb-${i}`}
+              geometry={fallbackStraightGeo}
+              position={item.pos}
+              rotation={[0, item.rotY, 0]}
+              scale={[item.scaleX, 1, item.scaleZ]}
+              frustumCulled={false}
+            >
+              <meshStandardMaterial
+                color={isLight ? "#3a3a3a" : "#1a1a1a"}
+                roughness={0.85}
+                metalness={0.05}
+              />
+            </mesh>
+          ))}
+          {radialItems.map((item, i) => (
+            <mesh
+              key={`radial-fb-${i}`}
+              geometry={fallbackStraightGeo}
+              position={item.pos}
+              rotation={[0, item.rotY, 0]}
+              scale={[item.scaleX, 1, item.scaleZ]}
+              frustumCulled={false}
+            >
+              <meshStandardMaterial
+                color={isLight ? "#2e2e2e" : "#151515"}
+                roughness={0.85}
+                metalness={0.05}
+              />
+            </mesh>
+          ))}
+        </group>
+      )}
+
+      {/* 2c. 环道（内外环各自独立 mesh，不同半径不能用同一 InstancedMesh） */}
+      {ringGeometries.map((ring) => (
+        <mesh
+          key={ring.key}
+          geometry={ring.geo}
+          position={[0, ROAD_Y, 0]}
+          rotation={[-Math.PI / 2, 0, 0]}
           frustumCulled={false}
+          receiveShadow
         >
           <meshStandardMaterial
-            ref={ringMatRef}
             color={ringRoadColor}
             emissive={isBlue ? theme.colors.accent : ringRoadColor}
-            emissiveIntensity={roadEmissive * 0.85}
+            emissiveIntensity={isLight ? 0.0 : isBlue ? 0.12 : 0.04}
             roughness={0.85}
             metalness={0.05}
+            side={THREE.DoubleSide}
           />
-        </instancedMesh>
-      )}
+        </mesh>
+      ))}
 
-      {/* 2c. 放射干道 */}
-      {radialInst.length > 0 && (
-        <instancedMesh
-          ref={radialInstRef}
-          args={[radialGeo, undefined as unknown as THREE.Material, radialInst.length]}
+      {/* 2d. 十字路口装饰（road-intersection-4 GLB，放在中心 (0, 0)） */}
+      {/* 8×8 中心广场 + 4 边斑马线，强化路口视觉 */}
+      {intersection4Geo && (
+        <mesh
+          geometry={intersection4Geo}
+          position={[0, ROAD_Y, 0]}
           frustumCulled={false}
+          castShadow
+          receiveShadow
         >
           <meshStandardMaterial
-            ref={radialMatRef}
-            color={radialRoadColor}
-            emissive={isBlue ? theme.colors.accent : radialRoadColor}
-            emissiveIntensity={roadEmissive * 0.7}
+            vertexColors
             roughness={0.85}
             metalness={0.05}
+            side={THREE.DoubleSide}
+            emissiveIntensity={accentIntensity * 0.25}
           />
-        </instancedMesh>
+        </mesh>
       )}
 
-      {/* 2d. 中心环岛装饰（Phase G：road-roundabout GLB） */}
-      {/* 放置在十字主干道交汇处 (0, 0)，作为城市中心地标 */}
-      {roundaboutGeo && (
+      {/* 2e. 中心环岛装饰（road-roundabout GLB） */}
+      {/* 已被 2d 十字路口装饰替代，仅在 2d 未加载时作为 fallback 中心装饰 */}
+      {!intersection4Geo && roundaboutGeo && (
         <mesh
           geometry={roundaboutGeo}
           position={[0, ROAD_Y, 0]}
@@ -408,16 +403,18 @@ export default function CityGround({ theme = FALLBACK_THEME, blocks = [] }: City
         </mesh>
       )}
 
-      {/* 3a. 主干道中央双黄线 */}
-      <lineSegments geometry={laneGeo} frustumCulled={false}>
-        <lineBasicMaterial
-          ref={laneMatRef}
-          color={laneColor}
-          transparent
-          opacity={0.7}
-          depthWrite={false}
-        />
-      </lineSegments>
+      {/* 3a. 主干道中央双黄线（仅当 GLB 未加载时显示，GLB 已含虚线） */}
+      {!straightRoadGeo && (
+        <lineSegments geometry={laneGeo} frustumCulled={false}>
+          <lineBasicMaterial
+            ref={laneMatRef}
+            color={laneColor}
+            transparent
+            opacity={0.7}
+            depthWrite={false}
+          />
+        </lineSegments>
+      )}
 
       {/* 3b. 被动道路 — 街区与街区之间的小路 */}
       {passiveLaneGeo.attributes.position && (
@@ -428,7 +425,7 @@ export default function CityGround({ theme = FALLBACK_THEME, blocks = [] }: City
             transparent
             opacity={0.45}
             depthWrite={false}
-        />
+          />
         </lineSegments>
       )}
 
