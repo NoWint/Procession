@@ -282,8 +282,8 @@ const ROAD_CURVE_RADIUS = 6;
 const ROAD_CURVE_OUTER = 8;
 /** road-intersection-3 GLB 广场尺寸（8×8） */
 const INTERSECTION_SIZE = 8;
-/** L 形拐角最小距离阈值：|dx| 或 |dz| 小于此值时退化为直线 */
-const L_SHAPE_MIN_DELTA = 4.0;
+/** road-curve 退化为直线时的最小长边阈值（curve 占据 6 单位 + 0.5 裕量） */
+const CURVE_CLEARANCE = ROAD_CURVE_RADIUS + 0.5;
 
 // ============================================================================
 // 主干道生成 — 每个 root 一条主干道
@@ -391,19 +391,33 @@ function makeSegment(
 /**
  * 计算一条 L 形次干道（2 段直线 + 1 个 90° 弯道）。
  *
- * 拐角方向强制"左转 90°"以匹配 road-curve GLB 几何（无法 mirror）：
- *   - 若 sign(dx) * sign(dz) > 0：用方案 A（先 X 后 Z），corner = (x2, z1)
- *   - 若 sign(dx) * sign(dz) < 0：用方案 B（先 Z 后 X），corner = (x1, z2)
- *   - 若 dx 或 dz 近似 0：退化为直线
+ * road-curve GLB 几何（关键）：
+ *   - 圆心在原点，扇区从 +X 扫到 +Z（rotY=0 时，90° 左转）
+ *   - 入口端中线点 (6, 0)（局部），出口端中线点 (0, 6)（局部）
+ *   - 入口方向 = +X（车从 -X 进入弯道），出口方向 = +Z（车朝 +Z 离开弯道）
+ *   - curve 占据 6×6 方形空间（圆心到入口/出口中线点都是 6 单位）
  *
- * 4 种左转方向 → road-curve rotY：
- *   - 方案 A，dx>0, dz>0: rotY=0    （入口 +X，出口 +Z）
- *   - 方案 A，dx<0, dz<0: rotY=π    （入口 -X，出口 -Z）
- *   - 方案 B，dx>0, dz<0: rotY=-π/2 （入口 -Z，出口 +X）
- *   - 方案 B，dx<0, dz>0: rotY=π/2  （入口 +Z，出口 -X）
+ * 4 种左转方向 → curve rotY（基于符号组合）：
+ *   - dx>0, dz>0: 方案 A（先 +X 后 +Z），curve rotY=0
+ *     · 圆心 (cx_c, cz_c) = (toX, fromZ)
+ *     · seg1 终点 = 入口中线点 = (cx_c + 6, cz_c) = (toX+6, fromZ)
+ *     · seg2 起点 = 出口中线点 = (cx_c, cz_c + 6) = (toX, fromZ+6)
+ *     · seg1: (fromX, fromZ) → (toX+6, fromZ)，沿 +X，长度 dx+6
+ *     · seg2: (toX, fromZ+6) → (toX, toZ)，沿 +Z，长度 dz-6  （要求 dz>6）
+ *   - dx<0, dz<0: 方案 A（先 -X 后 -Z），curve rotY=π
+ *     · 圆心 (toX, fromZ)，seg1 终点 (toX-6, fromZ)，seg2 起点 (toX, fromZ-6)
+ *     · seg1: (fromX, fromZ) → (toX-6, fromZ)，沿 -X，长度 -dx+6
+ *     · seg2: (toX, fromZ-6) → (toX, toZ)，沿 -Z，长度 -dz-6  （要求 -dz>6）
+ *   - dx<0, dz>0: 方案 B（先 +Z 后 -X），curve rotY=π/2
+ *     · 圆心 (fromX, toZ)，seg1 终点 (fromX, toZ+6)，seg2 起点 (fromX-6, toZ)
+ *     · seg1: (fromX, fromZ) → (fromX, toZ+6)，沿 +Z，长度 dz+6
+ *     · seg2: (fromX-6, toZ) → (toX, toZ)，沿 -X，长度 -dx-6  （要求 -dx>6）
+ *   - dx>0, dz<0: 方案 B（先 -Z 后 +X），curve rotY=-π/2
+ *     · 圆心 (fromX, toZ)，seg1 终点 (fromX, toZ-6)，seg2 起点 (fromX+6, toZ)
+ *     · seg1: (fromX, fromZ) → (fromX, toZ-6)，沿 -Z，长度 -dz+6
+ *     · seg2: (fromX+6, toZ) → (toX, toZ)，沿 +X，长度 dx-6  （要求 dx>6）
  *
- * road-curve 圆心位置 = 虚拟 L 交点（seg1 终点 = seg2 起点处）。
- * 视觉上 road-cube 弧形覆盖在直角拐角上，相当于圆角矩形效果。
+ * 退化条件：对应方向所需的"长边"长度不足 6+ε → 退化为直线（segments 1 段，curve=null）。
  */
 function buildLShapeMinor(
   fromX: number, fromZ: number,
@@ -414,8 +428,49 @@ function buildLShapeMinor(
   const dx = toX - fromX;
   const dz = toZ - fromZ;
 
-  // 退化为直线：dx 或 dz 几乎为 0
-  if (Math.abs(dx) < L_SHAPE_MIN_DELTA || Math.abs(dz) < L_SHAPE_MIN_DELTA) {
+  let curveRotY: number;
+  let cx_c: number, cz_c: number;
+  let seg1EndX: number, seg1EndZ: number;
+  let seg2StartX: number, seg2StartZ: number;
+  let validLShape = true;
+
+  if (dx > 0 && dz > 0) {
+    // 方案 A: 先 +X 后 +Z，要求 dz > 6
+    if (dz < CURVE_CLEARANCE) { validLShape = false; }
+    curveRotY = 0;
+    cx_c = toX; cz_c = fromZ;
+    seg1EndX = cx_c + ROAD_CURVE_RADIUS; seg1EndZ = cz_c;
+    seg2StartX = cx_c; seg2StartZ = cz_c + ROAD_CURVE_RADIUS;
+  } else if (dx < 0 && dz < 0) {
+    // 方案 A: 先 -X 后 -Z，要求 -dz > 6
+    if (-dz < CURVE_CLEARANCE) { validLShape = false; }
+    curveRotY = Math.PI;
+    cx_c = toX; cz_c = fromZ;
+    seg1EndX = cx_c - ROAD_CURVE_RADIUS; seg1EndZ = cz_c;
+    seg2StartX = cx_c; seg2StartZ = cz_c - ROAD_CURVE_RADIUS;
+  } else if (dx < 0 && dz > 0) {
+    // 方案 B: 先 +Z 后 -X，要求 -dx > 6
+    if (-dx < CURVE_CLEARANCE) { validLShape = false; }
+    curveRotY = Math.PI / 2;
+    cx_c = fromX; cz_c = toZ;
+    seg1EndX = cx_c; seg1EndZ = cz_c + ROAD_CURVE_RADIUS;
+    seg2StartX = cx_c - ROAD_CURVE_RADIUS; seg2StartZ = cz_c;
+  } else if (dx > 0 && dz < 0) {
+    // 方案 B: 先 -Z 后 +X，要求 dx > 6
+    if (dx < CURVE_CLEARANCE) { validLShape = false; }
+    curveRotY = -Math.PI / 2;
+    cx_c = fromX; cz_c = toZ;
+    seg1EndX = cx_c; seg1EndZ = cz_c - ROAD_CURVE_RADIUS;
+    seg2StartX = cx_c + ROAD_CURVE_RADIUS; seg2StartZ = cz_c;
+  } else {
+    // dx 或 dz 为 0
+    validLShape = false;
+    curveRotY = 0; cx_c = 0; cz_c = 0;
+    seg1EndX = 0; seg1EndZ = 0; seg2StartX = 0; seg2StartZ = 0;
+  }
+
+  // 退化：长边不足，退化为直线
+  if (!validLShape) {
     const seg = makeSegment(fromX, fromZ, toX, toZ, width);
     const segments = seg ? [seg] : [];
     const totalLen = seg ? seg.length : 0;
@@ -432,33 +487,15 @@ function buildLShapeMinor(
     };
   }
 
-  // L 形：选方案
-  const usePlanA = Math.sign(dx) * Math.sign(dz) > 0;  // 同号 → 方案 A
-  // 异号 → 方案 B
-  let cornerX: number, cornerZ: number;
-  let curveRotY: number;
-
-  if (usePlanA) {
-    // 方案 A：先 X 后 Z，corner = (toX, fromZ)
-    cornerX = toX;
-    cornerZ = fromZ;
-    curveRotY = dx > 0 ? 0 : Math.PI;  // +X→+Z 或 -X→-Z
-  } else {
-    // 方案 B：先 Z 后 X，corner = (fromX, toZ)
-    cornerX = fromX;
-    cornerZ = toZ;
-    curveRotY = dz > 0 ? Math.PI / 2 : -Math.PI / 2;  // +Z→-X 或 -Z→+X
-  }
-
-  const seg1 = makeSegment(fromX, fromZ, cornerX, cornerZ, width);
-  const seg2 = makeSegment(cornerX, cornerZ, toX, toZ, width);
+  const seg1 = makeSegment(fromX, fromZ, seg1EndX, seg1EndZ, width);
+  const seg2 = makeSegment(seg2StartX, seg2StartZ, toX, toZ, width);
   const segments: RoadSegment[] = [];
   if (seg1) segments.push(seg1);
   if (seg2) segments.push(seg2);
 
   const curve: RoadCurve = {
-    cx: cornerX,
-    cz: cornerZ,
+    cx: cx_c,
+    cz: cz_c,
     rotY: curveRotY,
     radius: ROAD_CURVE_RADIUS,
     width,
@@ -480,18 +517,49 @@ function buildLShapeMinor(
 }
 
 /**
- * 为每个 root 找最近的 N 个邻居，画 L 形次干道连接两者的主干道端点。
+ * 为每个 root 找最近的 N 个邻居，画 L 形次干道连接两者的 T 字路口侧出口。
  *
- * 连接策略：
- *   - 端点 1 = from root 主干道 +length/2 端
- *   - 端点 2 = to root 主干道 -length/2 端
- *   - 中间走 L 形（先 X 后 Z 或 先 Z 后 X）
+ * 端点选取（关键修正）：
+ *   - from root 用 +length/2 端 T 字路口的 +X 局部出口（主干道左侧）
+ *   - to root 用 -length/2 端 T 字路口的 +X 局部出口（主干道右侧）
+ *
+ * 端点位置计算：
+ *   - T 字路口 +length/2 端中心 = road.cx + cos(road.rotY) * L/2
+ *   - +X 局部出口方向（world）= 主干道左侧 = (-sin(road.rotY), cos(road.rotY))
+ *   - 出口位置 = T 字路口中心 + 4 * (-sin, cos) （4 = INTERSECTION_SIZE/2，广场半宽）
  *
  * 去重：用 sorted "pid1-pid2" 字符串保证两个 root 之间最多一条次干道。
  */
 function planMinorRoads(majorRoads: MajorRoad[]): MinorRoad[] {
   const result: MinorRoad[] = [];
   const added = new Set<string>();
+  const HALF_INTER = INTERSECTION_SIZE / 2;
+
+  // 为每个 root 计算两个 T 字路口侧出口位置
+  // plusEnd = +length/2 端 T 字路口的 +X 局部出口（主干道左侧）
+  // minusEnd = -length/2 端 T 字路口的 +X 局部出口（主干道右侧）
+  const endpoints = new Map<number, { plusX: number; plusZ: number; minusX: number; minusZ: number }>();
+  for (const road of majorRoads) {
+    const cos = Math.cos(road.rotY);
+    const sin = Math.sin(road.rotY);
+    const half = road.length / 2;
+    // +length/2 端 T 字路口中心
+    const plusCenterX = road.cx + cos * half;
+    const plusCenterZ = road.cz + sin * half;
+    // +X 局部出口（主干道左侧方向 (-sin, cos)）
+    const plusExitX = plusCenterX + HALF_INTER * (-sin);
+    const plusExitZ = plusCenterZ + HALF_INTER * cos;
+    // -length/2 端 T 字路口中心
+    const minusCenterX = road.cx - cos * half;
+    const minusCenterZ = road.cz - sin * half;
+    // +X 局部出口（主干道右侧方向 (sin, -cos)）
+    const minusExitX = minusCenterX + HALF_INTER * sin;
+    const minusExitZ = minusCenterZ + HALF_INTER * (-cos);
+    endpoints.set(road.rootPid, {
+      plusX: plusExitX, plusZ: plusExitZ,
+      minusX: minusExitX, minusZ: minusExitZ,
+    });
+  }
 
   for (const road of majorRoads) {
     // 找最近的 N 个其他 root 主干道中点
@@ -512,20 +580,23 @@ function planMinorRoads(majorRoads: MajorRoad[]): MinorRoad[] {
       if (added.has(key)) continue;
       added.add(key);
 
-      // from root 主干道 +length/2 端
-      const fromEndX = road.cx + Math.cos(road.rotY) * road.length / 2;
-      const fromEndZ = road.cz + Math.sin(road.rotY) * road.length / 2;
-      // to root 主干道 -length/2 端
-      const toEndX = other.road.cx - Math.cos(other.road.rotY) * other.road.length / 2;
-      const toEndZ = other.road.cz - Math.sin(other.road.rotY) * other.road.length / 2;
+      const fromEnd = endpoints.get(road.rootPid);
+      const toEnd = endpoints.get(other.road.rootPid);
+      if (!fromEnd || !toEnd) continue;
+
+      // from root 用 +length/2 端，to root 用 -length/2 端
+      const fromX = fromEnd.plusX;
+      const fromZ = fromEnd.plusZ;
+      const toX = toEnd.minusX;
+      const toZ = toEnd.minusZ;
 
       // 跳过过近的连接
-      const dist = Math.sqrt((toEndX - fromEndX) ** 2 + (toEndZ - fromEndZ) ** 2);
+      const dist = Math.sqrt((toX - fromX) ** 2 + (toZ - fromZ) ** 2);
       if (dist < 2) continue;
 
       result.push(buildLShapeMinor(
-        fromEndX, fromEndZ,
-        toEndX, toEndZ,
+        fromX, fromZ,
+        toX, toZ,
         MINOR_ROAD_WIDTH,
         road.rootPid, other.road.rootPid,
       ));
@@ -542,14 +613,20 @@ function planMinorRoads(majorRoads: MajorRoad[]): MinorRoad[] {
 /**
  * 在每条主干道的两端各放一个 T 字路口（road-intersection-3 GLB）。
  *
- * T 字路口几何：8×8 广场，3 边有斑马线（北/东/西），1 边（南，-Z）无斑马线（封口）。
- * 朝向规则：T 字路口的"主干道方向"（南北轴）与主干道对齐。
- *   - rotY = 主干道 rotY → 广场的"北/南"轴对齐主干道方向
- *   - +length/2 端：封口朝外（远离主干道），即朝 +X 旋转后
- *   - -length/2 端：封口朝外，即朝 -X 旋转后
+ * T 字路口几何（rotY=0 时）：8×8 广场，3 个出口在 +X/-X/+Z（局部），封口在 -Z（局部）。
  *
- * 简化：直接用 rotY 与主干道一致，封口方向通过 road-intersection-3 几何的非对称性
- * 视觉上自动呈现（即使朝向不完全对，T 字路口的 3 边斑马线也足够辨识）。
+ * 朝向规则（关键）：
+ *   - T 字路口 rotY = road.rotY + π/2（+length/2 端）/ road.rotY - π/2（-length/2 端）
+ *   - 这样封口（-Z 局部）旋转后朝 ±主干道方向（朝外侧，远离主干道中点）
+ *   - 主干道接入方向 = +Z 局部出口（朝主干道反方向，即朝主干道中点）
+ *   - 2 个侧出口（+X 局部 = 主干道左侧，-X 局部 = 主干道右侧）作为次干道接入点
+ *
+ * 数学验证（+length/2 端，rotY=road.rotY+π/2）：
+ *   - 封口 -Z 局部 → 世界 (sin(road.rotY+π/2), -cos(road.rotY+π/2)) = (cos(road.rotY), sin(road.rotY)) = +主干道方向 ✓
+ *   - 主干道接入方向 = -主干道方向 = (-cos, -sin)
+ *   - +Z 局部出口世界方向 = (-sin(road.rotY+π/2), cos(road.rotY+π/2)) = (-cos, -sin) ✓ 主干道接入
+ *   - +X 局部出口世界方向 = (cos(road.rotY+π/2), sin(road.rotY+π/2)) = (-sin, cos) = 主干道左侧
+ *   - -X 局部出口世界方向 = (sin, -cos) = 主干道右侧
  */
 function planIntersections(majorRoads: MajorRoad[]): RoadIntersection[] {
   const result: RoadIntersection[] = [];
@@ -559,19 +636,19 @@ function planIntersections(majorRoads: MajorRoad[]): RoadIntersection[] {
     const cos = Math.cos(road.rotY);
     const sin = Math.sin(road.rotY);
 
-    // +length/2 端
+    // +length/2 端：封口朝 +主干道方向（外侧），主干道接入 +Z 局部出口
     result.push({
       cx: road.cx + cos * half,
       cz: road.cz + sin * half,
-      rotY: road.rotY,
+      rotY: road.rotY + Math.PI / 2,
       type: "t-junction",
       width: road.width,
     });
-    // -length/2 端
+    // -length/2 端：封口朝 -主干道方向（外侧），主干道接入 +Z 局部出口
     result.push({
       cx: road.cx - cos * half,
       cz: road.cz - sin * half,
-      rotY: road.rotY + Math.PI,  // 反向：让封口朝外
+      rotY: road.rotY - Math.PI / 2,
       type: "t-junction",
       width: road.width,
     });

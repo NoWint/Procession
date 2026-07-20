@@ -297,7 +297,11 @@ describe("computeProcessTreeRoads L 形路径拓扑", () => {
     }
   });
 
-  it("curve 位置 = L 形虚拟交点（seg1 终点 = seg2 起点）", () => {
+  it("curve 入口/出口中线点 = seg1 终点 / seg2 起点（6 单位 curve 空间）", () => {
+    // 新几何（v7）：curve 占据 6×6 方形空间，segments 不再相连，而是停在 curve 入口/出口中线点
+    // - seg1 终点 = curve 圆心 + 6 * 入口方向
+    // - seg2 起点 = curve 圆心 + 6 * 出口方向
+    // 入口方向 = (cos(rotY), sin(rotY))，出口方向 = (-sin(rotY), cos(rotY))
     const procs = [
       makeProcess({ pid: 1, ppid: 0 }),
       makeProcess({ pid: 2, ppid: 1 }),
@@ -305,23 +309,34 @@ describe("computeProcessTreeRoads L 形路径拓扑", () => {
       makeProcess({ pid: 101, ppid: 100 }),
     ];
     const roads = computeProcessTreeRoads(procs);
+    let checked = 0;
     for (const minor of roads.minorRoads) {
       if (minor.segments.length !== 2 || !minor.curve) continue;
-      // seg1 终点 = (x1 + cos(rotY)*length/2, z1 + sin(rotY)*length/2)
       const s1 = minor.segments[0];
+      const s2 = minor.segments[1];
+      const c = minor.curve;
+      // seg1 终点
       const s1EndX = s1.cx + Math.cos(s1.rotY) * s1.length / 2;
       const s1EndZ = s1.cz + Math.sin(s1.rotY) * s1.length / 2;
-      // seg2 起点 = (seg2.cx - cos(rotY)*length/2, seg2.cz - sin(rotY)*length/2)
-      const s2 = minor.segments[1];
+      // seg2 起点
       const s2StartX = s2.cx - Math.cos(s2.rotY) * s2.length / 2;
       const s2StartZ = s2.cz - Math.sin(s2.rotY) * s2.length / 2;
-      // 两者应该重合（即 curve 圆心）
-      expect(s1EndX).toBeCloseTo(s2StartX, 5);
-      expect(s1EndZ).toBeCloseTo(s2StartZ, 5);
-      // curve 圆心 = 交点
-      expect(minor.curve.cx).toBeCloseTo(s1EndX, 5);
-      expect(minor.curve.cz).toBeCloseTo(s1EndZ, 5);
+      // curve 入口中线点 = 圆心 + 6 * (cos(rotY), sin(rotY))
+      const entryX = c.cx + c.radius * Math.cos(c.rotY);
+      const entryZ = c.cz + c.radius * Math.sin(c.rotY);
+      // curve 出口中线点 = 圆心 + 6 * (-sin(rotY), cos(rotY))
+      const exitX = c.cx - c.radius * Math.sin(c.rotY);
+      const exitZ = c.cz + c.radius * Math.cos(c.rotY);
+      // seg1 终点应等于 curve 入口中线点
+      expect(s1EndX).toBeCloseTo(entryX, 5);
+      expect(s1EndZ).toBeCloseTo(entryZ, 5);
+      // seg2 起点应等于 curve 出口中线点
+      expect(s2StartX).toBeCloseTo(exitX, 5);
+      expect(s2StartZ).toBeCloseTo(exitZ, 5);
+      checked++;
     }
+    // 至少有一个 L 形被验证
+    expect(checked).toBeGreaterThan(0);
   });
 
   it("同 pid 集不同 cpu → 相同 L 形 segments + curve", () => {
