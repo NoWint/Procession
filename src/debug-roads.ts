@@ -399,6 +399,7 @@ function handleResize() {
   camera.aspect = w / h;
   camera.updateProjectionMatrix();
   renderer.setSize(w, h);
+  renderer.setPixelRatio(1);
   labelRenderer.setSize(w, h);
 }
 window.addEventListener("resize", handleResize);
