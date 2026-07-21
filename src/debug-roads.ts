@@ -5,8 +5,8 @@ import { CSS2DRenderer, CSS2DObject } from "three/addons/renderers/CSS2DRenderer
 // ============ 改进的道路网络算法 ============
 
 /** 道路方向枚举 */
-const N = 0, E = 1, S = 2, W = 3;
-const DIR_NAMES = { [N]: "北", [E]: "东", [S]: "南", [W]: "西" };
+const E = 1; const S = 2;
+
 
 /** 每个道路模块=一条线段 */
 interface RoadSegment {
@@ -89,7 +89,6 @@ function buildRoadNetwork(procs: Proc[]): Result {
 
   // Step 3: 生成每对相邻 hub 之间的道路段
   const roads: RoadSegment[] = [];
-  const occupied = new Set<string>();
   let idCounter = 0;
   const nextId = () => `r${idCounter++}`;
 
