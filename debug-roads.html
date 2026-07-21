@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <title>Debug Roads — 进程树道路系统演示 (v10 优化 B)</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "SF Pro", monospace; background: #0a0e14; color: #d8dde4; overflow: hidden; }
+    #app { display: grid; grid-template-columns: 1fr 420px; height: 100vh; }
+    #canvas-container { position: relative; background: #0a0e14; }
+    #three-canvas { display: block; width: 100%; height: 100%; }
+
+    #hud { padding: 18px; overflow-y: auto; background: #131820; border-left: 1px solid #1f2630; font-size: 12px; line-height: 1.6; }
+    #hud h1 { font-size: 14px; color: #7eb6ff; margin-bottom: 8px; letter-spacing: 0.05em; }
+    #hud h2 { font-size: 12px; color: #ffc47e; margin-top: 14px; margin-bottom: 6px; letter-spacing: 0.05em; }
+    #hud .section { margin-bottom: 12px; padding: 8px 10px; background: #0e1318; border-radius: 4px; border-left: 2px solid #2a3540; }
+    #hud .ok { color: #5ed985; }
+    #hud .err { color: #ff7676; font-weight: 600; }
+    #hud .muted { color: #6e7a8a; }
+    #hud .mono { font-family: "SF Mono", "Cascadia Code", monospace; font-size: 11px; color: #c0d0e0; }
+    #hud .badge { display: inline-block; padding: 1px 6px; background: #1d2a3a; border-radius: 3px; color: #7eb6ff; font-size: 10px; margin-right: 4px; }
+    #hud .road-list { font-family: "SF Mono", monospace; font-size: 10.5px; }
+    #hud .road-list div { padding: 2px 0; border-bottom: 1px dashed #1f2630; }
+    #hud .road-list .coord { color: #98a8b8; }
+    #hud .label { color: #7eb6ff; font-weight: 600; }
+    #hud .endpoint { color: #ffc47e; }
+    #hud .curve-end { color: #e89eff; }
+    #hud .err-0 { color: #5ed985; }
+    #hud .err-nonzero { color: #ff7676; font-weight: 600; }
+
+    #controls-hint { position: absolute; top: 12px; left: 12px; padding: 8px 12px; background: rgba(19, 24, 32, 0.85); border-radius: 4px; font-size: 11px; color: #98a8b8; pointer-events: none; }
+    #controls-hint kbd { display: inline-block; padding: 1px 5px; background: #1f2630; border-radius: 2px; color: #d8dde4; font-family: monospace; margin: 0 2px; }
+
+    #topbar { position: absolute; top: 12px; right: 12px; padding: 8px 14px; background: rgba(19, 24, 32, 0.85); border-radius: 4px; font-size: 11px; }
+    #topbar .title { color: #7eb6ff; font-weight: 600; font-size: 13px; }
+    #topbar .sub { color: #6e7a8a; margin-top: 2px; }
+
+    #actions { position: absolute; bottom: 18px; left: 18px; display: flex; gap: 8px; }
+    #actions button { padding: 6px 12px; background: #1d2a3a; border: 1px solid #2a3540; border-radius: 4px; color: #d8dde4; font-size: 11px; cursor: pointer; }
+    #actions button:hover { background: #26364a; }
+    #actions button.active { background: #4a90e2; border-color: #4a90e2; }
+  </style>
+</head>
+<body>
+<div id="app">
+  <div id="canvas-container">
+    <canvas id="three-canvas"></canvas>
+    <div id="controls-hint">
+      <kbd>左键拖拽</kbd> 旋转 &nbsp; <kbd>滚轮</kbd> 缩放 &nbsp; <kbd>右键拖拽</kbd> 平移
+    </div>
+    <div id="topbar">
+      <div class="title">🛣️ Debug Roads</div>
+      <div class="sub">主干道模块化演示</div>
+    </div>
+    <div id="actions">
+      <button id="btn-1root" class="active">1 root</button>
+      <button id="btn-2roots">2 roots</button>
+      <button id="btn-4roots">4 roots</button>
+      <button id="btn-8roots">8 roots</button>
+      <button id="btn-regenerate">重新生成</button>
+    </div>
+  </div>
+  <div id="hud">
+    <h1>📐 主干道模块化演示</h1>
+    <div class="section">
+      <div class="muted">每个模块用悬浮标签标注名称，颜色各不相同</div>
+    </div>
+    <div id="roads-summary"></div>
+    <div id="errors-summary"></div>
+  </div>
+</div>
+<script type="module" src="/src/debug-roads.ts"></script>
+</body>
+</html>
