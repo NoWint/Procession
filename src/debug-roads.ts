@@ -215,7 +215,7 @@ scene.background = new THREE.Color(0x12121f);
 const camera = new THREE.PerspectiveCamera(60, 1, 1, 200);
 camera.position.set(40, 45, 50);
 
-const renderer = new THREE.WebGLRenderer({ antialias: true, canvas });
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, canvas });
 renderer.shadowMap.enabled = true;
 
 const labelRenderer = new CSS2DRenderer();
